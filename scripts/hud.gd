@@ -736,6 +736,9 @@ func _layout() -> void:
 				gb.position.x = S.x * 0.5 - 146.0
 				db.position.x = S.x * 0.5 + 6.0
 		if pr != "": buttons[pr] = Rect2(S.x * 0.5 - 80.0, TOP_BAR_Y + TOP_BAR_H * 2.0 + 12.0, 160.0, 46.0)   # v11.58 (owner): DOCK is the top-centre box (v11.60: under the second row)
+		if pr == "lift_up" and not (space.lift_choice().get("down", []) as Array).is_empty():   # v13.175: a station lift: UP and DOWN side by side
+			buttons["lift_up"] = Rect2(S.x * 0.5 - 166.0, TOP_BAR_Y + TOP_BAR_H * 2.0 + 12.0, 160.0, 46.0)
+			buttons["lift_down"] = Rect2(S.x * 0.5 + 6.0, TOP_BAR_Y + TOP_BAR_H * 2.0 + 12.0, 160.0, 46.0)
 		_prompt_now = pr
 	_fl_buttons()   # v6.7: the Freelancer-style contact list (left) and ship panel (right)
 	for side in ["l", "r"]:
@@ -1546,7 +1549,7 @@ func deck_list() -> Array:
 	var seen := {}
 	for k in Boarding.ROOMS:
 		if not bool(Boarding.ROOMS[k]["hex"]): seen[Boarding.deck_name(float(Boarding.ROOMS[k]["y"][0]))] = true
-	return ["UPPER DECK", "MAIN DECK", "LOWER DECK"].filter(func(n): return seen.has(n))
+	return Boarding.deck_names().filter(func(n): return seen.has(n))
 
 func shown_deck() -> String:
 	if map_deck != "" and deck_list().has(map_deck): return map_deck
@@ -2338,6 +2341,11 @@ func _draw() -> void:
 	if buttons.has("enter"): _prompt_btn(buttons["enter"], "ENTER", GREEN, held.has("enter"))
 	if buttons.has("form_break"): _prompt_btn(buttons["form_break"], "BREAK OFF", CYAN, held.has("form_break"))   # v13.164: out of formation
 	if buttons.has("spot"): _prompt_btn(buttons["spot"], str(space.spot_near().get("label", "ENTER")), GREEN, held.has("spot"))   # v13.165: a station service
+	for lid in ["lift_up", "lift_down"]:   # v13.175: a station's main lift
+		if buttons.has(lid):
+			var lc: Dictionary = space.lift_choice()
+			var to: Array = lc.get("up" if lid == "lift_up" else "down", [])
+			if not to.is_empty(): _prompt_btn(buttons[lid], "%s %s" % ["▲" if lid == "lift_up" else "▼", Boarding.deck_name(float(to[1])).replace(" DECK", "")], Color(1.0, 0.82, 0.25), held.has(lid))
 	if buttons.has("lane"): _pill("lane", "LANE" if space.lane.is_empty() else "LEAVE LANE", true, CYAN)
 	if buttons.has("jump"): _pill("jump", "JUMP", true, GOLD)
 	if buttons.has("land"): _pill("land", "LAND", true, GREEN)

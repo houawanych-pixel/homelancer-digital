@@ -1888,6 +1888,38 @@ func _run() -> void:
 			main.back_to_deck()
 			await _wait(0.6)
 			_check("v13.174: BACK TO DECK: you are in the station again", not main.deck_overlay and main.space.boarding and main.state == "flight", main.state)
+		# v13.175: the five decks and the main lift
+		_check("v13.175: Liberty Hub has five decks", Boarding.deck_names().size() == 5, str(Boarding.deck_names()))
+		if Boarding.ROOMS.has("lift_main"):
+			var lr: Array = Boarding.ROOMS["lift_main"]["r"]
+			var lc0 := Vector3((float(lr[0]) + float(lr[1])) * 0.5, 6, (float(lr[2]) + float(lr[3])) * 0.5)
+			for i in 30:
+				s.player.global_position = lc0
+				await get_tree().process_frame
+			await _wait(2.0)
+			var ch: Dictionary = s.lift_choice()
+			_check("v13.175: in the main lift on the hub deck: up and down", not ch.is_empty() and not (ch["up"] as Array).is_empty() and not (ch["down"] as Array).is_empty(), str(ch.keys()))
+			await _shot("stboard_lift")
+			var went := s.lift_go(1)
+			await _until(func(): return not s._elev.is_empty() and not bool(s._elev[0]["ride"]), 10.0)
+			await _wait(0.5)
+			_check("v13.175: UP: the habitat deck", went and Boarding.deck_name(Boarding.deck_y(s.player.global_position)) == "HABITAT DECK", Boarding.deck_name(Boarding.deck_y(s.player.global_position)))
+			await _shot("stboard_habitat")
+			var no_red := s.lift_go(1)
+			_check("v13.175: COMMAND needs the RED card", not no_red)
+			var cs: Array = s.board["fleet"]["cards"]
+			for i in cs.size(): cs[i] = true
+			s.lift_go(1)
+			await _until(func(): return not bool(s._elev[0]["ride"]), 10.0)
+			await _wait(0.5)
+			_check("v13.175: with it: the command deck", Boarding.deck_name(Boarding.deck_y(s.player.global_position)) == "COMMAND DECK", Boarding.deck_name(Boarding.deck_y(s.player.global_position)))
+			await _shot("stboard_command")
+			for i in 4:
+				if not s.lift_go(-1): break
+				await _until(func(): return not bool(s._elev[0]["ride"]), 10.0)
+				await _wait(0.4)
+			_check("v13.175: down to the hangar deck", Boarding.deck_name(Boarding.deck_y(s.player.global_position)) == "HANGAR DECK", Boarding.deck_name(Boarding.deck_y(s.player.global_position)))
+			await _shot("stboard_hangar")
 		print("[stboard] nodes %d build %d ms" % [nodes, dt_ms])
 		_finish_group()
 		return

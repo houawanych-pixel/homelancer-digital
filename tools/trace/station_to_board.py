@@ -30,6 +30,7 @@ CELL = 10.0                   # plan px per raster cell (1 m)
 H_ROOM, H_HALL, H_PILOT = 100.0, 72.0, 12.0
 MECH_DOOR, PILOT_DOOR = 3.0 * PX, 1.4 * PX
 MIN_ROOM_BOX = 6               # cells (m2): a room's smaller boxes are left out (fewer boxes: lighter on a phone)
+LIFT_HALF = 3.0 * PX           # the main lift car: 6 m square
 SHRINK = 2.5                  # px off every shape (the plan's 5 px wall gap becomes two clear cells)
 
 
@@ -62,7 +63,7 @@ def rects_of(mask):
     return out   # [x0, y0, x1, y1] in cells
 
 
-def build_deck(st, D, pre="", dy=0.0):
+def build_deck(st, D, pre="", dy=0.0, with_bay=True):
     L = D["_L"]
     ways_all = L["ways"]
     pods = [p for p in L.get("pods", [])] or []
@@ -80,13 +81,15 @@ def build_deck(st, D, pre="", dy=0.0):
     if front is None:   # (the finished plan keeps its pods inside the ways: the round end of the front bridge)
         yb = ways_all.intersection(T.box(-1.6 * PX, -1e5, 1.6 * PX, 1e5)).bounds[3]
         front = Point(0, yb - 4.2 * PX).buffer(4.2 * PX, 16).intersection(ways_all)
-    bay = front.buffer(-SHRINK, join_style=2) if front is not None else None
+    bay = front.buffer(-SHRINK, join_style=2) if front is not None and with_bay else None
+    if not with_bay: front = None
     ways = ways_all.difference(front.buffer(WALLGAP, join_style=2)) if front is not None else ways_all
     ways = max(T.parts(T._sp(ways)), key=lambda q: q.area) if T.parts(T._sp(ways)) else ways
     shapes = [("ways", ways.buffer(-SHRINK, join_style=2), "CORRIDOR", "mech", 0)]
     if bay is not None: shapes.append(("sbay", bay, "DOCKING BAY", "mech", 0))
     for r in D["rooms"]: shapes.append(("r_" + slug(r["name"]), r["poly"].buffer(-SHRINK, join_style=2), r["name"].upper(), r["kind"], int(r["key"])))
-    # (the lift stands in the hub, part of the way, until the five decks are stacked)
+    # the main lift: a square car in the middle of the hub, the same spot on every deck (its door opens on the hub)
+    shapes.append(("lift_main", T.box(-LIFT_HALF, -LIFT_HALF, LIFT_HALF, LIFT_HALF), "MAIN LIFT", "mech", 0))
     # lift: carved out of the ways (it stands in the hub)
     lab = np.zeros((H, W), np.int32)
     for i, (k, g, _, _, _) in enumerate(shapes, 1):
@@ -133,7 +136,7 @@ def build_deck(st, D, pre="", dy=0.0):
             if dd < bd: bd, best = dd, kk
         return best
     conns, locks, problems = 0, [], []
-    door_list = [(k, g, label, kind, key) for (k, g, label, kind, key) in shapes if k not in ("ways", "lift_main")]
+    door_list = [(k, g, label, kind, key) for (k, g, label, kind, key) in shapes if k != "ways"]
     for k, g, label, kind, key in door_list:
         src = shapes[0][1]
         a, b = nearest_points(src, g)
@@ -185,56 +188,79 @@ def joint(A, B):
     return False
 
 
-def convert(st, deck_role="MAIN HUB"):
+DECK_DY = 170.0   # boarding units floor to floor (as the fleet ships' stacked decks)
+DECK_PRE = {"HANGAR": "d1_", "ENGINEERING": "d2_", "MAIN HUB": "", "HABITAT": "d4_", "COMMAND": "d5_"}
+
+
+def convert(st):
     T.KEEP = {}
     T.build(st)
     K = T.KEEP[st["model"]]
-    D = next(d for d in K["decks"] if d["role"] == deck_role)
-    rooms, locks, problems = build_deck(st, D)
-    # reachable from the bay (touching edges)
+    decks = K["decks"]
+    rooms, locks, problems, cards, levels, deck_names, lift_keys = {}, [], [], [], {}, [], []
+    for D in decks:
+        k = D["deck"] - 1
+        pre = DECK_PRE[D["role"]]
+        dy = (k - 2) * DECK_DY
+        rr, ll, pp = build_deck(st, D, pre, dy, with_bay=D["role"] == "MAIN HUB")
+        rooms.update(rr); locks += ll; problems += [[D["role"]] + q for q in pp]
+        deck_names.append([dy, "%s DECK" % D["role"]])
+        lift_keys.append(pre + "lift_main")
+        for r in D["rooms"]:
+            kk = pre + "r_" + slug(r["name"])
+            if int(r["key"]) > 0: levels[kk] = min(3, int(r["key"]))
+            if r.get("card"):
+                c = r["poly"].representative_point()
+                cards.append({"room": kk, "key": min(3, int(r["card"])), "at": [round(c.x * S_BOARD, 2), dy, round(c.y * S_BOARD, 2)]})
+    lift_keys = [k for k in lift_keys if k in rooms]
+    elev = [{"rooms": lift_keys, "label": "MAIN LIFT", "need": {"d5_lift_main": 3}}] if len(lift_keys) >= 2 else []
+    # reachable from the bay: touching edges on a deck, the lift between decks
     seen, todo = {"sbay"}, ["sbay"]
+    flo = lambda kk: float(rooms[kk]["y"][0])
     while todo:
         k0 = todo.pop()
         for k1, R in rooms.items():
-            if k1 not in seen and joint(rooms[k0]["r"], R["r"]): seen.add(k1); todo.append(k1)
-    cut = sorted({rooms[k]["label"] for k in rooms if k not in seen and not rooms[k].get("conn")})
-    gone = [k for k in rooms if k not in seen]   # boxes no way reaches: left out (solid), and said so
-    for k in gone: del rooms[k]
+            if k1 not in seen and abs(flo(k0) - flo(k1)) < 1 and joint(rooms[k0]["r"], R["r"]): seen.add(k1); todo.append(k1)
+        if k0 in lift_keys:
+            for k1 in lift_keys:
+                if k1 not in seen: seen.add(k1); todo.append(k1)
+    cut = sorted({rooms[kk]["label"] for kk in rooms if kk not in seen and not rooms[kk].get("conn")})
+    for kk in [kk for kk in rooms if kk not in seen]: del rooms[kk]
     locks = [l for l in locks if l["rooms"][0] in rooms and l["rooms"][1] in rooms]
+    cards = [c for c in cards if c["room"] in rooms]
     sb = rooms["sbay"]["r"]
     start = [round((sb[0] + sb[1]) / 2, 2), 0.0, round((sb[2] + sb[3]) / 2, 2)]
-    levels = {k: int(next((r["key"] for r in D["rooms"] if "r_" + slug(r["name"]) == k.split("_", 0)[0]), 0)) for k in rooms if k.startswith("r_")}
-    cards = []
-    for r in D["rooms"]:
-        if r.get("card"):
-            c = r["poly"].representative_point()
-            cards.append({"room": "r_" + slug(r["name"]), "key": min(3, int(r["card"])), "at": [round(c.x * S_BOARD, 2), 0.0, round(c.y * S_BOARD, 2)]})
-    # the deck's map picture (the in-game map shows it under the 3D rooms): 1 px per plan px, origin at (ax, cy)
-    L0 = D["_L"]
-    bx0, by0, bx1, by1 = L0["outline"].bounds
+    # the decks' map pictures, all in one frame (1 px per plan px, origin at ax, cy)
+    bx0 = min(D["_L"]["outline"].bounds[0] for D in decks); by0 = min(D["_L"]["outline"].bounds[1] for D in decks)
+    bx1 = max(D["_L"]["outline"].bounds[2] for D in decks); by1 = max(D["_L"]["outline"].bounds[3] for D in decks)
     pad = 20
     pw, ph = int(bx1 - bx0) + 2 * pad, int(by1 - by0) + 2 * pad
     ax_, cy_ = -bx0 + pad, -by0 + pad
-    img = np.full((ph, pw, 3), (40, 22, 8), np.uint8)
-    def fill(g, col):
-        for q in T.parts(g): cv2.fillPoly(img, [np.round(np.array(q.exterior.coords) + (ax_, cy_)).astype(np.int32)], col)
-    def line(g):
-        for q in T.parts(g): cv2.polylines(img, [np.round(np.array(q.exterior.coords) + (ax_, cy_)).astype(np.int32)], True, (240, 240, 240), 1, cv2.LINE_AA)
-    fill(L0["outline"], (90, 50, 18))
-    fill(L0["ways"], (55, 45, 170)); line(L0["ways"])
-    for r in D["rooms"]:
-        fill(r["poly"], (45, 30, 120) if r["kind"] == "mech" else (175, 95, 30)); line(r["poly"])
     os.makedirs(OUT, exist_ok=True)
-    cv2.imwrite(os.path.join(OUT, st["model"] + "_map.jpg"), img, [cv2.IMWRITE_JPEG_QUALITY, 85])
+    maps = {}
+    for D in decks:
+        L0 = D["_L"]
+        img = np.full((ph, pw, 3), (40, 22, 8), np.uint8)
+        def fill(g, col):
+            for q in T.parts(g): cv2.fillPoly(img, [np.round(np.array(q.exterior.coords) + (ax_, cy_)).astype(np.int32)], col)
+        def line(g):
+            for q in T.parts(g): cv2.polylines(img, [np.round(np.array(q.exterior.coords) + (ax_, cy_)).astype(np.int32)], True, (240, 240, 240), 1, cv2.LINE_AA)
+        fill(L0["outline"], (90, 50, 18))
+        fill(L0["ways"], (55, 45, 170)); line(L0["ways"])
+        for r in D["rooms"]:
+            fill(r["poly"], (45, 30, 120) if r["kind"] == "mech" else (175, 95, 30)); line(r["poly"])
+        fill(T.box(-LIFT_HALF, -LIFT_HALF, LIFT_HALF, LIFT_HALF), (0, 215, 255))
+        fn = "%s_map_%s.jpg" % (st["model"], DECK_PRE[D["role"]].strip("_") or "d3")
+        cv2.imwrite(os.path.join(OUT, fn), img, [cv2.IMWRITE_JPEG_QUALITY, 85])
+        maps["%s DECK" % D["role"]] = fn
     lay = {"scale": S_BOARD, "ax": ax_, "cy": cy_, "src_w": pw, "src_h": ph, "rooms": rooms, "start": start,
            "exit_x": 1.0e6, "entry_x": -1.0e6, "core": [0, 0, 0], "boss": [0, 0, 0], "seal": ["none", "none"], "escape": ["none", "none"],
-           "route_in": [], "route_out": [], "info": {"kind": "fleet", "blocked": [], "station": True},
-           "fleet": {"locks": locks, "cards": cards, "targets": {}, "entry": "sbay", "levels": {k: v for k, v in levels.items() if v > 0}}}
-    os.makedirs(OUT, exist_ok=True)
+           "route_in": [], "route_out": [], "info": {"kind": "fleet", "blocked": [], "station": True, "deck_names": deck_names, "deck_maps": maps},
+           "fleet": {"locks": locks, "cards": cards, "targets": {}, "entry": "sbay", "levels": levels, "elev": elev}}
     dst = os.path.join(OUT, st["model"] + ".json")
-    json.dump({"source": st["model"], "name": st["name"], "deck": deck_role, "board": lay}, open(dst, "w"), separators=(",", ":"))
-    n_room = len({R["label"] for R in rooms.values() if not R.get("flow") and not R.get("conn")})
-    print(st["model"], "%s: %d boxes (%d rooms, %d doors, %d locked) -> %s" % (deck_role, len(rooms), n_room, sum(1 for R in rooms.values() if R.get("conn")), len(locks), os.path.relpath(dst, REPO)))
+    json.dump({"source": st["model"], "name": st["name"], "decks": 5, "board": lay}, open(dst, "w"), separators=(",", ":"))
+    n_room = len({(R["y"][0], R["label"]) for R in rooms.values() if not R.get("flow") and not R.get("conn")})
+    print(st["model"], "5 decks: %d boxes (%d rooms, %d doors, %d locked), lift stops %d -> %s" % (len(rooms), n_room, sum(1 for R in rooms.values() if R.get("conn")), len(locks), len(lift_keys), os.path.relpath(dst, REPO)))
     if problems: print("  doors not made:", problems)
     if cut: print("  left out (no way in):", cut)
     return lay, problems, cut

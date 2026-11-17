@@ -2134,7 +2134,7 @@ const ELEV_SPEED := 70.0   # u/s: a car runs a deck (80 u) in about a second
 func _fleet_decks(root: Node3D) -> void:
 	var F: Dictionary = Boarding.INFO["fleet"]
 	_deck_nodes = {}
-	for dn in ["MAIN DECK", "UPPER DECK", "LOWER DECK"]:
+	for dn in Boarding.deck_names():   # (v13.175: a station's five)
 		var h := Node3D.new()
 		h.name = dn
 		root.add_child(h)
@@ -2144,27 +2144,34 @@ func _fleet_decks(root: Node3D) -> void:
 		var y := (c as Node3D).global_position.y
 		if c is MeshInstance3D: y = ((c as MeshInstance3D).global_transform * (c as MeshInstance3D).get_aabb()).get_center().y
 		elif not (c is Light3D or c is StaticBody3D or c is CSGShape3D): continue
-		c.reparent(_deck_nodes["UPPER DECK" if y > 62.0 else ("LOWER DECK" if y < -18.0 else "MAIN DECK")], true)
+		c.reparent(_deck_nodes[Boarding.deck_of_piece(y)], true)
 	_elev = []
 	var mat := Boarding.grey(Color(0.5, 0.48, 0.42))
 	for e in F.get("elev", []):
-		var ks: Array = e["rooms"]
-		var lo: String = ks[0] if float(Boarding.ROOMS[ks[0]]["y"][0]) < float(Boarding.ROOMS[ks[1]]["y"][0]) else ks[1]
-		var hi: String = ks[1] if lo == ks[0] else ks[0]
+		var stops: Array = []   # v13.175: a lift may stop at more than two decks (a station's main lift: five)
+		for kk in e["rooms"]:
+			if Boarding.ROOMS.has(kk): stops.append([str(kk), float(Boarding.ROOMS[kk]["y"][0])])
+		if stops.size() < 2: continue
+		stops.sort_custom(func(a, b): return float(a[1]) < float(b[1]))
+		var lo: String = stops[0][0]
+		var hi: String = stops[-1][0]
 		var r: Array = Boarding.ROOMS[lo]["r"]
-		var ylo := float(Boarding.ROOMS[lo]["y"][0])
-		var yhi := float(Boarding.ROOMS[hi]["y"][0])
+		var ylo := float(stops[0][1])
+		var yhi := float(stops[-1][1])
 		var x0 := float(r[0]); var x1 := float(r[1]); var z0 := float(r[2]); var z1 := float(r[3])
-		var top := ylo + float(Boarding.ROOMS[lo]["h"])
-		for wb in [[x0 - 2, x0, z0 - 2, z1 + 2], [x1, x1 + 2, z0 - 2, z1 + 2], [x0, x1, z0 - 2, z0], [x0, x1, z1, z1 + 2]]:   # the shaft between the decks
-			var wm := MeshInstance3D.new()
-			var bm := BoxMesh.new()
-			bm.size = Vector3(float(wb[1]) - float(wb[0]), yhi - top, float(wb[3]) - float(wb[2]))
-			wm.mesh = bm
-			wm.material_override = mat
-			root.add_child(wm)
-			wm.global_position = Vector3((float(wb[0]) + float(wb[1])) * 0.5, (top + yhi) * 0.5, (float(wb[2]) + float(wb[3])) * 0.5)
-		var pl := MeshInstance3D.new()   # the car's platform (it starts on the lower deck)
+		for si in stops.size() - 1:   # the shaft between each deck and the next
+			var top := float(stops[si][1]) + float(Boarding.ROOMS[str(stops[si][0])]["h"])
+			var nxt := float(stops[si + 1][1])
+			if nxt - top < 0.5: continue
+			for wb in [[x0 - 2, x0, z0 - 2, z1 + 2], [x1, x1 + 2, z0 - 2, z1 + 2], [x0, x1, z0 - 2, z0], [x0, x1, z1, z1 + 2]]:
+				var wm := MeshInstance3D.new()
+				var bm := BoxMesh.new()
+				bm.size = Vector3(float(wb[1]) - float(wb[0]), nxt - top, float(wb[3]) - float(wb[2]))
+				wm.mesh = bm
+				wm.material_override = mat
+				root.add_child(wm)
+				wm.global_position = Vector3((float(wb[0]) + float(wb[1])) * 0.5, (top + nxt) * 0.5, (float(wb[2]) + float(wb[3])) * 0.5)
+		var pl := MeshInstance3D.new()   # the car's platform (it starts on the lowest deck)
 		var pm := BoxMesh.new()
 		pm.size = Vector3(x1 - x0 - 1.0, 2.0, z1 - z0 - 1.0)
 		pl.mesh = pm
@@ -2172,8 +2179,8 @@ func _fleet_decks(root: Node3D) -> void:
 		pl.name = "Lift car"
 		root.add_child(pl)
 		pl.global_position = Vector3((x0 + x1) * 0.5, ylo - 1.0, (z0 + z1) * 0.5)
-		_elev.append({"lo": lo, "hi": hi, "ylo": ylo, "yhi": yhi, "y": ylo, "target": ylo, "ride": false, "t_on": 0.0, "rode": false,
-			"c": Vector2((x0 + x1) * 0.5, (z0 + z1) * 0.5), "half": minf(x1 - x0, z1 - z0) * 0.5, "node": pl, "label": str(e.get("label", "LIFT"))})
+		_elev.append({"lo": lo, "hi": hi, "ylo": ylo, "yhi": yhi, "y": ylo, "target": ylo, "ride": false, "t_on": 0.0, "rode": false, "stops": stops,
+			"need": e.get("need", {}), "c": Vector2((x0 + x1) * 0.5, (z0 + z1) * 0.5), "half": minf(x1 - x0, z1 - z0) * 0.5, "node": pl, "label": str(e.get("label", "LIFT"))})
 	_fleet_show_deck(true)
 
 func _fleet_show_deck(both := false) -> void:
@@ -2186,8 +2193,9 @@ func _fleet_elev(dt: float) -> bool:
 	var here := Boarding.room_at(player.global_position)
 	var riding := false
 	for e: Dictionary in _elev:
-		var in_car: bool = here == e["lo"] or here == e["hi"] or bool(e["ride"])
-		var my_y: float = float(e["ylo"]) if here == e["lo"] else float(e["yhi"])
+		var my_y := INF
+		for st in e["stops"]: if here == str(st[0]): my_y = float(st[1])
+		var in_car: bool = my_y != INF or bool(e["ride"])
 		if bool(e["ride"]):
 			e["y"] = move_toward(float(e["y"]), float(e["target"]), dt * ELEV_SPEED)
 			player.global_position = Vector3(float(e["c"].x), float(e["y"]) + 6.0, float(e["c"].y))
@@ -2202,14 +2210,10 @@ func _fleet_elev(dt: float) -> bool:
 			var near := Vector2(player.global_position.x, player.global_position.z).distance_to(e["c"]) < float(e["half"]) * 0.6
 			if not is_equal_approx(float(e["y"]), my_y):
 				e["target"] = my_y   # (called to your deck)
-			elif near and not bool(e["rode"]):
+			elif (e["stops"] as Array).size() == 2 and near and not bool(e["rode"]):   # a two-deck lift runs by itself
 				e["t_on"] = float(e["t_on"]) + dt
 				if float(e["t_on"]) > 0.5:
-					e["ride"] = true
-					e["target"] = float(e["yhi"]) if is_equal_approx(my_y, float(e["ylo"])) else float(e["ylo"])
-					_fleet_show_deck(true)
-					Sfx.play("warp_spool", -12.0, 1.6)
-					message.emit("%s: to the %s" % [str(e["label"]), Boarding.deck_name(float(e["target"])).to_lower()])
+					_lift_start(e, float(e["yhi"]) if is_equal_approx(my_y, float(e["ylo"])) else float(e["ylo"]))
 			elif not near:
 				e["t_on"] = 0.0
 				e["rode"] = false
@@ -2219,6 +2223,39 @@ func _fleet_elev(dt: float) -> bool:
 		if not bool(e["ride"]): e["y"] = move_toward(float(e["y"]), float(e["target"]), dt * ELEV_SPEED)
 		if is_instance_valid(e["node"]): (e["node"] as Node3D).global_position.y = float(e["y"]) - 1.0
 	return riding
+
+func _lift_start(e: Dictionary, to_y: float) -> void:
+	e["ride"] = true
+	e["target"] = to_y
+	_fleet_show_deck(true)
+	Sfx.play("warp_spool", -12.0, 1.6)
+	message.emit("%s: to the %s" % [str(e["label"]), Boarding.deck_name(to_y).to_lower()])
+
+## v13.175: a lift with more than two stops: standing in its car (the car at your deck), the next deck up and down
+## ({"e", "up": [room, y] or [], "down": ...}; {} = not in such a car). The HUD shows LIFT UP / LIFT DOWN.
+func lift_choice() -> Dictionary:
+	if not boarding or _elev.is_empty() or not is_instance_valid(player): return {}
+	var here := Boarding.room_at(player.global_position)
+	for e: Dictionary in _elev:
+		if bool(e["ride"]) or (e["stops"] as Array).size() <= 2: continue
+		var st: Array = e["stops"]
+		for i in st.size():
+			if str(st[i][0]) != here or not is_equal_approx(float(e["y"]), float(st[i][1])): continue
+			return {"e": e, "up": st[i + 1] if i + 1 < st.size() else [], "down": st[i - 1] if i > 0 else []}
+	return {}
+
+## Ride the lift you stand in one deck up (dir 1) or down (-1). A deck may need a card (the station's COMMAND: RED).
+func lift_go(dir: int) -> bool:
+	var lc := lift_choice()
+	if lc.is_empty(): return false
+	var to: Array = lc["up"] if dir > 0 else lc["down"]
+	if to.is_empty(): return false
+	var need := int((lc["e"]["need"] as Dictionary).get(str(to[0]), 0))
+	if need > 0 and not _fleet_has(need):
+		message.emit("%s: the %s needs the %s card" % [str(lc["e"]["label"]), Boarding.deck_name(float(to[1])).to_lower(), ShipInterior.KEY_NAME[need]])
+		return false
+	_lift_start(lc["e"], float(to[1]))
+	return true
 
 func _fleet_has(k: int) -> bool:
 	if not board.has("fleet"): return true
@@ -12170,6 +12207,8 @@ func prompt() -> String:
 	var lc: Dictionary = lane_candidate() if lane.is_empty() else {}
 	if not lane.is_empty(): return "lane"
 	if formation_on(): return "form_break"   # v13.164
+	var lc := lift_choice()   # v13.175: in a station's lift: up / down
+	if not lc.is_empty(): return "lift_up" if not (lc["up"] as Array).is_empty() else "lift_down"
 	if not spot_near().is_empty(): return "spot"   # v13.165: a station service you walked up to
 	if board_ready: return "board"   # v13.69 (owner): at the boarding ship with its shield down, BOARD comes first
 	if not talk_candidate().is_empty(): return "guard_talk"   # v13.144: a card carrier on a friendly ship

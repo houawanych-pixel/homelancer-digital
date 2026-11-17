@@ -795,6 +795,8 @@ func _on_hud(id: String) -> void:
 				else: hud.close_scan()
 		"form_break": space.break_formation()
 		"spot": open_deck_spot()   # v13.165
+		"lift_up": space.lift_go(1)   # v13.175: a station's main lift
+		"lift_down": space.lift_go(-1)
 		"guard_talk":   # v13.144: a card carrier tells you his code
 			var said: String = space.talk_to_guard()
 			if said != "": hud.flash_message(said)
@@ -1568,8 +1570,13 @@ func board_station(kind: String, job := {}) -> void:
 		await Packs.wait("mechs", 60.0)
 	Boarding.use(L)
 	Boarding.INFO["name"] = nm
-	Boarding.INFO["plan_tex"] = path.get_basename() + "_map.jpg" if ResourceLoader.exists(path.get_basename() + "_map.jpg") else ""
-	Boarding.INFO["plan_tex_decks"] = {}
+	var dmaps2 := {}   # v13.175: each deck's own map picture
+	for dn in (Boarding.INFO.get("deck_maps", {}) as Dictionary):
+		var mp2 := path.get_base_dir().path_join(str(Boarding.INFO["deck_maps"][dn]))
+		if ResourceLoader.exists(mp2): dmaps2[dn] = mp2
+	Boarding.INFO["plan_tex"] = str(dmaps2.get("MAIN HUB DECK", ""))
+	if str(Boarding.INFO["plan_tex"]) == "" and ResourceLoader.exists(path.get_basename() + "_map.jpg"): Boarding.INFO["plan_tex"] = path.get_basename() + "_map.jpg"
+	Boarding.INFO["plan_tex_decks"] = dmaps2
 	_new_space("Boarding")
 	space.escape_pilot = not (Data.FLEET_MECH and Packs.is_ready("mechs"))
 	space.setup_boarding({"sys": board_from["sys"], "faction": fac, "name": nm, "escape": true, "mission": kind, "ship_id": ""})

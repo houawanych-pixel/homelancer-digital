@@ -796,7 +796,34 @@ static func outline(k: String) -> PackedVector2Array:
 	return out
 
 static func deck_name(y: float) -> String:
+	if INFO.has("deck_names"):   # v13.175: a station's own decks (five, named), by the nearest floor
+		var best := ""
+		var bd := INF
+		for dn in INFO["deck_names"]:
+			var d := absf(float(dn[0]) - y)
+			if d < bd:
+				bd = d
+				best = str(dn[1])
+		return best
 	return "UPPER DECK" if y > 15.0 else ("LOWER DECK" if y < -15.0 else "MAIN DECK")
+## v13.175: the deck names, top deck first
+static func deck_names() -> Array:
+	if INFO.has("deck_names"):
+		var dl: Array = (INFO["deck_names"] as Array).duplicate()
+		dl.sort_custom(func(a, b): return float(a[0]) > float(b[0]))
+		return dl.map(func(d): return str(d[1]))
+	return ["UPPER DECK", "MAIN DECK", "LOWER DECK"]
+## the deck a built piece belongs to, by its height (a deck's walls stand up to 120 u over its floor)
+static func deck_of_piece(y: float) -> String:
+	if INFO.has("deck_names"):
+		var best := ""
+		var by := -INF
+		for dn in INFO["deck_names"]:
+			if float(dn[0]) <= y + 25.0 and float(dn[0]) > by:
+				by = float(dn[0])
+				best = str(dn[1])
+		return best if best != "" else deck_name(y)
+	return "UPPER DECK" if y > 62.0 else ("LOWER DECK" if y < -18.0 else "MAIN DECK")
 
 static func rect(k: String) -> Array: return ROOMS[k]["r"]
 
@@ -938,10 +965,11 @@ static func build(root: Node3D, tint: Color) -> Dictionary:
 	var shaft_hi := {}
 	if STACKED:
 		for e in (INFO["fleet"] as Dictionary).get("elev", []):
-			var ks: Array = e["rooms"]
-			var a0: String = ks[0] if float(ROOMS[ks[0]]["y"][0]) < float(ROOMS[ks[1]]["y"][0]) else ks[1]
-			shaft_lo[a0] = true
-			shaft_hi[ks[1] if a0 == ks[0] else ks[0]] = true
+			var ks: Array = (e["rooms"] as Array).filter(func(k): return ROOMS.has(k))
+			ks.sort_custom(func(a, b): return float(ROOMS[a]["y"][0]) < float(ROOMS[b]["y"][0]))
+			for i in ks.size():   # (v13.175: every stop but the top has its roof open, every stop but the bottom its floor)
+				if i < ks.size() - 1: shaft_lo[ks[i]] = true
+				if i > 0: shaft_hi[ks[i]] = true
 	for k in ROOMS:
 		var R: Dictionary = ROOMS[k]
 		var r: Array = R["r"]
