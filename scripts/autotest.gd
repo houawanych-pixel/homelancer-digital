@@ -1872,8 +1872,12 @@ func _run() -> void:
 		for k in Boarding.ROOMS: if str(Boarding.ROOMS[k].get("label", "")) == "MISSION CENTER": mc = k
 		if mc != "":
 			var r2: Array = Boarding.ROOMS[mc]["r"]
-			s.player.global_position = Vector3((float(r2[0]) + float(r2[1])) * 0.5, 6, (float(r2[2]) + float(r2[3])) * 0.5)
-			await _wait(0.6)
+			if s.fleet_mech(): s.eject()   # (a pilot room: on foot)
+			await _wait(0.4)
+			for i in 6:
+				s.player.global_position = Vector3((float(r2[0]) + float(r2[1])) * 0.5, 6, (float(r2[2]) + float(r2[3])) * 0.5)
+				await get_tree().process_frame
+			await _wait(0.3)
 			var sp: Dictionary = s.spot_near()
 			_check("v13.174: standing in the MISSION CENTER, ENTER comes up for its page", str(sp.get("screen", "")) == "board", str(sp))
 			await _shot("stboard_enter")
