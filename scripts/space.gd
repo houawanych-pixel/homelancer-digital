@@ -2377,7 +2377,10 @@ func _fleet_tick(dt: float) -> void:
 			Sfx.play("button", -4.0, 1.2)
 			message.emit("HOSTAGE FOUND! Use TRACTOR to take them with you.")
 		if bool(fl.get("towed", false)):   # held in your tractor beam: floating at your side
-			var side := Basis(Vector3.UP, yaw) * Vector3(Data.HOSTAGE_TOW_SIDE, 0, Data.HOSTAGE_TOW_BACK)
+			var cb: Basis = cam.global_transform.basis if is_instance_valid(cam) else Basis(Vector3.UP, yaw)   # (v13.180: to the camera's right, so it's on screen)
+			var rgt := Vector3(cb.x.x, 0, cb.x.z).normalized()
+			var fwd := Vector3(-cb.z.x, 0, -cb.z.z).normalized()
+			var side := rgt * Data.HOSTAGE_TOW_SIDE - fwd * Data.HOSTAGE_TOW_BACK
 			var want := player.global_position + side
 			want.y = maxf(Boarding.floor_at(want), player.global_position.y - 4.0) + 3.0 + sin(Time.get_ticks_msec() * 0.003) * 1.0
 			(hn as Node3D).global_position = hp.lerp(want, clampf(dt * 4.0, 0.0, 1.0))
