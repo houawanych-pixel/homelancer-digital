@@ -1796,6 +1796,8 @@ func _board_update(dt: float) -> void:
 	for e in enemies:
 		if e.get("walker", false):
 			var n: Node3D = e["node"]
+			if Boarding.STACKED and e.has("home") and absf(n.global_position.y - float((e["home"] as Vector3).y)) > 60.0:   # v13.186: a guard stays on his own deck
+				n.global_position.y = float((e["home"] as Vector3).y)
 			var q := Boarding.keep_in(n.global_position, 12.0)
 			n.global_position = Vector3(q.x, Boarding.floor_at(q) + Data.WALKER_STAND * float(e.get("stand_k", Data.MECH_BOSS_SCALE if e.get("boss_mech", false) else 1.0)), q.z)
 	_board_steps(dt)
@@ -2025,7 +2027,7 @@ func _fleet_setup(root: Node3D, info: Dictionary, fac: String) -> void:
 		var picked: Array = []
 		cards_now = []
 		for c in F.get("cards", []):
-			var at0 := _fleet_room_pick(rr, int(c["key"]) - 1, picked)
+			var at0 := _fleet_room_pick(rr, int(c["key"]) - 1, picked, true)
 			if at0 == Vector3.INF: cards_now.append(c)
 			else: cards_now.append({"key": int(c["key"]), "room": Boarding.room_at(at0), "at": [at0.x, at0.y, at0.z]})
 		if GS.cutter_level < 3 and rr.randf() < Data.CUTTER_FIND_CHANCE: _fleet_cutter_find(root, rr, picked)
@@ -2335,7 +2337,7 @@ func _evee_step_line(st: Dictionary) -> String:
 	var lab := str(st["label"])
 	if st.has("deck"): return "Take the lift %s to the %s. I've marked it." % ["up" if bool(st.get("up", true)) else "down", str(st["deck"])]
 	if lab.ends_with(" CARD"):
-		var who := str(st.get("who", "a guard"))
+		var who := str(st.get("who", "a guard")).get_slice(" · ", 0)
 		var dn := Boarding.deck_name(Boarding.deck_y(st["at"] as Vector3)) if Boarding.STACKED else ""
 		return "%s has the %s card%s. Marked." % [who, lab.trim_suffix(" CARD").to_lower(), (" on the " + dn) if dn != "" else ""]
 	if lab == "WAY OUT": return "Way out's marked. Move!"
@@ -2425,7 +2427,7 @@ func fleet_route() -> Array:
 
 ## A room that needs exactly `level` cards to reach (not the entry, the way out, the job's room or a lift; not one already
 ## used), its middle; INF if none. The far half from the entry is preferred (so you go looking).
-func _fleet_room_pick(rr: RandomNumberGenerator, level: int, used: Array) -> Vector3:
+func _fleet_room_pick(rr: RandomNumberGenerator, level: int, used: Array, card := false) -> Vector3:
 	var F: Dictionary = Boarding.INFO["fleet"]
 	var lv: Dictionary = F.get("levels", {})
 	var avoid := ["sbay", fleet_exit_key()]
@@ -2435,7 +2437,7 @@ func _fleet_room_pick(rr: RandomNumberGenerator, level: int, used: Array) -> Vec
 		if int(lv[k]) != level or avoid.has(k) or used.has(k) or not Boarding.ROOMS.has(k) or Boarding.ROOMS[k].has("lift"): continue
 		cand.append(k)
 	if cand.is_empty(): return Vector3.INF
-	if Boarding.STACKED:   # v13.183 (owner: "the key's on a different floor: go up, get it, come back down"): each card on a deck no
+	if Boarding.STACKED and card:   # v13.183 (owner: "the key's on a different floor: go up, get it, come back down"): each card on a deck no
 		# earlier card is on, off the main deck where it can be
 		var used_y: Array = board.get("fleet_card_ys", [])
 		var fresh := cand.filter(func(k): return used_y.all(func(y): return absf(float(Boarding.ROOMS[k]["y"][0]) - float(y)) > 40.0))
@@ -2450,8 +2452,9 @@ func _fleet_room_pick(rr: RandomNumberGenerator, level: int, used: Array) -> Vec
 	cand.sort_custom(func(a, b): return (cen.call(a) as Vector2).distance_to(s0) > (cen.call(b) as Vector2).distance_to(s0))
 	var k: String = cand[rr.randi_range(0, maxi(0, (cand.size() + 1) / 2 - 1))]
 	used.append(k)
-	if not board.has("fleet_card_ys"): board["fleet_card_ys"] = []
-	board["fleet_card_ys"].append(float(Boarding.ROOMS[k]["y"][0]))
+	if card:
+		if not board.has("fleet_card_ys"): board["fleet_card_ys"] = []
+		board["fleet_card_ys"].append(float(Boarding.ROOMS[k]["y"][0]))
 	var c: Vector2 = cen.call(k)
 	return Vector3(c.x, Boarding.floor_of(k, c.x, c.y), c.y)
 
@@ -3076,7 +3079,7 @@ func _mech_guards(fac: String, ship_id: String) -> void:
 		var rk: String = rooms.pop_at(rr.randi_range(0, rooms.size() - 1))
 		var r: Array = Boarding.ROOMS[rk]["r"]
 		var at := Vector3((float(r[0]) + float(r[1])) * 0.5, 0.0, (float(r[2]) + float(r[3])) * 0.5)
-		at.y = Boarding.floor_at(at)
+		at.y = Boarding.floor_of(rk, at.x, at.z)   # (v13.186: its own deck)
 		var want := int(mix[i])   # the class's level; the nearest the faction has art for
 		var lv: int = lvs[0]
 		for l in lvs: if absi(int(l) - want) < absi(lv - want): lv = int(l)

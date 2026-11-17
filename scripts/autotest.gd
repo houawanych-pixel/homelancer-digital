@@ -2407,7 +2407,10 @@ func _run() -> void:
 			var dir := Vector3(dc.x - cc.x, 0, dc.z - cc.z).normalized()
 			var span := maxf(float(cr[1]) - float(cr[0]), float(cr[3]) - float(cr[2]))
 			var stand := dc - dir * (span + 30.0)
-			s.player.global_position = Vector3(stand.x, Boarding.floor_at(Vector3(cc.x, dc.y + 6, cc.z)) + 3.0, stand.z)
+			var fy0: float = Boarding.floor_at(Vector3(cc.x, dc.y + 6, cc.z))
+			var sk: String = Boarding.room_at(Vector3(stand.x, fy0 + 6.0, stand.z))
+			if sk == "" or absf(Boarding.deck_y(Vector3(stand.x, fy0 + 6.0, stand.z)) - fy0) > 30.0: stand = cc - dir * 4.0   # (v13.186: stand in the doorway on its own deck)
+			s.player.global_position = Vector3(stand.x, fy0 + 3.0, stand.z)
 			s.vel = Vector3.ZERO
 			s.yaw = atan2(-dir.x, -dir.z)
 			await _wait(0.2)

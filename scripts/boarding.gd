@@ -880,7 +880,10 @@ static func roof_at(p: Vector3) -> float:
 
 ## Clamp a point onto the nearest room floor (a mech that walks into a wall stays in).
 static func keep_in(p: Vector3, pad := 10.0) -> Vector3:
-	if inside(p, pad): return p
+	var kin := room_at(p, pad)
+	# v13.186: on a ship with floors, a room of ANOTHER deck over the same spot doesn't count (a lower-deck guard walking
+	# out past his deck's rooms was snapped up onto the main deck)
+	if kin != "" and (not STACKED or absf(minf(float(ROOMS[kin]["y"][0]), float(ROOMS[kin]["y"][1])) - p.y) <= 45.0): return p
 	var best := p
 	var bd := INF
 	for k in ROOMS:
