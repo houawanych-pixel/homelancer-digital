@@ -46,6 +46,8 @@ var asst_hit: Control
 var crew: StationCrew   # v11.14
 var alarm_btn: Button   # v11.18
 var walk_btn: Button    # v13.02
+var supplies_btn: Button   # v13.187: SUPPLIES in the docking bay
+var dock_bay: bool = Data.DOCK_TO_BAY   # v13.187 (the older route tests dock onto the station page: HL_DOCKBAY tests the bay)
 var deck_mode := false   # v13.165: opened from a sign on the station's deck (LAUNCH reads BACK TO DECK)
 var asst: VideoStreamPlayer   # v3.7 (owner): the station assistant, standing in the HOME room
 var asst_chat: Panel       # v11.4: the comms bar under the call screen
@@ -180,7 +182,7 @@ func _ready() -> void:
 	# v13.02 (station rebuild): at a station that has been rebuilt, WALK THE STATION under LAUNCH on the station page
 	walk_btn = Button.new()
 	walk_btn.name = "WalkStation"
-	walk_btn.text = "WALK THE STATION"
+	walk_btn.text = "EXPLORE STATION"
 	walk_btn.anchor_left = 1.0
 	walk_btn.anchor_right = 1.0
 	walk_btn.offset_left = -36 - Data.HUB_LAUNCH_SIZE.x
@@ -191,6 +193,21 @@ func _ready() -> void:
 	walk_btn.visible = false
 	walk_btn.pressed.connect(func(): walk_requested.emit(walk_target()))   # v13.165: "" = the station's own deck (main)
 	add_child(walk_btn)
+	# v13.187 (owner: "when you dock you should be in the docking bay 360 ... sometimes people just want to restock and go:
+	# a toggle that says SUPPLIES"): in the bay, SUPPLIES (restock, repair) next to LAUNCH; EXPLORE STATION walks in
+	supplies_btn = Button.new()
+	supplies_btn.name = "SuppliesQuick"
+	supplies_btn.text = "SUPPLIES"
+	supplies_btn.anchor_left = 1.0
+	supplies_btn.anchor_right = 1.0
+	supplies_btn.offset_left = -36 - Data.HUB_LAUNCH_SIZE.x
+	supplies_btn.offset_right = -36
+	supplies_btn.offset_top = TOP_Y + Data.HUB_LAUNCH_SIZE.y + 10 + 56
+	supplies_btn.offset_bottom = TOP_Y + Data.HUB_LAUNCH_SIZE.y + 10 + 56 + 46
+	supplies_btn.add_theme_font_size_override("font_size", Data.ts(17))
+	supplies_btn.visible = false
+	supplies_btn.pressed.connect(func(): show_screen("supplies"))
+	add_child(supplies_btn)
 	# v3.1 (owner's concept art): the station's services as a tab bar along the top
 	left = HBoxContainer.new()
 	left.name = "Tabs"
@@ -571,7 +588,10 @@ func open(station_or_planet: Dictionary) -> void:
 	typing = false
 	lockdown = lockdown_due()
 	if kind == "station" and Packs.PACKS.has("alarm_" + lockdown_faction()): Packs.request("alarm_" + lockdown_faction())   # v13.13: ready for the ALARM
-	show_screen("hub")
+	if kind == "station" and dock_bay and not lockdown:   # v13.187 (owner): you dock into the docking bay (the hangar 360)
+		eq_tab = "hangar"
+		show_screen("equipment")
+	else: show_screen("hub")
 	if lockdown:
 		_start_lockdown()
 		return
@@ -795,7 +815,10 @@ func show_screen(s: String) -> void:
 				sb2.pressed.connect(_menu.bind(str(pg[0])))
 				subtabs.add_child(sb2)
 	subtabs.visible = subtabs.get_child_count() > 0 and not hangar and not panels_hidden
-	if walk_btn != null: walk_btn.visible = s == "hub" and not lockdown and not deck_mode and kind == "station" and Data.STATION_WALK   # v13.165: every station
+	if walk_btn != null: walk_btn.visible = (s == "hub" or (s == "equipment" and eq_tab == "hangar")) and not lockdown and not deck_mode and kind == "station" and Data.STATION_WALK   # v13.165: every station (v13.187: and from the bay)
+	if supplies_btn != null: supplies_btn.visible = s == "equipment" and eq_tab == "hangar" and not lockdown and not deck_mode and kind == "station"   # v13.187
+	for qb in [walk_btn, supplies_btn]:   # (over the bay's panels)
+		if qb != null and qb.visible: qb.move_to_front()
 	_layout_windows(s)
 	header.reset_size()   # v5.3: the boxes fit the words
 	subheader.reset_size()

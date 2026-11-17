@@ -1019,6 +1019,7 @@ static func build(root: Node3D, tint: Color) -> Dictionary:
 				var lz := z0 + (z1 - z0) * (iz + 0.5) / nz
 				var fy := floor_of(k, lx, lz)
 				_slab(root, Vector3(lx - 6, fy + h - 0.8, lz - 6), Vector3(lx + 6, fy + h - 0.2, lz + 6), trim, null)
+				if bool(INFO.get("station", false)): continue   # v13.187: a station's ~1500 lamps blacked out phones: lit by the deck light instead
 				var lamp := OmniLight3D.new()
 				lamp.position = Vector3(lx, fy + h * 0.55, lz)   # (low enough not to burn the roof white)
 				lamp.omni_range = 150.0

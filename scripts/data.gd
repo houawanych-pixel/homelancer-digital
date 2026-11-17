@@ -28,10 +28,11 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.186"
+const VERSION := "v13.187"
 const STATION_BOARD_WALK := true   # v13.174: WALK THE STATION boards the station's own deck plan in the boarding engine
 const STATION_ATRIUM_R := 300.0   # u from the lift axis: standing in the hub's atrium (outside the lift car) brings up ENTER MAIN HUB
-const DOCK_INTO_DECK := true   # v13.176: dock at a station with its own deck plan: you arrive in its docking bay, the 360 hub is a room inside
+const DOCK_TO_BAY := true   # v13.187 (owner: "when you dock you should be in the docking 360, then you can explore"): docking opens the hangar bay page (SUPPLIES, EXPLORE STATION, LAUNCH)
+const DOCK_INTO_DECK := false   # v13.176: dock at a station with its own deck plan: you arrive in its docking bay, the 360 hub is a room inside
 ## v13.169 (owner: "no targets behind the wall"): inside a ship you and they need a clear line (no wall or shut door) to lock or fire
 const BOARD_LOS_FRAMES := 6   # re-checked every few frames per contact
 const BOARD_LOS_Y := 10.0     # chest high (boarding units)

@@ -1823,6 +1823,7 @@ func _flag(n: String) -> bool:
 func _run() -> void:
 	seed(1234)   # Nov 2 (owner): a fixed seed for the whole route test
 	main.dock_walk = _flag("HL_DOCKWALK")   # v13.176: the older route tests dock straight into the 360 hub
+	main.hub.dock_bay = _flag("HL_DOCKBAY")   # v13.187
 	main.hud.cl_open = true   # (v8.0: the windows start folded; the checks read them open)
 	main.hud.sp_open = true
 	main.hud.weapons_pinned = true   # (v7.0: every button up for the checks; the pop-up has its own check)
@@ -1831,6 +1832,35 @@ func _run() -> void:
 	if not _flag("HL_LANDFILM"):   # v12.52: the landing film is cut short in the other checks (they time the descent)
 		main.landing_film_min = 0.0
 		main.landing_film_max = 0.4
+	if _flag("HL_DOCKBAY"):   # v13.187 (owner): dock -> the docking bay 360 (hangar), SUPPLIES there, EXPLORE STATION walks in (lit, drawn)
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main.dock(_sp().station)
+		await _until(func(): return main.state == "hub", 30.0)
+		await _wait(1.0)
+		var hb = main.hub
+		_check("v13.187: docking opens the docking bay (hangar 360) with SUPPLIES and EXPLORE STATION", hb.screen == "equipment" and hb.eq_tab == "hangar" and hb.supplies_btn.visible and hb.walk_btn.visible, "%s %s %s %s" % [hb.screen, hb.eq_tab, hb.supplies_btn.visible, hb.walk_btn.visible])
+		await _shot("dockbay_bay")
+		hb.supplies_btn.pressed.emit()
+		await _wait(0.6)
+		_check("v13.187: SUPPLIES: the supplies room (restock and go)", hb.screen == "supplies", hb.screen)
+		await _shot("dockbay_supplies")
+		hb.eq_tab = "hangar"
+		hb.show_screen("equipment")
+		await _wait(0.3)
+		hb.walk_btn.pressed.emit()
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding and main.space.controls, 90.0)
+		await _wait(1.5)
+		var s := _sp()
+		var lamps := 0
+		for l in s.find_children("*", "OmniLight3D", true, false): if (l as Node3D).is_visible_in_tree(): lamps += 1
+		var shown := 0
+		for dn in s._deck_nodes: if (s._deck_nodes[dn] as Node3D).visible: shown += 1
+		_check("v13.187: EXPLORE STATION: on the deck, one deck drawn (%d), few lamps (%d)" % [shown, lamps], s.boarding and shown == 1 and lamps < 40, "")
+		await _shot("dockbay_explore")
+		_finish_group()
+		return
 	if _flag("HL_DOCKWALK"):   # v13.176 (owner's station loop): dock -> the docking bay -> walk to the hub -> ENTER MAIN HUB -> back -> leave by the bay
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)

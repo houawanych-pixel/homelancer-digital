@@ -2119,7 +2119,11 @@ func _fleet_setup(root: Node3D, info: Dictionary, fac: String) -> void:
 		bc.global_position = tp + Vector3(0, 15.0, 0)
 		fl["beacon"] = bc
 		bc.visible = false   # v13.130 (owner: "the player has to figure it out"): shown only when Evee marks it
-	if Boarding.STACKED: _fleet_decks(root)
+	if Boarding.STACKED:
+		_fleet_decks(root)
+		_fleet_show_deck()   # v13.187: only the deck you are on is drawn from the start (all five at once blacked out phones)
+	if bool(Boarding.INFO.get("station", false)) and is_instance_valid(env):   # v13.187: no room lamps on a station: a brighter deck light
+		env.environment.ambient_light_energy = 1.25
 	_crew_walkers(fac, kind, str(info.get("ship_id", "")))   # v13.148
 	_mech_guards(fac, str(info.get("ship_id", "")))   # v13.151
 	_stealth_setup(root, kind == "visit")
