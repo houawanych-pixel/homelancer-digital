@@ -3036,6 +3036,13 @@ func _keypad_tick() -> void:
 		keypad = on
 		message.emit("%s DOOR · PUNCH IN THE PASSWORD" % ShipInterior.KEY_NAME[int(on["level"])])
 
+## (tests) why the targeted door computer does or doesn't bring up the keypad
+func keypad_why() -> String:
+	if target == null or not is_instance_valid(target): return "no target"
+	var dd := _keypad_door(target)
+	var mk: float = Data.KEYPAD_MECH_K if GS.form == "mech" and not on_foot else 1.0
+	return "kind %s door %s ok %s has %s dist %.0f/%.0f boarding %s doors %d" % [str(target.get_meta("kind", "")), str(not dd.is_empty()), str(dd.get("code_ok", false)), str(_fleet_has(int(dd.get("key", 0)))), target.global_position.distance_to(player.global_position), Data.KEYPAD_REACH * mk, boarding, board_doors.size()]
+
 ## The code typed: ACCESS GRANTED opens the door for good. A wrong one says so and the keypad stays up to try again.
 func keypad_enter(code: String) -> bool:
 	if keypad.is_empty(): return false
