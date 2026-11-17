@@ -106,74 +106,135 @@ def build_deck(st, D, pre="", dy=0.0, with_bay=True):
                 ya, xa, yb, xb = y, x, y + dxy[1], x + dxy[0]
                 if shapes[lab[ya, xa] - 1][0] == "ways": lab[yb, xb] = 0
                 else: lab[ya, xa] = 0
-    S = S_BOARD
-    U = lambda cx: round((ox + cx * CELL) * S, 2)
-    V = lambda cy: round((oy + cy * CELL) * S, 2)
-    rooms, boxes = {}, {}
-    hall_n = 0
-    for i, (k, g, label, kind, key) in enumerate(shapes, 1):
-        rs = rects_of((lab == i).astype(np.uint8))
-        rs.sort(key=lambda r: -(r[2] - r[0]) * (r[3] - r[1]))
-        if k != "ways": rs = rs[:1] + [r for r in rs[1:] if (r[2] - r[0]) * (r[3] - r[1]) >= MIN_ROOM_BOX and min(r[2] - r[0], r[3] - r[1]) >= 2]   # a room's slivers along a slanted wall go: its walls step instead
-        for j, (x0, y0, x1, y1) in enumerate(rs):
-            if k == "ways": hall_n += 1; kk = pre + "h%d" % hall_n
-            elif k in ("sbay", "lift_main"): kk = pre + k if j == 0 else "%s%s_%d" % (pre, k, j)
-            else: kk = pre + k if j == 0 else "%s%s_%d" % (pre, k, j)
-            R = {"r": [U(x0), U(x1), V(y0), V(y1)], "y": [dy, dy], "axis": "x" if x1 - x0 >= y1 - y0 else "z",
-                 "h": H_HALL if k == "ways" else H_ROOM, "label": label, "guards": 0, "hex": False, "shape": "rect", "kind": kind}
-            if k == "ways": R["flow"] = True
-            if kind == "pilot": R.update({"pilot": True, "h": H_PILOT})
-            if k == "lift_main": R["kind"] = "lift"
+    def make(lab):
+        S = S_BOARD
+        U = lambda cx: round((ox + cx * CELL) * S, 2)
+        V = lambda cy: round((oy + cy * CELL) * S, 2)
+        rooms, boxes = {}, {}
+        hall_n = 0
+        for i, (k, g, label, kind, key) in enumerate(shapes, 1):
+            rs = rects_of((lab == i).astype(np.uint8))
+            rs.sort(key=lambda r: -(r[2] - r[0]) * (r[3] - r[1]))
+            if k != "ways": rs = rs[:1] + [r for r in rs[1:] if (r[2] - r[0]) * (r[3] - r[1]) >= MIN_ROOM_BOX and min(r[2] - r[0], r[3] - r[1]) >= 2]   # a room's slivers along a slanted wall go: its walls step instead
+            for j, (x0, y0, x1, y1) in enumerate(rs):
+                if k == "ways": hall_n += 1; kk = pre + "h%d" % hall_n
+                elif k in ("sbay", "lift_main"): kk = pre + k if j == 0 else "%s%s_%d" % (pre, k, j)
+                else: kk = pre + k if j == 0 else "%s%s_%d" % (pre, k, j)
+                R = {"r": [U(x0), U(x1), V(y0), V(y1)], "y": [dy, dy], "axis": "x" if x1 - x0 >= y1 - y0 else "z",
+                     "h": H_HALL if k == "ways" else H_ROOM, "label": label, "guards": 0, "hex": False, "shape": "rect", "kind": kind}
+                if k == "ways": R["flow"] = True
+                if kind == "pilot": R.update({"pilot": True, "h": H_PILOT})
+                if k == "lift_main": R["kind"] = "lift"
+                rooms[kk] = R
+                boxes[kk] = (k, [x0, y0, x1, y1])
+        # doors: a connector from the way's box to the room's box at the plan's door point
+        def box_at(name, cx, cy):
+            best, bd = None, 1e9
+            for kk, (k, b) in boxes.items():
+                if k != name: continue
+                ddx = max(b[0] - cx, 0, cx - b[2]); ddy = max(b[1] - cy, 0, cy - b[3])
+                dd = math.hypot(ddx, ddy)
+                if dd < bd: bd, best = dd, kk
+            return best
+        conns, locks, problems = 0, [], []
+        door_list = [(k, g, label, kind, key) for (k, g, label, kind, key) in shapes if k != "ways"]
+        for k, g, label, kind, key in door_list:
+            src = shapes[0][1]
+            a, b = nearest_points(src, g)
+            ca = ((a.x - ox) / CELL, (a.y - oy) / CELL); cb = ((b.x - ox) / CELL, (b.y - oy) / CELL)
+            w = (MECH_DOOR if kind == "mech" else PILOT_DOOR) / CELL
+            # every way box and room box that face each other across a short gap, the one nearest the plan's door point
+            best, bd = None, 1e9
+            hbs = [(kk, b) for kk, (n0, b) in boxes.items() if n0 == "ways"]
+            rbs = [(kk, b) for kk, (n0, b) in boxes.items() if n0 == k]
+            for rk_, rb in rbs:
+                for hk_, hb in hbs:
+                    for ax in ("x", "y"):
+                        i0, i1 = (0, 2) if ax == "x" else (1, 3)
+                        j0, j1 = (1, 3) if ax == "x" else (0, 2)
+                        if hb[i1] <= rb[i0]: g0, g1 = hb[i1], rb[i0]
+                        elif rb[i1] <= hb[i0]: g0, g1 = rb[i1], hb[i0]
+                        else: continue
+                        if g1 - g0 < 1 or g1 - g0 > 8: continue
+                        lo, hi = max(hb[j0], rb[j0]), min(hb[j1], rb[j1])
+                        need = min(w, 2.0) if kind == "pilot" else min(w, 3.0)
+                        if hi - lo < need: continue
+                        ww = min(w, hi - lo)
+                        cc = min(max(cb[1] if ax == "x" else cb[0], lo + ww / 2), hi - ww / 2)
+                        rect = [g0, cc - ww / 2, g1, cc + ww / 2] if ax == "x" else [cc - ww / 2, g0, cc + ww / 2, g1]
+                        mid = ((rect[0] + rect[2]) / 2, (rect[1] + rect[3]) / 2)
+                        dd = math.hypot(mid[0] - cb[0], mid[1] - cb[1])
+                        if dd < bd: bd, best = dd, (ax, rect, rk_)
+            if best is None: problems.append([label, "no doorway"]); continue
+            made = (best[0], best[1]); rk = best[2]
+            ax, c4 = made
+            conns += 1
+            kk = pre + "d%d" % conns
+            R = {"r": [U(c4[0]), U(c4[2]), V(c4[1]), V(c4[3])], "y": [dy, dy], "axis": "x" if ax == "x" else "z", "h": H_HALL,
+                 "label": "DOOR", "guards": 0, "hex": False, "shape": "rect", "conn": True, "door_to": rk, "kind": kind}
+            if kind == "pilot": R.update({"pilot": True, "h": H_PILOT, "label": "PILOT DOOR"})
             rooms[kk] = R
-            boxes[kk] = (k, [x0, y0, x1, y1])
-    # doors: a connector from the way's box to the room's box at the plan's door point
-    def box_at(name, cx, cy):
-        best, bd = None, 1e9
-        for kk, (k, b) in boxes.items():
-            if k != name: continue
-            ddx = max(b[0] - cx, 0, cx - b[2]); ddy = max(b[1] - cy, 0, cy - b[3])
-            dd = math.hypot(ddx, ddy)
-            if dd < bd: bd, best = dd, kk
-        return best
-    conns, locks, problems = 0, [], []
-    door_list = [(k, g, label, kind, key) for (k, g, label, kind, key) in shapes if k != "ways"]
-    for k, g, label, kind, key in door_list:
-        src = shapes[0][1]
-        a, b = nearest_points(src, g)
-        ca = ((a.x - ox) / CELL, (a.y - oy) / CELL); cb = ((b.x - ox) / CELL, (b.y - oy) / CELL)
-        w = (MECH_DOOR if kind == "mech" else PILOT_DOOR) / CELL
-        # every way box and room box that face each other across a short gap, the one nearest the plan's door point
-        best, bd = None, 1e9
-        hbs = [(kk, b) for kk, (n0, b) in boxes.items() if n0 == "ways"]
-        rbs = [(kk, b) for kk, (n0, b) in boxes.items() if n0 == k]
-        for rk_, rb in rbs:
-            for hk_, hb in hbs:
-                for ax in ("x", "y"):
-                    i0, i1 = (0, 2) if ax == "x" else (1, 3)
-                    j0, j1 = (1, 3) if ax == "x" else (0, 2)
-                    if hb[i1] <= rb[i0]: g0, g1 = hb[i1], rb[i0]
-                    elif rb[i1] <= hb[i0]: g0, g1 = rb[i1], hb[i0]
-                    else: continue
-                    if g1 - g0 < 1 or g1 - g0 > 8: continue
-                    lo, hi = max(hb[j0], rb[j0]), min(hb[j1], rb[j1])
-                    need = min(w, 2.0) if kind == "pilot" else min(w, 3.0)
-                    if hi - lo < need: continue
-                    ww = min(w, hi - lo)
-                    cc = min(max(cb[1] if ax == "x" else cb[0], lo + ww / 2), hi - ww / 2)
-                    rect = [g0, cc - ww / 2, g1, cc + ww / 2] if ax == "x" else [cc - ww / 2, g0, cc + ww / 2, g1]
-                    mid = ((rect[0] + rect[2]) / 2, (rect[1] + rect[3]) / 2)
-                    dd = math.hypot(mid[0] - cb[0], mid[1] - cb[1])
-                    if dd < bd: bd, best = dd, (ax, rect, rk_)
-        if best is None: problems.append([label, "no doorway"]); continue
-        made = (best[0], best[1]); rk = best[2]
-        ax, c4 = made
-        conns += 1
-        kk = pre + "d%d" % conns
-        R = {"r": [U(c4[0]), U(c4[2]), V(c4[1]), V(c4[3])], "y": [dy, dy], "axis": "x" if ax == "x" else "z", "h": H_HALL,
-             "label": "DOOR", "guards": 0, "hex": False, "shape": "rect", "conn": True, "door_to": rk, "kind": kind}
-        if kind == "pilot": R.update({"pilot": True, "h": H_PILOT, "label": "PILOT DOOR"})
-        rooms[kk] = R
-        if key > 0: locks.append({"rooms": [kk, rk], "key": min(3, key)})
+            if key > 0: locks.append({"rooms": [kk, rk], "key": min(3, key)})
+
+        return rooms, locks, problems
+    rooms, locks, problems = make(lab)
+    # v13.176 (owner: "do them all one at a time"): a room whose boxes don't face a way's box gets a short straight
+    # walkway stub (a door's width) from its biggest box out to the nearest way, then the boxes and doors are made again
+    failed = [q[0] for q in problems if q[1] == "no doorway"]
+    if failed:
+        ways_i = 1
+        carved = 0
+        for i, (k, g, label, kind, key) in enumerate(shapes, 1):
+            if label not in failed: continue
+            rs = rects_of((lab == i).astype(np.uint8))
+            if not rs: continue
+            x0, y0, x1, y1 = max(rs, key=lambda r: (r[2] - r[0]) * (r[3] - r[1]))
+            w = int(math.ceil((MECH_DOOR if kind == "mech" else PILOT_DOOR) / CELL)) + 1
+            best = None
+            for dx, dyy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                if dx:
+                    cy0 = (y0 + y1) // 2 - w // 2; cols = range(cy0, cy0 + w)
+                    if cy0 < y0 or cy0 + w > y1: continue
+                    start = x1 + 1 if dx > 0 else x0 - 2
+                else:
+                    cx0 = (x0 + x1) // 2 - w // 2; cols = range(cx0, cx0 + w)
+                    if cx0 < x0 or cx0 + w > x1: continue
+                    start = y1 + 1 if dyy > 0 else y0 - 2
+                path = []
+                t = start
+                ok = False
+                gap_done = False
+                t = (x1 - 1 if dx > 0 else x0) if dx else (y1 - 1 if dyy > 0 else y0)   # (from inside the box: out past the room's own cells)
+                for step in range(60):
+                    cells = [(c, t) for c in cols] if dx else [(t, c) for c in cols]   # (row, col) as (y, x)
+                    if dx: cells = [(c, t) for c in cols]
+                    else: cells = [(t, c) for c in cols]
+                    inb = all(0 <= yy < lab.shape[0] and 0 <= xx < lab.shape[1] for yy, xx in cells)
+                    if not inb: break
+                    vals = [lab[yy, xx] for yy, xx in cells]
+                    if not gap_done:
+                        if any(v == i for v in vals):
+                            t += dx if dx else dyy
+                            continue
+                        if any(v != 0 for v in vals): break
+                        gap_done = True   # (this row stays clear: the doorway spans it)
+                        t += dx if dx else dyy
+                        continue
+                    if any(v == ways_i for v in vals): ok = True; break
+                    if any(v not in (0,) for v in vals): break
+                    # no other room next to the stub
+                    side = False
+                    for yy, xx in cells:
+                        for ny, nx in ((yy + 1, xx), (yy - 1, xx), (yy, xx + 1), (yy, xx - 1)):
+                            if 0 <= ny < lab.shape[0] and 0 <= nx < lab.shape[1] and lab[ny, nx] not in (0, ways_i, i): side = True
+                    if side: break
+                    path += cells
+                    t += dx if dx else dyy
+                if ok and (best is None or len(path) < len(best)): best = path
+            if best:
+                for yy, xx in best: lab[yy, xx] = ways_i
+                carved += 1
+        if carved: rooms, locks, problems = make(lab)
     return rooms, locks, problems
 
 
