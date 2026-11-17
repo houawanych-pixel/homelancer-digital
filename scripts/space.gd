@@ -3368,6 +3368,9 @@ func spot_near() -> Dictionary:
 	if boarding and bool(Boarding.INFO.get("station", false)) and stealth != "alert" and is_instance_valid(player):
 		var rk := Boarding.room_at(player.global_position)
 		if rk != "" and bool(Boarding.ROOMS[rk].get("conn", false)): rk = str(Boarding.ROOMS[rk].get("door_to", ""))   # (at its doorway counts: a mech can't go into a pilot room)
+		if rk != "" and Boarding.ROOMS.has(rk) and bool(Boarding.ROOMS[rk].get("flow", false)) and Boarding.deck_name(Boarding.deck_y(player.global_position)) == "MAIN HUB DECK" \
+				and Vector2(player.global_position.x, player.global_position.z).length() < Data.STATION_ATRIUM_R:   # v13.176: the hub's atrium is the 360 hub
+			return {"screen": "hub", "label": "ENTER MAIN HUB", "pos": player.global_position}
 		if rk != "" and Boarding.ROOMS.has(rk) and not bool(Boarding.ROOMS[rk].get("flow", false)):
 			var lab := str(Boarding.ROOMS[rk].get("label", ""))
 			for sv in STATION_ROOM_SCREENS:

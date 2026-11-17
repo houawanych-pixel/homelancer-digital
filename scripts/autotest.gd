@@ -1822,6 +1822,7 @@ func _flag(n: String) -> bool:
 
 func _run() -> void:
 	seed(1234)   # Nov 2 (owner): a fixed seed for the whole route test
+	main.dock_walk = _flag("HL_DOCKWALK")   # v13.176: the older route tests dock straight into the 360 hub
 	main.hud.cl_open = true   # (v8.0: the windows start folded; the checks read them open)
 	main.hud.sp_open = true
 	main.hud.weapons_pinned = true   # (v7.0: every button up for the checks; the pop-up has its own check)
@@ -1830,6 +1831,39 @@ func _run() -> void:
 	if not _flag("HL_LANDFILM"):   # v12.52: the landing film is cut short in the other checks (they time the descent)
 		main.landing_film_min = 0.0
 		main.landing_film_max = 0.4
+	if _flag("HL_DOCKWALK"):   # v13.176 (owner's station loop): dock -> the docking bay -> walk to the hub -> ENTER MAIN HUB -> back -> leave by the bay
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var s0 := _sp()
+		main.dock(s0.station)
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding, 90.0)
+		await _wait(1.5)
+		var s := _sp()
+		_check("v13.176: docking at Liberty Hub puts you in its DOCKING BAY", s.boarding and Boarding.room_at(s.player.global_position) == "sbay", "%s %s" % [main.state, Boarding.room_at(s.player.global_position) if s.boarding else "-"])
+		await _shot("dockwalk_bay")
+		for i in 6:
+			s.player.global_position = Vector3(0, 6, 200.0)
+			await get_tree().process_frame
+		await _wait(0.5)
+		var sp: Dictionary = s.spot_near()
+		_check("v13.176: in the hub's atrium: ENTER MAIN HUB", str(sp.get("screen", "")) == "hub", str(sp))
+		await _shot("dockwalk_atrium")
+		main.open_deck_spot()
+		await _wait(0.8)
+		_check("v13.176: ENTER: the 360 hub", main.deck_overlay and main.hub.visible and main.hub.screen == "hub", main.hub.screen)
+		await _shot("dockwalk_hub360")
+		main.back_to_deck()
+		await _wait(0.6)
+		var sb: Array = Boarding.ROOMS["sbay"]["r"]
+		for i in 10:
+			s.player.global_position = Vector3((float(sb[0]) + float(sb[1])) * 0.5, 6, (float(sb[2]) + float(sb[3])) * 0.5)
+			await get_tree().process_frame
+		await _until(func(): return main.state == "hub", 20.0)
+		await _wait(0.8)
+		_check("v13.176: back to the docking bay: out to the station page (LAUNCH from there)", main.state == "hub" and main.hub.visible, main.state)
+		_finish_group()
+		return
 	if _flag("HL_STBOARD"):   # v13.174 (owner: "a station should look just like the boarding levels"): Liberty Hub's own deck plan in the boarding engine
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)

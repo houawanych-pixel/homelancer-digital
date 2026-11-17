@@ -1389,6 +1389,13 @@ func dock(n: Node3D) -> void:
 		hub.status.text = home_free
 	GS.save_game()   # v1.7y: docking saves
 	state = "hub"
+	# v13.176 (owner's station loop: "prefer a real dock room so landing feels like entering the world"): at a station
+	# with its own deck plan you come in through its DOCKING BAY on foot / in your mech; the 360 hub is a room inside
+	if dock_walk and paid == "" and home_free == "" and str(info.get("kind", "")) == "station" and station_board_path(GS.system_id) != "" \
+			and str(info.get("name", "")) == str((Data.SYSTEMS[GS.system_id].get("station", {}) as Dictionary).get("name", "?")):
+		fx.sub = "DOCKING BAY"
+		board_station("visit")
+		return
 	if paid == "" and home_free == "":   # v12.61: Evee's tip for this dock (the home point; the atlas on a world)
 		if evee_tip("dock") == "" and docked_node_kind == "planet": evee_tip("planet_dock")
 	var tw2 := create_tween()
@@ -2574,6 +2581,7 @@ func leave_boarding(won: bool) -> void:
 ## plan (assets/holodeck/<id>.json has a "board" layout) is played in the regular boarding engine, on foot like the
 ## breakout: the HUD, your controls, the faction's soldiers, doors, the CUTTER, the deck map (the ship's own plan).
 var autotest_old_deck := false   # (tests of the old walk-through stage)
+var dock_walk: bool = Data.DOCK_INTO_DECK   # v13.176: docking at a station with a deck plan puts you in its docking bay (the older route tests turn it off)
 func fleet_deck_ready(id: String) -> bool:
 	var e := FleetCatalog.get_entry(id)
 	var path := str(e.get("stage", ""))
