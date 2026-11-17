@@ -2134,7 +2134,7 @@ func _run() -> void:
 			for k in (Array(str(Data.DOOR_MASTER[lv]).split("")) + ["OK"]): main.hud.keypad_press(str(k))
 			_check("v13.144: the pad brings up the keypad; a wrong code is ACCESS DENIED, the master code ACCESS GRANTED", opened and denied and bool(d0.get("code_ok", false)), "open %s denied %s ok %s · you %s pad %s" % [opened, denied, d0.get("code_ok", false), str(s.player.global_position.round()), str(pad.round())])
 			# v13.169 (owner: "tap the computer screen, or select it as a target"): another card door's computer, targeted
-			var kd2: Array = kd.filter(func(d): return not bool(d.get("code_ok", false)) and not s._fleet_has(int(d.get("key", 0))) and (d.get("rooms", []) as Array).all(func(r): return not bool((Boarding.ROOMS.get(str(r), {}) as Dictionary).get("pilot", false))))   # (a mech-size door: the mech is kept out of the pilot ways)
+			var kd2: Array = kd.filter(func(d): return not bool(d.get("code_ok", false)) and not s._fleet_has(int(d.get("key", 0))) and (d.get("rooms", []) as Array).all(func(r): return not bool((Boarding.ROOMS.get(str(r), {}) as Dictionary).get("pilot", false))) and not (d.get("rooms", []) as Array).has("sbay") and not (d.get("rooms", []) as Array).has(s.fleet_exit_key()))   # (a mech-size door away from the bay: the mech is kept out of the pilot ways; standing in the bay on a visit takes you out)
 			if not kd2.is_empty():
 				var d1: Dictionary = kd2[0]
 				var post: Node3D = null
@@ -2143,6 +2143,7 @@ func _run() -> void:
 				if post != null:
 					var by: Vector3 = (d1["pads"][0] as Vector3).lerp(post.global_position, 0.5)
 					for i in 6:
+						if not is_instance_valid(s) or not s.boarding: break
 						s.player.global_position = Vector3(by.x, (d1["pads"][0] as Vector3).y + 6.0, by.z)
 						s.target = post
 						await get_tree().process_frame
