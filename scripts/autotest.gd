@@ -2530,18 +2530,16 @@ func _run() -> void:
 			await _capture("fb_%s_%s" % [fid, kind])
 			if kind == "sabotage": s._destroy_unit(b["core"])
 			elif kind == "capture": s._destroy_unit(b["fleet"]["captain"])
-			elif kind == "rescue":   # v13.178 (owner): the hostage shows up when you get there; TRACTOR takes them
+			elif kind == "rescue":   # v13.182 (owner): found when you get there, talks and turns into a blue pod, TRACTOR pulls it in
 				var hn0: Node3D = b["fleet"]["hostage"]
 				var shown: bool = hn0.visible
+				var pod: bool = bool(b["fleet"].get("pod", false))
 				var not_yet: bool = not bool(b["fleet"]["done"])
+				await _capture("fb_%s_hostage_pod" % fid)
 				var tm: String = s.tractor()
-				await _wait(1.0)
-				var hp1: Vector3 = hn0.global_position
-				_check("%s rescue: the hostage appears when you reach them (%s), standing next to them is not enough (%s); TRACTOR takes them (%s) and they float beside you" % [fid, shown, not_yet, tm],
-					shown and not_yet and bool(b["fleet"].get("towed", false)) and Vector2(hp1.x - s.player.global_position.x, hp1.z - s.player.global_position.z).length() < 40.0, "%s %s %s %s" % [shown, not_yet, tm, hp1.distance_to(s.player.global_position)])
-				await _capture("fb_%s_hostage_tractor" % fid)
-				var bmn: Node3D = hn0.get_node_or_null("Beam")
-				print("[hostdbg] player ", s.player.global_position, " rig ", (s.pilot_rig.global_position if is_instance_valid(s.pilot_rig) else Vector3.ZERO), " host ", hn0.global_position, " cam ", s.cam.global_position, " beam ", (bmn.global_transform if bmn else Transform3D()), " towed ", b["fleet"].get("towed"))
+				await _until(func(): return bool(b["fleet"].get("secured", false)), 6.0)
+				_check("%s rescue: the hostage appears when you reach them (%s), turns into a blue pod (%s), not done yet (%s); TRACTOR (%s) pulls the pod in: secured, job done" % [fid, shown, pod, not_yet, tm],
+					shown and pod and not_yet and bool(b["fleet"].get("secured", false)) and bool(b["fleet"]["done"]), "%s %s %s %s %s" % [shown, pod, not_yet, tm, b["fleet"].get("secured")])
 			await _wait(0.6)
 			_check("%s %s: the job's target is done" % [fid, kind], bool(b["fleet"]["done"]), str(b["fleet"]["done"]))
 			var exk: String = s.fleet_exit_key()   # v13.130 (owner's formula): the clock runs, the way in is blocked, another way out

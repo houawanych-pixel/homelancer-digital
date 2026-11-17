@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.181"
+const VERSION := "v13.182"
 const STATION_BOARD_WALK := true   # v13.174: WALK THE STATION boards the station's own deck plan in the boarding engine
 const STATION_ATRIUM_R := 300.0   # u from the lift axis: standing in the hub's atrium (outside the lift car) brings up ENTER MAIN HUB
 const DOCK_INTO_DECK := true   # v13.176: dock at a station with its own deck plan: you arrive in its docking bay, the 360 hub is a room inside
@@ -1940,9 +1940,9 @@ const SECTION_SHARE := 0.4
 const LOOT_RANGE := 700.0
 const TRACTOR_TIME := 4.0
 const HOSTAGE_SHOW_AT := 160.0        # v13.178 (owner): m: the hostage appears when you get this close (they're hidden till then)
-const HOSTAGE_TRACTOR_REACH := 120.0  # m: TRACTOR takes the hostage from this close
-const HOSTAGE_TOW_SIDE := 9.0        # m: in the beam they float at your right ...
-const HOSTAGE_TOW_BACK := -28.0       # m: ... a little ahead, so the chase camera sees them (v13.179)
+const HOSTAGE_TRACTOR_REACH := 160.0  # m: TRACTOR pulls the hostage's pod from this close
+const HOSTAGE_TALK_AT := 45.0         # v13.182 (owner): walk up, they talk and turn into a blue pod
+const HOSTAGE_STOW_AT := 14.0         # m: the pod reaches you: in the hold
 # v6.9 (owner): the SPECIAL is now an electric storm: every hostile in tractor range is shocked: shields gone, frozen in
 # place for a few seconds, and hit about as hard as a heavy (super) missile. Same rules for when it is ready (half hull,
 # then critical); until then a tap is still an evasive move.
