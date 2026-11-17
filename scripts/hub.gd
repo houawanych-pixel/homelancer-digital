@@ -189,7 +189,7 @@ func _ready() -> void:
 	walk_btn.offset_bottom = TOP_Y + Data.HUB_LAUNCH_SIZE.y + 10 + 46
 	walk_btn.add_theme_font_size_override("font_size", Data.ts(17))
 	walk_btn.visible = false
-	walk_btn.pressed.connect(func(): walk_requested.emit(rebuilt_id()))   # v13.165: "" = the station's own deck (main)
+	walk_btn.pressed.connect(func(): walk_requested.emit(walk_target()))   # v13.165: "" = the station's own deck (main)
 	add_child(walk_btn)
 	# v3.1 (owner's concept art): the station's services as a tab bar along the top
 	left = HBoxContainer.new()
@@ -2095,6 +2095,11 @@ func nav_cats() -> Array:
 		["supplies", "SUPPLIES", [["supplies", "REPAIR & AMMO"], ["repair", "MEDICAL BAY"]]], ["pilot", "PILOT", [["ship", "MY QUARTERS"], ["faction", "FACTION"]]]]
 
 ## v13.02: the rebuilt interior of the station you are docked at ("" = not rebuilt, or not the system's main station).
+## v13.173 (owner, Liberty Hub: "walk the station needs to be the same station as the boarding stations ... get rid of
+## this one"): WALK THE STATION always takes you onto the station's own boarding deck (main.walk_station), never the
+## graybox plan interior (that one opens from the Station Viewer's WALK INSIDE while the plans are reviewed).
+func walk_target() -> String: return ""
+
 func rebuilt_id() -> String:
 	if kind != "station" or not Data.SYSTEMS.has(GS.system_id): return ""
 	var st: Dictionary = Data.SYSTEMS[GS.system_id].get("station", {})
