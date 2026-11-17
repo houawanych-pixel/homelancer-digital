@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.170"
+const VERSION := "v13.171"
 ## v13.169 (owner: "no targets behind the wall"): inside a ship you and they need a clear line (no wall or shut door) to lock or fire
 const BOARD_LOS_FRAMES := 6   # re-checked every few frames per contact
 const BOARD_LOS_Y := 10.0     # chest high (boarding units)
@@ -2527,10 +2527,10 @@ const ENEMIES := {
 	"liberator_fighter_l3": {"name": "Liberator Fighter Mk III", "class": "fighter", "faction": "Liberator", "model": "liberator_fighter_l3", "radius": 11.0, "hit_r": 12.0, "hull": 240.0, "shield": 150.0, "speed": 50.0, "turn": 1.3, "damage": 18.0, "rate": 1.9, "reward": 690, "missiles": true, "level": 3},   # v11.68
 	# v1.9n (owner): the SILVER fleet invasion's big ships (capital = slow, turrets all round, a big hit box; missiles,
 	# mines and the special do set damage to them, not a share of their hull)
-	"inv_battleship": {"name": "Battleship", "model": "savager_carrier", "scale": 4.0, "hull": 4500.0, "shield": 1500.0, "speed": 14.0, "turn": 0.05, "damage": 9.0, "rate": 3.0, "reward": 3000, "capital": true, "hit_r": 248.0, "range": 2600.0, "radius": 280.0},
-	"inv_flagship": {"name": "Flagship", "model": "savager_carrier", "scale": 7.2, "hull": 7000.0, "shield": 2500.0, "speed": 10.0, "turn": 0.04, "damage": 10.0, "rate": 3.4, "reward": 5000, "capital": true, "hit_r": 420.0, "range": 3000.0, "radius": 480.0},   # v11.31: the huge destroyer
-	"inv_warship": {"name": "Warship", "model": "savager_cruiser", "scale": 6.0, "hull": 4500.0, "shield": 1500.0, "speed": 20.0, "turn": 0.08, "damage": 8.0, "rate": 2.4, "reward": 1500, "capital": true, "hit_r": 114.0, "range": 2200.0, "radius": 126.0},
-	"inv_destroyer": {"name": "Destroyer", "model": "savager_cruiser", "scale": 4.2, "hull": 3000.0, "shield": 1000.0, "speed": 28.0, "turn": 0.1, "damage": 7.0, "rate": 2.0, "reward": 1000, "capital": true, "hit_r": 84.0, "range": 2000.0, "radius": 90.0},
+	"inv_battleship": {"name": "Battleship", "model": "savager_carrier", "scale": 4.708, "hull": 4500.0, "shield": 1500.0, "speed": 14.0, "turn": 0.05, "damage": 9.0, "rate": 3.0, "reward": 3000, "capital": true, "hit_r": 291.9, "range": 2600.0, "radius": 329.5},   # v13.171 (owner: "the enemy battleships the same size too"): the stand-in at the universal class length (SHIP_CLASS_LEN)
+	"inv_flagship": {"name": "Flagship", "model": "savager_carrier", "scale": 4.708, "hull": 7000.0, "shield": 2500.0, "speed": 10.0, "turn": 0.04, "damage": 10.0, "rate": 3.4, "reward": 5000, "capital": true, "hit_r": 274.6, "range": 3000.0, "radius": 313.8},   # v11.31: the huge destroyer   # v13.171 (owner: "the enemy battleships the same size too"): the stand-in at the universal class length (SHIP_CLASS_LEN)
+	"inv_warship": {"name": "Warship", "model": "savager_cruiser", "scale": 7.200, "hull": 4500.0, "shield": 1500.0, "speed": 20.0, "turn": 0.08, "damage": 8.0, "rate": 2.4, "reward": 1500, "capital": true, "hit_r": 136.8, "range": 2200.0, "radius": 151.2},   # v13.171 (owner: "the enemy battleships the same size too"): the stand-in at the universal class length (SHIP_CLASS_LEN)
+	"inv_destroyer": {"name": "Destroyer", "model": "savager_cruiser", "scale": 5.750, "hull": 3000.0, "shield": 1000.0, "speed": 28.0, "turn": 0.1, "damage": 7.0, "rate": 2.0, "reward": 1000, "capital": true, "hit_r": 115.0, "range": 2000.0, "radius": 123.2},   # v13.171 (owner: "the enemy battleships the same size too"): the stand-in at the universal class length (SHIP_CLASS_LEN)
 	# v12.68: the uncharted zones' own people and beasts (no faction): wildlife, pirates, rogue drones, derelicts
 	"void_ray": {"name": "Void Ray", "class": "wildlife", "model": "void_ray", "radius": 10.0, "hull": 120.0, "shield": 0.0, "speed": 40.0, "turn": 1.1, "damage": 5.0, "rate": 2.4, "reward": 180, "zone": "wildlife"},
 	"void_ray_alpha": {"name": "Void Ray Alpha", "class": "wildlife", "model": "void_ray", "scale": 1.8, "radius": 16.0, "hull": 420.0, "shield": 0.0, "speed": 38.0, "turn": 1.0, "damage": 8.0, "rate": 2.2, "reward": 520, "zone": "wildlife"},
