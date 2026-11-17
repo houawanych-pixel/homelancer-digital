@@ -2207,6 +2207,12 @@ func _fleet_card(k: int, at: Vector3) -> void:
 	Sfx.play("button", -2.0, 1.2)
 	_popup(at + Vector3(0, 16, 0), "%s CARD" % ShipInterior.KEY_NAME[k], ShipInterior.KEY_COL[k])
 	message.emit("%s CARD TAKEN: the %s doors open for you now." % [ShipInterior.KEY_NAME[k], ShipInterior.KEY_NAME[k].to_lower()])
+	hail_face = "evee"
+	hail.emit("Evee", evee_card_line(k), false)   # v13.169 (owner: "when you get the keys Evee could say good job")
+
+## Evee when you get a card: "Good job! Now you've got the level 2 access key."
+static func evee_card_line(k: int) -> String:
+	return "Good job! Now you've got the level %d access key, the %s card. The %s doors open for you." % [k, ShipInterior.KEY_NAME[k].to_lower(), ShipInterior.KEY_NAME[k].to_lower()]
 
 func _fleet_done() -> void:
 	var fl: Dictionary = board.get("fleet", {})
@@ -2801,6 +2807,8 @@ var stealth_seen := Vector3.INF
 var door_codes := {}   # level -> this run's code (the carriers know it)
 var keypad := {}       # the pad you stand on: {door, level} (the HUD shows the keypad)
 var keypad_used := {}  # pads already answered (no popping up again while you stand there)
+var keypad_posts: Array = []   # v13.169: the door computers (tap one or target it, then walk up: the keypad)
+var keypad_wrong := 0          # (tests / HUD) wrong passwords typed
 func set_stealth(st: String, why := "") -> void:
 	if stealth == "" or stealth == st: return
 	if stealth == "alert" and st != "alert": return   # (an alert stays: the ship is locked down)
@@ -2913,6 +2921,8 @@ func _stealth_setup(root: Node3D, visit: bool) -> void:
 	stealth_seen = Vector3.INF
 	keypad = {}
 	keypad_used = {}
+	keypad_posts = []
+	keypad_wrong = 0
 	door_codes = {}
 	var rr := RandomNumberGenerator.new()
 	rr.randomize()
@@ -2953,6 +2963,11 @@ func _stealth_setup(root: Node3D, visit: bool) -> void:
 			root.add_child(post)
 			post.global_position = c + thru * sg * 3.0 + along * (half_w + Data.KEYPAD_OFF) + Vector3(0, at.y - c.y + 4.5, 0)
 			post.look_at(post.global_position + thru * sg, Vector3.UP)
+			post.name = "%s Door Computer" % ShipInterior.KEY_NAME[lv].capitalize()
+			post.set_meta("kind", "keypad")
+			post.set_meta("door_center", c)
+			post.set_meta("radius", 6.0)
+			keypad_posts.append(post)
 			(d["pads"] as Array).append(at)
 
 ## v13.156 (owner: "the ship is so empty, fighters everywhere ... load them when you open the doors, to save memory"):
@@ -2987,38 +3002,55 @@ func _room_spawns() -> void:
 					if not (board["guards"] as Dictionary).has(k): board["guards"][k] = []
 					board["guards"][k].append(g)
 
-## You stand on a door's pad: the keypad comes up (once per visit to the pad).
+## The card door a door computer stands by ({} = none).
+func _keypad_door(pst: Node3D) -> Dictionary:
+	var c: Vector3 = pst.get_meta("door_center", Vector3.INF)
+	for d in board_doors:
+		if d.has("center") and (d["center"] as Vector3).distance_to(c) < 0.5: return d
+	return {}
+
+## v13.169 (owner: "tap the computer screen, or target it, or step on the pressure pad to enter the password ... moving
+## off takes you off the menu"): the keypad comes up while you stand on a card door's floor pad, or while you have its
+## door computer targeted (tap it, or TARGET / NEXT) and stand near it. Step off / walk away: it goes. Once answered
+## or closed it stays down until you step off and come back.
 func _keypad_tick() -> void:
 	if not boarding or board_doors.is_empty() or not is_instance_valid(player): return
 	var p := player.global_position
+	var mk: float = Data.KEYPAD_MECH_K if GS.form == "mech" and not on_foot else 1.0
 	var on := {}
 	for d in board_doors:
 		if not d.has("pads") or bool(d.get("code_ok", false)) or _fleet_has(int(d.get("key", 0))): continue
 		for at: Vector3 in d["pads"]:
-			if Vector2(p.x - at.x, p.z - at.z).length() < Data.KEYPAD_R * (Data.KEYPAD_MECH_K if GS.form == "mech" and not on_foot else 1.0) and absf(p.y - at.y) < 40.0:
-				on = {"door": d, "level": int(d["key"])}
+			if Vector2(p.x - at.x, p.z - at.z).length() < Data.KEYPAD_R * mk and absf(p.y - at.y) < 40.0:
+				on = {"door": d, "level": int(d["key"]), "how": "pad"}
+	if on.is_empty() and target != null and is_instance_valid(target) and str(target.get_meta("kind", "")) == "keypad":
+		var dd := _keypad_door(target)
+		if not dd.is_empty() and not bool(dd.get("code_ok", false)) and not _fleet_has(int(dd.get("key", 0))) and target.global_position.distance_to(p) < Data.KEYPAD_REACH * mk:
+			on = {"door": dd, "level": int(dd["key"]), "how": "computer"}
 	if on.is_empty():
 		keypad = {}
 		keypad_used = {}
 		return
+	if not keypad.is_empty() and (keypad["door"] as Dictionary) != (on["door"] as Dictionary): keypad = {}
 	if keypad.is_empty() and not keypad_used.has(hash((on["door"] as Dictionary)["center"])):
 		keypad = on
-		message.emit("%s DOOR · PUNCH IN THE CODE" % ShipInterior.KEY_NAME[int(on["level"])])
+		message.emit("%s DOOR · PUNCH IN THE PASSWORD" % ShipInterior.KEY_NAME[int(on["level"])])
 
-## The code typed at the pad: ACCESS GRANTED opens the door for good, ACCESS DENIED doesn't.
+## The code typed: ACCESS GRANTED opens the door for good. A wrong one says so and the keypad stays up to try again.
 func keypad_enter(code: String) -> bool:
 	if keypad.is_empty(): return false
 	var d: Dictionary = keypad["door"]
 	var lv := int(keypad["level"])
-	keypad_used[hash(d["center"])] = true
-	keypad = {}
 	if code == str(Data.DOOR_MASTER.get(lv, "")) or code == str(door_codes.get(lv, "")):
+		keypad_used[hash(d["center"])] = true
+		keypad = {}
 		d["code_ok"] = true
 		Sfx.play("pickup", -6.0)
 		message.emit("ACCESS GRANTED")
 		return true
+	keypad_wrong += 1
 	Sfx.play("hull_hit", -8.0, 0.6)
-	message.emit("ACCESS DENIED")
+	message.emit("WRONG PASSWORD · ACCESS DENIED")
 	return false
 func keypad_close() -> void:
 	if not keypad.is_empty(): keypad_used[hash((keypad["door"] as Dictionary)["center"])] = true
@@ -3116,9 +3148,22 @@ func _board_aware(e: Dictionary, dist: float) -> bool:
 ## Can you see / target this one? (Inside: only those in your room, or that have already seen you.)
 func board_known(e: Dictionary) -> bool:
 	if not boarding: return true
-	if e.get("alerted", false) or e.get("board_core", false): return true
+	if e.get("board_core", false): return true
+	if e.get("alerted", false): return is_instance_valid(e["node"]) and board_los(e["node"])   # v13.169 (owner: "no targets behind the wall"): alerted, but only in sight
 	var here := str(board.get("room", ""))
 	return here != "" and is_instance_valid(e["node"]) and Boarding.room_at((e["node"] as Node3D).global_position, 8.0) == here
+
+## v13.169 (owner: "there should be no targets behind the wall that I can lock onto, or they lock on me"): inside a ship,
+## can you and this one see each other (no wall or shut door between, chest high)? Kept for a few frames per node.
+var _los_cache := {}
+func board_los(n: Node3D) -> bool:
+	if not boarding or not is_instance_valid(n) or not is_instance_valid(player): return true
+	var f := Engine.get_process_frames()
+	var c: Array = _los_cache.get(n.get_instance_id(), [-99, true])
+	if f - int(c[0]) < Data.BOARD_LOS_FRAMES: return bool(c[1])
+	var ok := board_wall_t(player.global_position + Vector3(0, Data.BOARD_LOS_Y, 0), n.global_position + Vector3(0, Data.BOARD_LOS_Y, 0)) >= 1.0
+	_los_cache[n.get_instance_id()] = [f, ok]
+	return ok
 
 ## v12.46: the walls (and shut doors) a shot can't pass: the deck's boxes on a 64 m grid, built once.
 const WALL_CELL := 64.0
@@ -6205,7 +6250,7 @@ func _player_mech_model() -> Node3D:
 	if (escape_pilot or on_foot) and PilotRig.ready():
 		pilot_rig = PilotRig.new()
 		var gl: Array = Loadout.pilot_glbs() if loadout_on else ["", ""]   # v12.76: your head on your suit (the bench's choice)
-		var pm := pilot_rig.build(Data.FOOT_H if on_foot else esc_h(), 6.0, str(gl[0]), str(gl[1]), Loadout.pilot_head_yaw() if loadout_on else INF)
+		var pm := pilot_rig.build(Data.FOOT_H if on_foot else esc_h(), Data.PILOT_FEET_BELOW, str(gl[0]), str(gl[1]), Loadout.pilot_head_yaw() if loadout_on else INF)
 		var pw := str(Loadout.active_set(Loadout.current("pilot")).get("R_Hand", ""))
 		if fleet_mech(): pw = Data.SHIP_PILOT_GUN   # v13.134 (owner: "use the GLB mech weapon"): inside a fleet ship, the plain mech gun
 		var alarm := escape_pilot and not fleet_mech() and not on_foot   # v13.162: the station alarm (breakout)
@@ -7965,6 +8010,12 @@ func ship_nodes() -> Array:
 	if is_instance_valid(escort_node): out.append(escort_node)
 	for c in get_children():
 		if c is Node3D and str(c.get_meta("kind", "")) == "board_target": out.append(c)
+	if boarding and is_instance_valid(player):   # v13.169: the door computers near you, in sight, while their door is still shut to you
+		for pst in keypad_posts:
+			if not is_instance_valid(pst): continue
+			var dd := _keypad_door(pst)
+			if dd.is_empty() or bool(dd.get("code_ok", false)) or _fleet_has(int(dd.get("key", 0))): continue
+			if (pst as Node3D).global_position.distance_to(player.global_position) < Data.KEYPAD_SEE and board_los(pst): out.append(pst)
 	return out.filter(func(n): return n != null and is_instance_valid(n) and (n as Node3D).visible)
 
 func front_targets() -> Array:
@@ -7973,6 +8024,10 @@ func front_targets() -> Array:
 	var cand: Array = ship_nodes()
 	for n in targetables(): if n != null and is_instance_valid(n) and not cand.has(n): cand.append(n)
 	var sc: Array = []
+	if boarding:   # v13.169: inside, only the ones you can see (and the job's own markers)
+		var hidden := {}
+		for e in enemies: if not board_known(e): hidden[e["node"]] = true
+		cand = cand.filter(func(n): return not hidden.has(n))
 	for n in cand:
 		var to: Vector3 = (n as Node3D).global_position - pp
 		var d := maxf(0.0, to.length() - float((n as Node3D).get_meta("radius", 0.0)) * 0.5)
@@ -9824,13 +9879,14 @@ func _update_enemies(dt: float) -> void:
 		if walker and _sea_at(n.global_position.x + e["vel"].x * dt * 8.0, n.global_position.z + e["vel"].z * dt * 8.0) and not _sea_at(n.global_position.x, n.global_position.z): e["vel"] = Vector3.ZERO   # it does not walk into the sea
 		n.global_position += e["vel"] * dt
 		if walker and surface_mode: n.global_position.y = _ground(n.global_position.x, n.global_position.z) + Data.WALKER_STAND * float(e.get("stand_k", 1.0))   # (v1.9i: a boss stands taller)
-		if d.get("missiles", false) and e["aggro"] and controls and warp_state != "on" and dist < Data.ENEMY_MISSILE_RANGE:
+		var sees := not boarding or board_los(n)   # v13.169: inside, nobody locks on or fires at you through a wall
+		if d.get("missiles", false) and e["aggro"] and sees and controls and warp_state != "on" and dist < Data.ENEMY_MISSILE_RANGE:
 			if not e.has("mcd"): e["mcd"] = _rng.randf_range(Data.ENEMY_MISSILE_EVERY[0], Data.ENEMY_MISSILE_EVERY[1]) * 0.5
 			e["mcd"] = float(e["mcd"]) - dt
 			if e["mcd"] <= 0.0 and (-n.global_basis.z).dot(to.normalized()) > 0.5:
 				e["mcd"] = _rng.randf_range(Data.ENEMY_MISSILE_EVERY[0], Data.ENEMY_MISSILE_EVERY[1])
 				enemy_fire_missile(e)
-		if is_l3(d) and e["aggro"] and controls and warp_state != "on":   # v11.97 (owner): Level 3 ships fire super missiles and drop mines
+		if is_l3(d) and e["aggro"] and sees and controls and warp_state != "on":   # v11.97 (owner): Level 3 ships fire super missiles and drop mines
 			if not e.has("scd"): e["scd"] = _rng.randf_range(Data.ENEMY_SUPER_EVERY[0], Data.ENEMY_SUPER_EVERY[1]) * 0.5
 			if not e.has("mncd"): e["mncd"] = _rng.randf_range(Data.ENEMY_MINE_EVERY[0], Data.ENEMY_MINE_EVERY[1]) * 0.5
 			e["scd"] = float(e["scd"]) - dt
@@ -9846,7 +9902,7 @@ func _update_enemies(dt: float) -> void:
 		e["core_cd"] -= dt
 		var facing: bool = (-n.global_basis.z).dot(to.normalized()) > cos(deg_to_rad(12.0))
 		if walker: facing = (-n.global_basis.z).dot(Vector3(to.x, 0, to.z).normalized()) > cos(deg_to_rad(14.0))   # it aims its guns up; only the body has to face you
-		if e["aggro"] and controls and dist < 420.0 and facing:
+		if e["aggro"] and sees and controls and dist < 420.0 and facing:
 			var lead := tpos + tvel * (dist / 300.0)
 			var guns := unit_guns(e)
 			if e["cd"] <= 0.0 and not guns.is_empty():
@@ -10205,7 +10261,10 @@ func _update_laser_shield(dt: float) -> void:
 		player.add_child(_lshield)
 	_lshield.visible = true
 	var a := _lshield_angle()
-	_lshield.position = Vector3(-sin(a), 0.0, -cos(a)) * Data.LSHIELD_DIST + Vector3(0, Data.LSHIELD_Y, 0)
+	# v13.169 (owner: "the pilot has a shield above his head ... it should be scaled to him"): out of the mech it is his size, at his chest
+	var pk: float = (esc_h() if escape_pilot else Data.FOOT_H) / Data.LSHIELD_MECH_H if (escape_pilot or on_foot) else 1.0
+	_lshield.scale = Vector3.ONE * pk
+	_lshield.position = Vector3(-sin(a), 0.0, -cos(a)) * Data.LSHIELD_DIST * pk + Vector3(0, Data.LSHIELD_Y if pk >= 1.0 else (esc_h() if escape_pilot else Data.FOOT_H) * Data.LSHIELD_PILOT_Y - Data.PILOT_FEET_BELOW, 0)
 	_lshield.rotation = Vector3(0, a, 0)
 	var face2 := _lshield.get_node("Face") as MeshInstance3D
 	(face2.material_override as StandardMaterial3D).albedo_color = Color(Data.LSHIELD_COLOR, Data.LSHIELD_COLOR.a * (0.85 + 0.15 * sin(Time.get_ticks_msec() * 0.008)))
@@ -15018,8 +15077,7 @@ static func _fleet_standin(e: Dictionary) -> Node3D:
 	n.name = "%s (PLACEHOLDER)" % str(e["name"])
 	n.set_meta("kind", "fleet_visitor")
 	n.set_meta("fleet_id", e["id"])
-	var ln := float(e["stats"]["len"])
-	if FleetCatalog.model_ready(str(e["id"])): ln *= float(Data.FLEET9_LEN_K.get(str(e["class"]), 1.0))   # v13.141 (owner: "capital ship way too big")
+	var ln := float(Data.SHIP_CLASS_LEN.get(str(e["class"]), float(e["stats"]["len"])))   # v13.169: the universal class length (every faction the same)
 	n.set_meta("radius", ln * 0.4)
 	var tex: Texture2D = load(str(e["token"])) if ResourceLoader.exists(str(e["token"])) else null
 	var aspect := 0.6

@@ -126,7 +126,22 @@ func _clip_pose(dt: float, speed: float) -> bool:
 	var y: float = float(p.get("lift", 0.0)) * _drv.hip_h * sc if air else _drv.plant_offset() * sc
 	_last = p
 	body.position.y = lerpf(body.position.y, y, minf(1.0, dt * 20.0))
+	_follow_hand()
 	return true
+
+## v13.169 (owner: "his weapon isn't held correctly"): the held gun's grip goes to his right palm every frame (where
+## the clip and the arm aim put the hand now), in the body's own space, so it never floats off the hand.
+func _follow_hand() -> void:
+	var g := body.get_node_or_null("Held") as Node3D
+	if g == null or skel == null: return
+	var h := skel.find_bone("R_Hand")
+	var f := skel.find_bone("R_Forearm")
+	if h < 0: return
+	var to_body := _rel(skel, body)
+	var hp: Vector3 = to_body * skel.get_bone_global_pose(h).origin
+	if f >= 0: hp += (hp - to_body * skel.get_bone_global_pose(f).origin) * 0.3
+	var ms := g.get_node_or_null("MountSocket") as Node3D
+	g.position = hp - (g.basis * ms.position if ms != null else Vector3.ZERO)
 
 func pose(dt: float, speed: float, run_speed: float) -> void:
 	if skel == null or not is_instance_valid(skel): return
@@ -146,6 +161,7 @@ func pose(dt: float, speed: float, run_speed: float) -> void:
 	_aim("R_Forearm", "R_Hand", Vector3(-0.25, 0.05, -1.0))
 	_aim("L_Upperarm", "L_Forearm", Vector3(0.3, -0.6, -0.75))
 	_aim("L_Forearm", "L_Hand", Vector3(0.45, 0.1, -1.0))
+	_follow_hand()
 
 func _turn(name: String, axis: Vector3, a: float) -> void:
 	var b := skel.find_bone(name)
@@ -217,6 +233,7 @@ func hold(g: Node3D) -> bool:
 	body.add_child(g)
 	var ms := g.get_node_or_null("MountSocket") as Node3D
 	g.position = hp - (g.basis * ms.position if ms != null else Vector3.ZERO)
+	_follow_hand()
 	return true
 
 static func _aabb(n: Node) -> AABB:

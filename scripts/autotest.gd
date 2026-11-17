@@ -1773,6 +1773,48 @@ func _showcase() -> void:
 
 ## An env flag, or on the web the same name in the page address (?autotest&HL_V19Z) to run one job in the browser.
 var _shots_done := {}
+## v13.169 (owner: "do the card locks ... step on the pressure pad or tap the computer to enter the password ... moving
+## off takes you off the menu ... a wrong one tells you ... Evee says good job, now you've got the level 2 access key").
+func _station_cards_test(s: StationInterior) -> void:
+	s.place("D1", s.room_point("D1", str(s.level()["rooms"][0]["name"])))
+	await _wait(0.4)
+	var lock := {}
+	for g in s.gates:
+		if int(g["level"]) == s.level_i and int(g.get("key", 0)) == 1 and g.has("pad"): lock = g
+	_check("v13.169: the hangar has yellow card doors, shut to you", not lock.is_empty() and not s.may_pass(lock), str(lock.get("key", -1)))
+	if lock.is_empty(): return
+	s.place("D1", lock["pad"])
+	await _wait(0.4)
+	_check("v13.169: standing on its pad brings up the keypad", not s.kp_gate.is_empty() and is_instance_valid(s._kp_panel))
+	await _shot("stdeck_keypad")
+	var bad: bool = s.keypad_enter("0000")
+	await _wait(0.2)
+	_check("v13.169: a wrong password says so and the keypad stays up", not bad and s.kp_wrong == 1 and not s.kp_gate.is_empty() and s._toast.text.containsn("WRONG"), s._toast.text)
+	var pad0: Vector3 = lock["pad"]
+	s.place("D1", pad0 + Vector3(6, 0, 6))
+	await _wait(0.4)
+	_check("v13.169: stepping off the pad takes the keypad away", s.kp_gate.is_empty() and not is_instance_valid(s._kp_panel))
+	s.place("D1", pad0)
+	await _wait(0.4)
+	var ok: bool = s.keypad_enter(str(Data.DOOR_MASTER[1]))
+	_check("v13.169: the right password opens that door for good", ok and s.may_pass(lock) and s.kp_gate.is_empty())
+	# the yellow card's room: walk in, it's yours, and Evee says so
+	var card_room := ""
+	for r in s.level()["rooms"]: if int(r.get("card", 0)) == 1: card_room = str(r["name"])
+	s.place("D1", s.room_point("D1", card_room))
+	await _wait(0.5)
+	_check("v13.169: walking into %s takes the yellow card; Evee: good job, level 1 access key" % card_room, s.cards == 1 and s.evee_said.size() > 0 and str(s.evee_said[-1]).containsn("level 1 access key"), str(s.evee_said))
+	await _shot("stdeck_card_evee")
+	# the lift: COMMAND needs the RED card
+	var pad := {}
+	for p in s.lift_pads: if int(p["level"]) == 1: pad = p
+	s.place("D4", pad["pos"])
+	await _wait(0.3)
+	var went: bool = s.ride(-1)
+	_check("v13.169: the lift won't take you to COMMAND without the RED card", not went and str(s.level()["id"]) == "D4", str(s.level()["id"]))
+	s.cards = 3
+	_check("v13.169: with the RED card it does", s.ride(-1) and str(s.level()["id"]) == "D5", str(s.level()["id"]))
+
 func _flag(n: String) -> bool:
 	if OS.get_environment(n) != "": return true
 	if OS.has_feature("web"): return str(JavaScriptBridge.eval("location.search", true)).find(n) >= 0
@@ -2091,6 +2133,26 @@ func _run() -> void:
 			var lv := int(d0["key"])
 			for k in (Array(str(Data.DOOR_MASTER[lv]).split("")) + ["OK"]): main.hud.keypad_press(str(k))
 			_check("v13.144: the pad brings up the keypad; a wrong code is ACCESS DENIED, the master code ACCESS GRANTED", opened and denied and bool(d0.get("code_ok", false)), "open %s denied %s ok %s · you %s pad %s" % [opened, denied, d0.get("code_ok", false), str(s.player.global_position.round()), str(pad.round())])
+			# v13.169 (owner: "tap the computer screen, or select it as a target"): another card door's computer, targeted
+			var kd2: Array = kd.filter(func(d): return not bool(d.get("code_ok", false)) and not s._fleet_has(int(d.get("key", 0))))
+			if not kd2.is_empty():
+				var d1: Dictionary = kd2[0]
+				var post: Node3D = null
+				for pst in s.keypad_posts: if is_instance_valid(pst) and (pst as Node3D).get_meta("door_center") == d1["center"]: post = pst
+				_check("v13.169: every card door has its door computer, a target", post != null and str(post.get_meta("kind", "")) == "keypad")
+				if post != null:
+					var by: Vector3 = (d1["pads"][0] as Vector3).lerp(post.global_position, 0.5)
+					for i in 6:
+						s.player.global_position = Vector3(by.x, (d1["pads"][0] as Vector3).y + 6.0, by.z)
+						s.target = post
+						await get_tree().process_frame
+					var near_on: bool = not s.keypad.is_empty() and str(s.keypad.get("how", "")) in ["computer", "pad"] and is_instance_valid(main.hud.keypad_panel)
+					for k in ["1", "1", "1", "1", "OK"]: main.hud.keypad_press(k)
+					var wrong_up: bool = not s.keypad.is_empty() and s.keypad_wrong >= 1
+					for i in 6:
+						s.player.global_position = post.global_position + (post.global_position - (d1["center"] as Vector3)).normalized() * 220.0
+						await get_tree().process_frame
+					_check("v13.169: the targeted computer brings up the keypad; a wrong password keeps it up; walking away closes it", near_on and wrong_up and s.keypad.is_empty(), "on %s wrong %s gone %s" % [near_on, wrong_up, s.keypad.is_empty()])
 		# TALK: a card carrier gives his code
 		var car: Array = s.enemies.filter(func(e): return e.has("code") and not bool((Boarding.ROOMS.get(Boarding.room_at((e["node"] as Node3D).global_position), {}) as Dictionary).get("pilot", false)))
 		if not car.is_empty():
@@ -3728,7 +3790,7 @@ func _run() -> void:
 				var capn: Node3D = s.fleet_visitors[0]["node"]
 				var fm := capn.find_child("FleetModel", false, false) as Node3D
 				var bx := ShipFactory._aabb(fm, Transform3D.IDENTITY) if fm else AABB()
-				_check("v13.140: the capital model is its class length, longest along Z", fm != null and absf(bx.size.z - 1360.0 * float(Data.FLEET9_LEN_K["Capital"])) < 30.0 and bx.size.z >= bx.size.x, str(bx.size))
+				_check("v13.140: the capital model is its class length, longest along Z", fm != null and absf(bx.size.z - float(Data.SHIP_CLASS_LEN["Capital"])) < 30.0 and bx.size.z >= bx.size.x, str(bx.size))
 			else: _check("v13.140: %s keeps its placeholders (no models yet)" % fac, real.is_empty())
 			if fac == "Unity":
 				# v13.143 (owner): TARGET picks the fleet ship in front of you, NEXT the next one; scan; REQUEST BOARDING
@@ -3845,6 +3907,8 @@ func _run() -> void:
 			var y_before := s.body.global_position.y
 			await _wait(0.5)
 			_check("v13.168: %s: you stand on the deck" % mk, absf(s.body.global_position.y - y_before) < 1.0, "%.2f %.2f" % [y_before, s.body.global_position.y])
+			if mk == "HL_Station_Elyza_Military_retopo":   # v13.169: the card locks, the door keypad, Evee
+				await _station_cards_test(s)
 			s.close()
 			await _wait(0.4)
 		_finish_group()

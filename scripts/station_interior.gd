@@ -489,7 +489,11 @@ func _key_glow(k: int) -> StandardMaterial3D:
 	return _door_res[kk]
 func _build_doors(i: int) -> void:
 	if _doors_built == i or not _door_specs.has(i): return
-	for g0 in gates: if is_instance_valid(g0["node"]): (g0["node"] as Node).queue_free()
+	for g0 in gates:
+		if is_instance_valid(g0["node"]): (g0["node"] as Node).queue_free()
+		for x in g0.get("extra", []): if is_instance_valid(x): (x as Node).queue_free()
+	kp_gate = {}
+	if is_instance_valid(_kp_panel): _kp_panel.queue_free()
 	gates = []
 	_doors_built = i
 	var sp: Dictionary = _door_specs[i]
@@ -528,7 +532,10 @@ func _build_doors(i: int) -> void:
 		gcs.position.y = DOOR_H * 0.5
 		gb.add_child(gcs)
 		g.add_child(gb)
-		gates.append({"node": g, "pos": g.position, "level": i, "a": leaves[0], "b": leaves[1], "shape": gcs, "wide": wide, "k": 0.0, "open": false})
+		var gk := int(d.get("key", 0)) if carded() else 0
+		var gate := {"node": g, "pos": g.position, "level": i, "a": leaves[0], "b": leaves[1], "shape": gcs, "wide": wide, "k": 0.0, "open": false, "key": gk}
+		if gk > 0: _keypad_spot(g, gate, wide, gk)
+		gates.append(gate)
 
 func _show_level() -> void:
 	_build_doors(level_i)
@@ -557,6 +564,9 @@ func ride(dir: int) -> bool:
 	if at_lift.is_empty(): return false
 	var to := lift_stop(at_lift, dir)
 	if to.is_empty(): return false
+	if carded() and str(data["levels"][int(to["level"])]["id"]) == "D5" and cards < 3:   # v13.169: the main lift takes you to COMMAND with the RED card
+		toast("COMMAND DECK · the lift needs the RED card", 2.5)
+		return false
 	body.global_position = (to["pos"] as Vector3) + Vector3(0, 0.1, 0)
 	body.velocity = Vector3.ZERO
 	level_i = int(to["level"])
@@ -571,6 +581,7 @@ func _gui_input(ev: InputEvent) -> void:
 		var pressed: bool = ev.pressed
 		var idx: int = ev.index if ev is InputEventScreenTouch else 0
 		var left_side: bool = ev.position.x < size.x * 0.5
+		if pressed and tap_computer(ev.position): return
 		if pressed:
 			if left_side and _stick_id == -1: _stick_id = idx; _stick_from = ev.position
 			elif not left_side and _look_id == -1: _look_id = idx; _look_last = ev.position
@@ -609,6 +620,9 @@ func _physics_process(dt: float) -> void:
 		if int(g["level"]) != level_i: continue
 		var d := Vector2(me.x - (g["pos"] as Vector3).x, me.z - (g["pos"] as Vector3).z).length()
 		var want: bool = d < float(g["wide"]) * 0.5 + 5.0
+		if want and not may_pass(g):   # v13.169: a card door stays shut until you hold its card (or punched in its password)
+			want = false
+			if d < float(g["wide"]) * 0.5 + 3.0 and kp_gate.is_empty() and _toast_t <= 0.2: toast("%s DOOR · needs the %s card%s" % [KEY_WORD[int(g["key"])], KEY_WORD[int(g["key"])].to_lower(), " (or the password at the door computer)" if DOOR_CODES.has(int(g["key"])) else ""], 1.2)
 		if want != bool(g["open"]):
 			g["open"] = want
 			(g["shape"] as CollisionShape3D).disabled = want
@@ -632,11 +646,264 @@ func _physics_process(dt: float) -> void:
 				b.text = "%s  %s %s" % ["▲" if dir2 == -1 else "▼", str(tl["id"]), str(tl["name"])]
 	room_now = room_at(me)
 	_room.text = room_now if room_now != "" else "Concourse"
+	if carded(): _cards_tick(me)
 	service_now = service_of(room_now) if services_on else []
 	_svc_btn.visible = not service_now.is_empty()
 	if not service_now.is_empty(): _svc_btn.text = "OPEN  " + str(service_now[2])
 	var ext := float(level().get("map_extent_m", data["extent_m"]))   # (a deck's map may be cropped to the station)
 	dot.position = Vector2((me.x / ext + 0.5) * minimap.size.x, (me.z / ext + 0.5) * minimap.size.y) - dot.size * 0.5
+
+# ---------------------------------------------------------------- v13.169 the cards (the five-deck plans)
+## Owner: "do the card locks ... tap the computer screen or step on the pressure pad to enter the password ... moving
+## off takes you off the menu ... a wrong one tells you ... when you get the keys Evee says good job". A plan from
+## tools/trace/station_to_int.py (it has a "chain") has card doors: YELLOW 1, ORANGE 2, RED 3, PURPLE 4. A card lies in
+## its room (walk in: it's yours); a higher card opens the lower doors too. Every card door has a floor pad and a
+## computer beside it on the way side: stand on the pad, or tap the computer and walk up to it, and the keypad comes up.
+const KEY_WORD := ["OPEN", "YELLOW", "ORANGE", "RED", "PURPLE"]
+const KEY_COLS2 := [Color(0.25, 1.0, 0.4), Color(1.0, 0.9, 0.2), Color(1.0, 0.55, 0.1), Color(1.0, 0.22, 0.2), Color(0.8, 0.3, 0.9)]
+const DOOR_CODES := {1: true, 2: true, 3: true}   # the levels a password opens (the owner's codes, Data.DOOR_MASTER); PURPLE: the card only
+const PAD_R := 1.6           # m: standing on the pad
+const COMPUTER_REACH := 4.5  # m: near enough to the tapped computer
+var cards := 0               # the highest card you hold
+var codes_ok := {}           # gate key (its position) -> the password was right
+var objective_done := false
+var kp_gate := {}            # the gate the keypad is up for ({} = none)
+var kp_target: Node3D = null # the computer you tapped
+var kp_used := {}            # answered / closed: not again until you step away
+var kp_code := ""
+var kp_wrong := 0            # (tests)
+var _kp_panel: PanelContainer
+var _toast: Label
+var _toast_t := 0.0
+var _evee: PanelContainer
+var _evee_t := 0.0
+var evee_said: Array = []    # (tests) what Evee said
+
+func carded() -> bool: return data.has("chain")
+func _gkey(g: Dictionary) -> String: return "%d_%.1f_%.1f" % [int(g["level"]), (g["pos"] as Vector3).x, (g["pos"] as Vector3).z]
+func may_pass(g: Dictionary) -> bool:
+	var k := int(g.get("key", 0))
+	return k <= 0 or cards >= k or codes_ok.has(_gkey(g))
+
+## The pad and the computer by a card door, on the side you come from (the way).
+func _keypad_spot(g: Node3D, gate: Dictionary, wide: float, k: int) -> void:
+	var fwd := -g.global_basis.z     # the way you walk through (from the way into the room)
+	var side := g.global_basis.x
+	var pad := MeshInstance3D.new()
+	pad.name = "KeypadPad"
+	var pm := CylinderMesh.new()
+	pm.top_radius = PAD_R; pm.bottom_radius = PAD_R; pm.height = 0.08
+	pad.mesh = pm
+	pad.material_override = _glow(KEY_COLS2[k])
+	world.add_child(pad)
+	pad.global_position = g.global_position - fwd * 3.2 + side * (wide * 0.5 + 1.6) + Vector3(0, 0.05, 0)
+	var post := MeshInstance3D.new()
+	post.name = "DoorComputer"
+	var bm := BoxMesh.new(); bm.size = Vector3(1.0, 1.6, 0.35)
+	post.mesh = bm
+	post.material_override = _mat(Color(0.18, 0.22, 0.28), 0.25)
+	var scr := MeshInstance3D.new()
+	var sm := BoxMesh.new(); sm.size = Vector3(0.8, 0.55, 0.05)
+	scr.mesh = sm
+	scr.material_override = _glow(KEY_COLS2[k])
+	scr.position = Vector3(0, 0.35, -0.2)
+	post.add_child(scr)
+	world.add_child(post)
+	post.global_position = g.global_position - fwd * 0.9 + side * (wide * 0.5 + 1.0) + Vector3(0, 1.2, 0)
+	post.look_at(post.global_position - fwd, Vector3.UP)
+	gate["pad"] = pad.global_position
+	gate["computer"] = post
+	gate["extra"] = [pad, post]
+
+## A tap on a door computer on screen picks it (true = the tap was on one).
+func tap_computer(at: Vector2) -> bool:
+	if not carded() or not is_instance_valid(cam): return false
+	var best: Node3D = null
+	var bd := 80.0
+	for g in gates:
+		if int(g["level"]) != level_i or may_pass(g) or not g.has("computer"): continue
+		var c: Node3D = g["computer"]
+		if not is_instance_valid(c) or cam.is_position_behind(c.global_position) or c.global_position.distance_to(body.global_position) > 30.0: continue
+		var dd := cam.unproject_position(c.global_position).distance_to(at)
+		if dd < bd: bd = dd; best = c
+	if best == null: return false
+	kp_target = best
+	if best.global_position.distance_to(body.global_position) > COMPUTER_REACH: toast("DOOR COMPUTER · walk up to it", 2.0)
+	return true
+
+func _cards_tick(me: Vector3) -> void:
+	# a card in the room you walked into
+	for r in level()["rooms"]:
+		if str(r["name"]) != room_now: continue
+		var ck := int(r.get("card", 0))
+		if ck > cards:
+			cards = ck
+			Sfx.play("pickup", -4.0)
+			toast("%s CARD TAKEN · level %d access" % [KEY_WORD[ck], ck], 3.0)
+			evee("Good job! Now you've got the level %d access key, the %s card. The %s doors open for you." % [ck, KEY_WORD[ck].to_lower(), KEY_WORD[ck].to_lower()])
+		if bool(r.get("objective", false)) and not objective_done:
+			objective_done = true
+			Sfx.play("pickup", -2.0, 0.8)
+			toast("OBJECTIVE · %s reached" % str(r["name"]).to_upper(), 4.0)
+			evee("You made it to the %s. That's the job done here." % str(r["name"]))
+	# the keypad: on a pad, or near the computer you tapped
+	var on := {}
+	for g in gates:
+		if int(g["level"]) != level_i or may_pass(g) or not g.has("pad"): continue
+		if Vector2(me.x - (g["pad"] as Vector3).x, me.z - (g["pad"] as Vector3).z).length() < PAD_R: on = g
+		elif kp_target != null and g.get("computer") == kp_target and kp_target.global_position.distance_to(me) < COMPUTER_REACH: on = g
+	if on.is_empty():
+		kp_used = {}
+		if not kp_gate.is_empty(): keypad_close(false)
+		if kp_target != null and is_instance_valid(kp_target) and kp_target.global_position.distance_to(me) > 30.0: kp_target = null
+	elif kp_gate.is_empty() and not kp_used.has(_gkey(on)):
+		_keypad_open(on)
+	elif not kp_gate.is_empty() and _gkey(kp_gate) != _gkey(on):
+		keypad_close(false)
+	if _toast_t > 0.0:
+		_toast_t -= get_physics_process_delta_time()
+		if _toast_t <= 0.0: _toast.visible = false
+	if _evee_t > 0.0:
+		_evee_t -= get_physics_process_delta_time()
+		if _evee_t <= 0.0: _evee.visible = false
+
+func toast(t: String, sec := 2.0) -> void:
+	if not is_instance_valid(_toast):
+		_toast = Label.new()
+		_toast.name = "Toast"
+		_toast.set_anchors_preset(Control.PRESET_CENTER_TOP)
+		_toast.position = Vector2(-400, 210)
+		_toast.custom_minimum_size = Vector2(800, 0)
+		_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_toast.add_theme_font_size_override("font_size", 24)
+		_toast.add_theme_constant_override("outline_size", 8)
+		_toast.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+		_toast.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
+		add_child(_toast)
+	_toast.text = t
+	_toast.visible = true
+	_toast_t = sec
+
+## Evee, on the comms (her face and the line), for a few seconds.
+func evee(line: String) -> void:
+	evee_said.append(line)
+	if not is_instance_valid(_evee):
+		_evee = PanelContainer.new()
+		_evee.name = "Evee"
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0.02, 0.06, 0.1, 0.9)
+		sb.border_color = Color(1.0, 0.82, 0.25)
+		sb.set_border_width_all(2)
+		sb.set_corner_radius_all(10)
+		sb.set_content_margin_all(10)
+		_evee.add_theme_stylebox_override("panel", sb)
+		var hb := HBoxContainer.new()
+		hb.add_theme_constant_override("separation", 12)
+		_evee.add_child(hb)
+		var face := TextureRect.new()
+		face.custom_minimum_size = Vector2(84, 84)
+		face.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		face.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		if ResourceLoader.exists("res://assets/portraits/evee_normal.png"): face.texture = load("res://assets/portraits/evee_normal.png")
+		hb.add_child(face)
+		var lb := Label.new()
+		lb.name = "Line"
+		lb.custom_minimum_size = Vector2(440, 0)
+		lb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		lb.add_theme_font_size_override("font_size", 19)
+		hb.add_child(lb)
+		_evee.position = Vector2(20, 90)
+		add_child(_evee)
+	(_evee.find_child("Line", true, false) as Label).text = "EVEE: " + line
+	_evee.visible = true
+	_evee_t = 6.0
+
+func _keypad_open(g: Dictionary) -> void:
+	kp_gate = g
+	kp_code = ""
+	var k := int(g["key"])
+	if is_instance_valid(_kp_panel): _kp_panel.queue_free()
+	_kp_panel = PanelContainer.new()
+	_kp_panel.name = "Keypad"
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.02, 0.06, 0.1, 0.94)
+	sb.border_color = KEY_COLS2[k]
+	sb.set_border_width_all(3)
+	sb.set_corner_radius_all(10)
+	sb.set_content_margin_all(12)
+	_kp_panel.add_theme_stylebox_override("panel", sb)
+	var v := VBoxContainer.new()
+	_kp_panel.add_child(v)
+	var title := Label.new()
+	title.text = "%s DOOR · PUNCH IN THE PASSWORD" % KEY_WORD[k] if DOOR_CODES.has(k) else "%s DOOR · CARD ONLY" % KEY_WORD[k]
+	title.add_theme_font_size_override("font_size", 16)
+	v.add_child(title)
+	var disp := Label.new()
+	disp.name = "Display"
+	disp.text = "_ _ _ _"
+	disp.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	disp.add_theme_font_size_override("font_size", 32)
+	v.add_child(disp)
+	var gr := GridContainer.new()
+	gr.columns = 3
+	v.add_child(gr)
+	for key in ["1", "2", "3", "4", "5", "6", "7", "8", "9", "CLR", "0", "OK"]:
+		var b := Button.new()
+		b.name = "Key_" + key
+		b.text = key
+		b.custom_minimum_size = Vector2(72, 52)
+		b.add_theme_font_size_override("font_size", 22)
+		b.pressed.connect(keypad_press.bind(key))
+		gr.add_child(b)
+	var cb := Button.new()
+	cb.name = "KeypadClose"
+	cb.text = "CLOSE"
+	cb.custom_minimum_size = Vector2(0, 44)
+	cb.pressed.connect(keypad_close.bind(true))
+	v.add_child(cb)
+	add_child(_kp_panel)
+	_kp_panel.set_anchors_preset(Control.PRESET_CENTER)
+	_kp_panel.position = Vector2(size.x * 0.5 - 125.0, size.y * 0.5 - 220.0)
+
+func keypad_press(key: String) -> void:
+	if kp_gate.is_empty(): return
+	Sfx.play("button", -10.0)
+	if key == "CLR": kp_code = ""
+	elif key == "OK":
+		keypad_enter(kp_code)
+		return
+	elif kp_code.length() < 4: kp_code += key
+	_kp_show("")
+
+func _kp_show(msg: String) -> void:
+	if not is_instance_valid(_kp_panel): return
+	var disp := _kp_panel.find_child("Display", true, false) as Label
+	var shown := ""
+	for i in 4: shown += ("*" if i < kp_code.length() else "_") + (" " if i < 3 else "")
+	if disp: disp.text = msg if msg != "" else shown
+
+## The password typed: right, the door opens for good; wrong, it says so and stays up to try again.
+func keypad_enter(code: String) -> bool:
+	if kp_gate.is_empty(): return false
+	var k := int(kp_gate["key"])
+	kp_code = ""
+	if DOOR_CODES.has(k) and code == str(Data.DOOR_MASTER.get(k, "")):
+		codes_ok[_gkey(kp_gate)] = true
+		Sfx.play("pickup", -6.0)
+		toast("ACCESS GRANTED", 2.0)
+		keypad_close(true)
+		return true
+	kp_wrong += 1
+	Sfx.play("hull_hit", -8.0, 0.6)
+	toast("WRONG PASSWORD · ACCESS DENIED", 2.0)
+	_kp_show("WRONG")
+	return false
+
+func keypad_close(answered: bool) -> void:
+	if answered and not kp_gate.is_empty(): kp_used[_gkey(kp_gate)] = true
+	kp_gate = {}
+	if is_instance_valid(_kp_panel): _kp_panel.queue_free()
+	_kp_panel = null
 
 ## The room you are deepest inside on this deck ("" = a passage).
 func room_at(p: Vector3) -> String:

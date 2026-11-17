@@ -1162,8 +1162,27 @@ func call_character(id: String, incoming := false) -> void:
 	var pool: Array = c["lines"].get(m, c["lines"].values()[0])
 	var line: String = pool[randi() % pool.size()]
 	if (id == "vale" or id == "amari") and not incoming: line = _comms_line()
+	if id == "assistant" and not incoming:   # v13.169 (owner: "when I ask Evee she should set me a waypoint, to know where I'm going")
+		var wp := evee_waypoint()
+		if wp != "": line = wp
 	hud.open_comms("%s — %s" % [c["name"], c["role"]], line, "incoming" if incoming else "talk", m == "enraged",
 		c.get("face", ""), float(c.get("voice", 1.0)), bool(c.get("female", false)), id)
+
+## Evee marks where to go next: aboard a ship, the next step of the job (the gold column and the line on the map);
+## flying, the current mission's next stop becomes your course (the waypoint on the HUD; no autopilot). "" = nothing to mark.
+func evee_waypoint() -> String:
+	if not is_instance_valid(space): return ""
+	if space.boarding:
+		var said: String = space.fleet_waypoint()
+		return "[normal]" + said.replace("Evee: ", "").trim_prefix("\"").trim_suffix("\"") if said != "" else ""
+	if state != "flight": return ""
+	var mw: Dictionary = space.mission_waypoint()
+	if mw.is_empty(): return ""
+	var mn: Node3D = mw["node"]
+	if not is_instance_valid(mn): return ""
+	space.gps_mission = true
+	space.set_destination(mn)
+	return "[normal]Waypoint set: %s. %s Follow the marker." % [str(mw["title"]), str(mw.get("line", ""))]
 
 ## First meetings: they join the LOG roster and usually call you.
 func _meet(id: String, m: String, call := true) -> void:

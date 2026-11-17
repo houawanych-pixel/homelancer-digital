@@ -603,8 +603,11 @@ func keypad_press(k: String) -> void:
 	Sfx.play("button", -10.0)
 	if k == "CLR": keypad_code = ""
 	elif k == "OK":
-		space.keypad_enter(keypad_code)
+		var ok: bool = space.keypad_enter(keypad_code)
 		keypad_code = ""
+		if not ok and is_instance_valid(keypad_panel):   # v13.169: say so, and let him try again
+			var dw := keypad_panel.find_child("Display", true, false) as Label
+			if dw: dw.text = "WRONG PASSWORD"
 		return
 	elif keypad_code.length() < 4: keypad_code += k
 	if is_instance_valid(keypad_panel):
