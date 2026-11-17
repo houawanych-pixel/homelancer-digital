@@ -12207,8 +12207,8 @@ func prompt() -> String:
 	var lc: Dictionary = lane_candidate() if lane.is_empty() else {}
 	if not lane.is_empty(): return "lane"
 	if formation_on(): return "form_break"   # v13.164
-	var lc := lift_choice()   # v13.175: in a station's lift: up / down
-	if not lc.is_empty(): return "lift_up" if not (lc["up"] as Array).is_empty() else "lift_down"
+	var lch := lift_choice()   # v13.175: in a station's lift: up / down
+	if not lch.is_empty(): return "lift_up" if not (lch["up"] as Array).is_empty() else "lift_down"
 	if not spot_near().is_empty(): return "spot"   # v13.165: a station service you walked up to
 	if board_ready: return "board"   # v13.69 (owner): at the boarding ship with its shield down, BOARD comes first
 	if not talk_candidate().is_empty(): return "guard_talk"   # v13.144: a card carrier on a friendly ship
