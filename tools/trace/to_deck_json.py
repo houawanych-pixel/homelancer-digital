@@ -401,7 +401,13 @@ def main():
                 k = decks_done[dname]["at"](*e["at"]) if dname in decks_done else None
                 if k is None or lay["rooms"][k].get("flow") or lay["rooms"][k].get("conn"): rep["problems"].append(["elevator", e["at"], dname, k]); k = None
                 ks.append(k)
-            if None not in ks: elev.append({"rooms": ks, "label": e.get("label", "LIFT")})
+            if None not in ks:
+                ev = {"rooms": ks, "label": e.get("label", "LIFT")}
+                # v13.183 (owner: "get that key on another floor, come back down and open the door"): the upper deck
+                # needs the YELLOW card on the lift (the lower deck is open), so the cards lead you floor to floor
+                ups = [k for k in ks if k.startswith("u_")]
+                if ups: ev["need"] = {k: 1 for k in ups}
+                elev.append(ev)
         lay["fleet"]["elev"] = elev
         lay["fleet"]["decks"] = {d: DECKS[d][1] for d in decks_done}
         lv = lay["fleet"].get("levels")
@@ -409,7 +415,8 @@ def main():
             for e in elev:
                 need = max([lv.get(k, 0) for k in e["rooms"] if not k.startswith(("u_", "l_"))] or [0])
                 for k, R0 in lay["rooms"].items():
-                    if k.startswith(("u_", "l_")) and not R0.get("flow") and not R0.get("conn") and k not in e["rooms"]: lv.setdefault(k, need)
+                    if k.startswith(("u_", "l_")) and not R0.get("flow") and not R0.get("conn") and k not in e["rooms"]:
+                        lv.setdefault(k, max(need, int(e.get("need", {}).get(next((q for q in e["rooms"] if q[:2] == k[:2]), ""), 0))))
         R = lay["rooms"]
         flo = lambda k: float(R[k]["y"][0])
         jt = rep["joint"]

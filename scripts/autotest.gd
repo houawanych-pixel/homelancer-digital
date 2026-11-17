@@ -2460,6 +2460,30 @@ func _run() -> void:
 				if Boarding.STACKED:   # v13.96: every lift car runs to its other deck and back
 					var rides: Array = []
 					for e: Dictionary in s._elev:
+						if (e["stops"] as Array).size() > 2:   # v13.183: a lift with three or more stops: UP to the top, DOWN to the bottom
+							var st0: Array = e["stops"]
+							var lr0: Array = Boarding.ROOMS[str(st0[1][0])]["r"]
+							var lp := Vector3((float(lr0[0]) + float(lr0[1])) * 0.5, float(st0[1][1]) + 6.0, (float(lr0[2]) + float(lr0[3])) * 0.5)
+							for i in 30:
+								s.player.global_position = lp
+								await get_tree().process_frame
+							await _wait(1.5)
+							var keep_c: Array = (s.board["fleet"]["cards"] as Array).duplicate()
+							var up_need: bool = not (e["need"] as Dictionary).is_empty()
+							var blocked_up: bool = not s.lift_go(1) if up_need and st0.size() > 1 and not s._fleet_has(1) else true
+							rides.append("upper needs yellow %s" % blocked_up)
+							for i in (s.board["fleet"]["cards"] as Array).size(): s.board["fleet"]["cards"][i] = true
+							for dir in [1, -1]:
+								for i in st0.size():
+									if not s.lift_go(dir): break
+									await _until(func(): return not bool(e["ride"]), 10.0)
+									await _wait(0.4)
+								var dn_now := Boarding.deck_name(Boarding.deck_y(s.player.global_position))
+								var want_dn := Boarding.deck_name(float(st0[st0.size() - 1][1] if dir > 0 else st0[0][1]))
+								rides.append("%s %s" % [dn_now, dn_now == want_dn])
+								if dir > 0: await _capture("fb_%s_deck_%s" % [fid, dn_now.to_lower().replace(" ", "_")])
+							s.board["fleet"]["cards"] = keep_c
+							continue
 						for leg in [["lo", "hi", "ylo"], ["hi", "lo", "yhi"]]:
 							var c2: Vector2 = e["c"]
 							s.player.global_position = Vector3(c2.x, float(e[leg[2]]) + 6.0, c2.y)

@@ -2407,9 +2407,12 @@ func _fleet_room_pick(rr: RandomNumberGenerator, level: int, used: Array) -> Vec
 		if int(lv[k]) != level or avoid.has(k) or used.has(k) or not Boarding.ROOMS.has(k) or Boarding.ROOMS[k].has("lift"): continue
 		cand.append(k)
 	if cand.is_empty(): return Vector3.INF
-	if Boarding.STACKED:   # v13.183 (owner: "the key's on a different floor: go up, get it, come back down"): each card on another deck than the last
-		var last_y: float = float(board.get("fleet_last_card_y", 0.0))
-		var off := cand.filter(func(k): return absf(float(Boarding.ROOMS[k]["y"][0]) - last_y) > 40.0)
+	if Boarding.STACKED:   # v13.183 (owner: "the key's on a different floor: go up, get it, come back down"): each card on a deck no
+		# earlier card is on, off the main deck where it can be
+		var used_y: Array = board.get("fleet_card_ys", [])
+		var fresh := cand.filter(func(k): return used_y.all(func(y): return absf(float(Boarding.ROOMS[k]["y"][0]) - float(y)) > 40.0))
+		if not fresh.is_empty(): cand = fresh
+		var off := cand.filter(func(k): return absf(float(Boarding.ROOMS[k]["y"][0])) > 40.0)
 		if not off.is_empty(): cand = off
 	var sb: Array = Boarding.ROOMS["sbay"]["r"]
 	var s0 := Vector2((float(sb[0]) + float(sb[1])) * 0.5, (float(sb[2]) + float(sb[3])) * 0.5)
@@ -2419,7 +2422,8 @@ func _fleet_room_pick(rr: RandomNumberGenerator, level: int, used: Array) -> Vec
 	cand.sort_custom(func(a, b): return (cen.call(a) as Vector2).distance_to(s0) > (cen.call(b) as Vector2).distance_to(s0))
 	var k: String = cand[rr.randi_range(0, maxi(0, (cand.size() + 1) / 2 - 1))]
 	used.append(k)
-	board["fleet_last_card_y"] = float(Boarding.ROOMS[k]["y"][0])
+	if not board.has("fleet_card_ys"): board["fleet_card_ys"] = []
+	board["fleet_card_ys"].append(float(Boarding.ROOMS[k]["y"][0]))
 	var c: Vector2 = cen.call(k)
 	return Vector3(c.x, Boarding.floor_of(k, c.x, c.y), c.y)
 
