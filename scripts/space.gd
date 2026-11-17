@@ -1847,8 +1847,8 @@ func _board_steps(dt: float) -> void:
 					board_exit.emit(true)
 				return
 			board["escape"] = float(board["escape"]) - dt
-			var left := int(ceil(float(board["escape"])))
-			if left != int(board["said"]) and ((left > 60 and left % 60 == 0) or (left <= 60 and left % 10 == 0) or left <= 5):   # (v13.136: every minute, then every 10 s)
+			var left := int(ceil(float(board["escape"]))) if float(board["escape"]) < 1.0e6 else 999999
+			if left < 999999 and left != int(board["said"]) and ((left > 60 and left % 60 == 0) or (left <= 60 and left % 10 == 0) or left <= 5):   # (v13.136: every minute, then every 10 s)
 				board["said"] = left
 				message.emit("%d SECONDS!" % left)
 			if _out_now():
@@ -2219,9 +2219,10 @@ func _fleet_done() -> void:
 	if fl.is_empty() or bool(fl["done"]): return
 	fl["done"] = true
 	var ek := fleet_exit_key()
-	if ek != "sbay":   # v13.130 (owner's formula): the clock starts, the way you came in is blocked: find the other way out
+	var clock := str(fl["kind"]) == "sabotage"   # v13.170 (owner): only blowing the generator starts a countdown; a rescue or a capture has none
+	if ek != "sbay":   # v13.130 (owner's formula): the way you came in is blocked: find the other way out (the clock: sabotage only)
 		board["phase"] = "escape"
-		board["escape"] = Data.FLEET_ESCAPE
+		board["escape"] = Data.FLEET_ESCAPE if clock else INF
 		board["breakout"] = false
 		for d in board_doors:
 			if (d["rooms"] as Array).has("sbay"): d["sealed"] = true
@@ -2231,7 +2232,8 @@ func _fleet_done() -> void:
 		fl["wp_on"] = false
 		if is_instance_valid(fl.get("beacon")): (fl["beacon"] as Node3D).visible = false
 		var what: String = {"sabotage": "GENERATOR DOWN!", "capture": "CAPTAIN TAKEN!", "rescue": "HOSTAGE FREED!"}.get(str(fl["kind"]), "DONE!")
-		message.emit("%s The way you came in is BLOCKED. %d:%02d to find another way out!" % [what, int(Data.FLEET_ESCAPE / 60.0), int(Data.FLEET_ESCAPE) % 60])
+		if clock: message.emit("%s The way you came in is BLOCKED. %d:%02d to find another way out!" % [what, int(Data.FLEET_ESCAPE / 60.0), int(Data.FLEET_ESCAPE) % 60])
+		else: message.emit("%s The way you came in is BLOCKED: find another way out, then take %s to the station." % [what, "him" if str(fl["kind"]) == "capture" else "her"])
 		return
 	var ex: Array = Boarding.ROOMS["sbay"]["r"]
 	var out := Vector3((float(ex[0]) + float(ex[1])) * 0.5, 0, (float(ex[2]) + float(ex[3])) * 0.5)
@@ -2392,6 +2394,7 @@ func _fleet_line(where: String) -> String:
 	var kind := str(fl["kind"])
 	var alert := "ALERT  ·  " if bool(board.get("alerted", false)) else ""
 	if str(board.get("phase", "")) == "escape" and not bool(board.get("breakout", true)):
+		if float(board["escape"]) > 1.0e6: return "GET OUT  ·  %s  ·  %s" % [where, "the way in is blocked: find another way out" if fleet_exit_key() != "sbay" else "back to the %s" % str(Boarding.ROOMS["sbay"]["label"])]   # v13.170: no clock (rescue / capture)
 		if fleet_exit_key() != "sbay": return "ESCAPE: %d s  ·  %s  ·  the way in is blocked: find another way out" % [int(ceil(maxf(0.0, float(board["escape"])))), where]
 		return "ESCAPE: %d s  ·  %s  ·  back to the %s" % [int(ceil(maxf(0.0, float(board["escape"])))), where, str(Boarding.ROOMS["sbay"]["label"])]
 	if kind == "visit": return "%s  ·  %s  ·  a guest aboard: look round; the %s to leave%s" % [stealth.to_upper(), where, str(Boarding.ROOMS["sbay"]["label"]), cards]   # v13.144
@@ -12534,6 +12537,7 @@ func _board_waypoint() -> Dictionary:
 		return {}
 	var n = bm.get("node")
 	if n == null or not is_instance_valid(n): return {}
+	if title.begins_with("Deliver"): return {"node": n, "title": (n as Node3D).name, "line": "%s: dock at %s to hand them over and get paid" % [title, (n as Node3D).name], "hops": 0}   # v13.170
 	var pw := float(bm.get("power", 100.0))
 	var line := ("%s: shoot the ship down to 50%% power (now %d%%), then fly to the hull" % [title, int(ceil(pw))]) if pw > 50.0 else "%s: shield down. Fly to the hull to board" % title
 	return {"node": n, "title": (n as Node3D).name, "line": line, "hops": 0}

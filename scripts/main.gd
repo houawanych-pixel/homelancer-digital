@@ -409,6 +409,16 @@ func board_job() -> Dictionary: return hub.board_job if is_instance_valid(hub) e
 func _board_job_step(dt: float) -> void:
 	_board_cd = maxf(0.0, _board_cd - dt)
 	var j := board_job()
+	if bool(j.get("deliver", false)):   # v13.170: the captain / hostage is with you: the station is the waypoint
+		if is_instance_valid(space):
+			var was2: bool = not space.board_mission.is_empty()
+			space.board_mission = {"sys": str(j["sys"]), "title": "Deliver: %s" % str(j["title"]), "node": space.station if str(j["sys"]) == str(space.sys_id) and is_instance_valid(space.station) else null, "power": 0.0}
+			if not was2 and state == "flight":
+				space.gps_mission = true
+				var mw1: Dictionary = space.mission_waypoint()
+				if not mw1.is_empty(): space.set_destination(mw1["node"])
+			space.board_ready = false
+		return
 	if is_instance_valid(space):   # v13.10: the job shows on the GPS and the map like any mission (gold waypoint)
 		var was: bool = not space.board_mission.is_empty()
 		space.board_mission = {} if j.is_empty() else {"sys": str(j["sys"]), "title": str(j["title"]), "node": board_ship if is_instance_valid(board_ship) else null, "power": board_power()}
@@ -1203,6 +1213,7 @@ func open_map() -> void:
 		if hud.planet_map:   # (v13.126: the plan opens whole)
 			hud.pmap_zoom = 1.0
 			hud.pmap_c = Vector2(0.5, 0.5)
+			if hud.map3d != null: hud.map3d.pan = Vector3.ZERO
 		return
 	# v12.61 (owner: "the planet map should be like the space map"): on a planet the same map as in space shows the planet
 	hud.planet_map = false
@@ -1361,6 +1372,12 @@ func dock(n: Node3D) -> void:
 	var was_job: Dictionary = GS.mission.duplicate()
 	var was_bounty: Dictionary = GS.bounty.duplicate()
 	var paid: String = Missions.claim_at(info["id"], wk) if not GS.mission.is_empty() else GS.claim_bounty(wk)   # v1.5f: a board bounty is paid where it was taken; an old-style one anywhere
+	var bj := board_job()
+	if bool(bj.get("deliver", false)) and str(info.get("kind", "")) == "station":   # v13.170: the captain / hostage handed over here
+		GS.add_credits(int(bj["pay"]))
+		paid = "BOARDING MISSION COMPLETE: %s. %s handed over. Paid %d cr." % [str(bj["title"]), "The captain" if str(bj.get("kind", "")) == "capture" else "The hostage", int(bj["pay"])]
+		hub.board_job = {}
+		board_ship = null
 	if paid != "":
 		hub.status.text = paid
 		hub._refresh_credits()
@@ -2580,7 +2597,13 @@ func _leave_fleet_ship(won: bool) -> void:
 	space.vel = Vector3.ZERO
 	space._update_camera(1.0, true)
 	var j := board_job()
-	if done and bool(bf.get("job", false)) and not j.is_empty():
+	var deliver: bool = done and bool(bf.get("job", false)) and not j.is_empty() and str(bf.get("kind", "")) in ["capture", "rescue"]
+	if deliver:   # v13.170 (owner: "rescue and target missions should return to the station for the reward and completion")
+		j["deliver"] = true
+		if is_instance_valid(board_ship): board_ship.queue_free()
+		board_ship = null
+		GS.save_game()
+	elif done and bool(bf.get("job", false)) and not j.is_empty():   # (sabotage: the ship is gone; you're paid as you get out)
 		GS.add_credits(int(j["pay"]))
 		hub.board_job = {}
 		board_ship = null
@@ -2594,5 +2617,6 @@ func _leave_fleet_ship(won: bool) -> void:
 	hud.visible = true
 	state = "flight"
 	_board_cd = 6.0
-	if done and not j.is_empty(): hud.flash_message("BOARDING MISSION COMPLETE: %s. Paid %d cr." % [str(j["title"]), int(j["pay"])])
+	if deliver: hud.flash_message("%s Now dock at %s to hand %s over and get paid." % ["CAPTAIN CAPTURED!" if str(bf.get("kind", "")) == "capture" else "HOSTAGE RESCUED!", str(Data.SYSTEMS[str(j["sys"])]["station"].get("name", "the station")), "him" if str(bf.get("kind", "")) == "capture" else "her"])
+	elif done and not j.is_empty(): hud.flash_message("BOARDING MISSION COMPLETE: %s. Paid %d cr." % [str(j["title"]), int(j["pay"])])
 	elif not j.is_empty(): hud.flash_message("You left the ship with the job unfinished. It is still out here: reach it again to go back aboard.")

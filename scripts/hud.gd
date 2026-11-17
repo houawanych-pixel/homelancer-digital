@@ -3326,7 +3326,7 @@ func _fleet_map3d(inner: Rect2) -> void:
 		draw_rect(Rect2(lx, ly, 16, 12), row[0])
 		_text(Vector2(lx + 22, ly + 11), row[1], 11, Color(WHITE, 0.85))
 		ly += 20.0
-	_text(Vector2(inner.position.x + 4.0, inner.end.y - 52.0), "drag: turn  ·  pinch: zoom", 11, Color(CYAN_HI, 0.7))
+	_text(Vector2(inner.position.x + 4.0, inner.end.y - 52.0), "drag: turn  ·  pinch: zoom, move two fingers: pan" if DisplayServer.is_touchscreen_available() else "drag: turn  ·  wheel: zoom  ·  right-drag: pan  ·  Q/E turn  ·  R reset", 11, Color(CYAN_HI, 0.7))
 	var sy := inner.position.y + 150.0   # the steps, in order (the gold line on the model joins them)
 	_pill("pmap_evee", "ASK EVEE", false, Color(1.0, 0.82, 0.25))
 	_text(Vector2(lx, sy), "EVEE'S WAYPOINT" if not steps.is_empty() else "", 12, Color(1.0, 0.82, 0.25))
@@ -3347,6 +3347,8 @@ var pmap_c := Vector2(0.5, 0.5)       # the part of the plan at the middle of th
 var _pmap_pic := Rect2()              # where the plan was last drawn
 var _pinch := {}                      # touch index -> position (touches on the plan)
 var _pmap_mouse := false
+var _pmap_mouse_pan := false
+var _pinch_lock := false              # v13.170: two fingers went down: the one left over doesn't turn the map
 var pmap_3d := true                   # v13.129: the fleet map opens as the 3D model (PLAN: the deck picture)
 var pmap_yaw := 0.6
 var pmap_pitch := 0.9
@@ -3384,24 +3386,35 @@ func _pmap_gesture(e: InputEvent) -> bool:
 		if e.pressed:
 			if not _pmap_pic.has_point(e.position) or on_btn.call(e.position): return false
 			_pinch[e.index] = e.position
+			if _pinch.size() >= 2: _pinch_lock = true
 			get_viewport().set_input_as_handled()
 			return true
 		if _pinch.has(e.index):
 			_pinch.erase(e.index)
+			if _pinch.is_empty(): _pinch_lock = false   # (all fingers up: a one-finger drag turns it again)
 			get_viewport().set_input_as_handled()
 			return true
 		return false
 	if e is InputEventScreenDrag and _pinch.has(e.index):
 		if _pinch.size() >= 2:
+			# v13.170 (owner: "if I pinch and move with the pinch it should pan; it flops around"): two fingers zoom by
+			# their spread AND pan by their middle; they never turn it
 			var other: Vector2 = Vector2.ZERO
 			for k in _pinch:
 				if k != e.index: other = _pinch[k]
 			var d0: float = (_pinch[e.index] as Vector2).distance_to(other)
 			var d1: float = e.position.distance_to(other)
 			if d0 > 8.0: _pmap_zoom_by(d1 / d0, (e.position + other) * 0.5)
+			var mid_move: Vector2 = (e.position - (_pinch[e.index] as Vector2)) * 0.5
+			if pmap_3d and map3d != null: map3d.pan_by(mid_move, _pmap_pic.size.x, pmap_yaw, pmap_zoom)
+			elif pmap_zoom > 1.0:
+				pmap_c -= mid_move / (_pmap_pic.size * pmap_zoom)
+				_pmap_clamp()
+		elif _pinch_lock: pass   # (one finger left over from a pinch: ignored until it lifts, so the view doesn't jump)
 		elif pmap_3d:
-			pmap_yaw -= e.relative.x * 0.01
-			pmap_pitch = clampf(pmap_pitch + e.relative.y * 0.01, 0.15, 1.5)
+			var rel: Vector2 = (e.relative as Vector2).limit_length(40.0)
+			pmap_yaw -= rel.x * 0.01
+			pmap_pitch = clampf(pmap_pitch + rel.y * 0.01, 0.15, 1.5)
 		elif pmap_zoom > 1.0:
 			pmap_c -= e.relative / (_pmap_pic.size * pmap_zoom)
 			_pmap_clamp()
@@ -3418,6 +3431,26 @@ func _pmap_gesture(e: InputEvent) -> bool:
 		if e.button_index == MOUSE_BUTTON_LEFT:
 			_pmap_mouse = e.pressed and _pmap_pic.has_point(e.position) and not on_btn.call(e.position)
 			return false
+		if e.button_index in [MOUSE_BUTTON_RIGHT, MOUSE_BUTTON_MIDDLE]:   # v13.170 (owner: PC players): right / middle drag pans
+			_pmap_mouse_pan = e.pressed and _pmap_pic.has_point(e.position)
+			return _pmap_mouse_pan
+	if e is InputEventMouseMotion and _pmap_mouse_pan and not DisplayServer.is_touchscreen_available():
+		if pmap_3d and map3d != null: map3d.pan_by(e.relative, _pmap_pic.size.x, pmap_yaw, pmap_zoom)
+		else:
+			pmap_c -= e.relative / (_pmap_pic.size * maxf(1.0, pmap_zoom))
+			_pmap_clamp()
+		return true
+	if e is InputEventKey and e.pressed and not e.echo:   # v13.170 (PC): + / - zoom, Q / E turn, R recentres
+		match e.keycode:
+			KEY_EQUAL, KEY_KP_ADD: _pmap_zoom_by(1.2, _pmap_pic.get_center()); return true
+			KEY_MINUS, KEY_KP_SUBTRACT: _pmap_zoom_by(1.0 / 1.2, _pmap_pic.get_center()); return true
+			KEY_Q: pmap_yaw += 0.3; return true
+			KEY_E: pmap_yaw -= 0.3; return true
+			KEY_R:
+				pmap_zoom = 1.0
+				pmap_c = Vector2(0.5, 0.5)
+				if map3d != null: map3d.pan = Vector3.ZERO
+				return true
 	if e is InputEventMouseMotion and _pmap_mouse and pmap_3d and not DisplayServer.is_touchscreen_available():
 		pmap_yaw -= e.relative.x * 0.01
 		pmap_pitch = clampf(pmap_pitch + e.relative.y * 0.01, 0.15, 1.5)

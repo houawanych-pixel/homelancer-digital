@@ -182,6 +182,15 @@ func _mat(c: Color, a: float) -> StandardMaterial3D:
 	return m
 
 ## Every frame the map is open. seen: room keys you have stood in.
+var pan := Vector3.ZERO   # v13.170 (owner: "if I pinch and move with the pinch it should pan"): the view moved over the ship (world)
+## Move the view by a screen drag of d pixels on a map drawn side pixels wide.
+func pan_by(d: Vector2, side: float, yaw: float, zoom: float) -> void:
+	var k := radius * 2.6 / maxf(0.5, zoom) / maxf(1.0, side) * 1.1
+	var right := Vector3(cos(yaw), 0, -sin(yaw))
+	var fwd := -Vector3(sin(yaw), 0, cos(yaw))
+	pan += (-right * d.x + fwd * d.y) * k
+	pan = pan.limit_length(radius * 1.5)
+
 func refresh(seen: Dictionary, deck_y: float, ppos: Vector3, pfwd: Vector3, goal_at, yaw: float, pitch: float, zoom: float, on_foot := false) -> void:
 	render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	var st := "%d|%s|%d" % [seen.size(), str(on_foot), lit.hash()]
@@ -225,7 +234,7 @@ func refresh(seen: Dictionary, deck_y: float, ppos: Vector3, pfwd: Vector3, goal
 		goal.position = (goal_at as Vector3) + Vector3(0, 40, 0)
 	else: goal.visible = false
 	var dist := radius * 2.6 / maxf(0.5, zoom)
-	var look := center.lerp(ppos, clampf((zoom - 1.0) / 2.0, 0.0, 1.0))   # zoomed in, it closes on you
+	var look := center.lerp(ppos, clampf((zoom - 1.0) / 2.0, 0.0, 1.0)) + pan   # zoomed in, it closes on you (v13.170: plus the two-finger pan)
 	look.y = deck_y
 	var dir := Vector3(sin(yaw) * cos(pitch), sin(pitch), cos(yaw) * cos(pitch))
 	cam.position = look + dir * dist

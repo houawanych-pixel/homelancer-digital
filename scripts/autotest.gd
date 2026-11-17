@@ -2322,8 +2322,9 @@ func _run() -> void:
 				var sb5: Array = Boarding.ROOMS["sbay"]["r"]
 				s.player.global_position = Vector3((float(sb5[0]) + float(sb5[1])) * 0.5, float(Boarding.ROOMS["sbay"]["y"][0]) + 6.0, (float(sb5[2]) + float(sb5[3])) * 0.5)
 				await _wait(0.6)
-				_check("%s %s: the clock runs (%d s), the way in is blocked (no leaving by it), the way out is %s" % [fid, kind, int(float(b["escape"])), Boarding.ROOMS[exk]["label"]],
-					str(b["phase"]) == "escape" and float(b["escape"]) > 0.0 and sealed_in and s.boarding, "phase %s sealed %s" % [b["phase"], sealed_in])
+				var clock_ok: bool = (float(b["escape"]) > 0.0 and float(b["escape"]) < 1.0e6) if kind == "sabotage" else float(b["escape"]) > 1.0e6   # v13.170: a countdown on sabotage only
+				_check("%s %s: %s, the way in is blocked (no leaving by it), the way out is %s" % [fid, kind, "the clock runs" if kind == "sabotage" else "no countdown", Boarding.ROOMS[exk]["label"]],
+					str(b["phase"]) == "escape" and clock_ok and sealed_in and s.boarding, "phase %s escape %s sealed %s" % [b["phase"], str(b["escape"]), sealed_in])
 				s._fleet_card(3, s.player.global_position)
 			var ex: Array = Boarding.ROOMS[exk]["r"]   # out by the way out (v13.92: wherever it is)
 			s.player.global_position = Vector3((float(ex[0]) + float(ex[1])) * 0.5, float(Boarding.ROOMS[exk]["y"][0]) + 6.0, (float(ex[2]) + float(ex[3])) * 0.5)
