@@ -2134,7 +2134,7 @@ func _run() -> void:
 			for k in (Array(str(Data.DOOR_MASTER[lv]).split("")) + ["OK"]): main.hud.keypad_press(str(k))
 			_check("v13.144: the pad brings up the keypad; a wrong code is ACCESS DENIED, the master code ACCESS GRANTED", opened and denied and bool(d0.get("code_ok", false)), "open %s denied %s ok %s · you %s pad %s" % [opened, denied, d0.get("code_ok", false), str(s.player.global_position.round()), str(pad.round())])
 			# v13.169 (owner: "tap the computer screen, or select it as a target"): another card door's computer, targeted
-			var kd2: Array = kd.filter(func(d): return not bool(d.get("code_ok", false)) and not s._fleet_has(int(d.get("key", 0))))
+			var kd2: Array = kd.filter(func(d): return not bool(d.get("code_ok", false)) and not s._fleet_has(int(d.get("key", 0))) and (d.get("rooms", []) as Array).all(func(r): return not bool((Boarding.ROOMS.get(str(r), {}) as Dictionary).get("pilot", false))))   # (a mech-size door: the mech is kept out of the pilot ways)
 			if not kd2.is_empty():
 				var d1: Dictionary = kd2[0]
 				var post: Node3D = null
