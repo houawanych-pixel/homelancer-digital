@@ -2306,6 +2306,75 @@ func _run() -> void:
 		await _capture("visit_alert")
 		_finish_group()
 		return
+	if _flag("HL_DOORLOOK"):   # v13.177 (owner): look at fleet doors from the hallway: card colours, one door per hallway
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main.board_fleet_ship(OS.get_environment("HL_DOORLOOK_SHIP") if OS.get_environment("HL_DOORLOOK_SHIP") != "" else "imperium_destroyer", "sabotage", {})
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding and main.hud.visible, 90.0)
+		await _wait(1.5)
+		var s := _sp()
+		if Data.FLEET_MECH: s.eject(); await _wait(0.5)
+		var n := 0
+		var tinted := 0
+		var keyed := 0
+		for d in s.board_doors:
+			var ck: String = ""
+			for rk in d["rooms"]:
+				if bool(Boarding.ROOMS[rk].get("conn", false)): ck = rk
+			if ck == "": continue
+			var cr: Array = Boarding.ROOMS[ck]["r"]
+			var cc := Vector3((float(cr[0]) + float(cr[1])) * 0.5, 0, (float(cr[2]) + float(cr[3])) * 0.5)
+			var dc: Vector3 = d["center"]
+			var dir := Vector3(dc.x - cc.x, 0, dc.z - cc.z).normalized()
+			var stand := cc - dir * 70.0
+			s.player.global_position = Vector3(stand.x, Boarding.floor_at(Vector3(cc.x, dc.y + 6, cc.z)) + 3.0, stand.z)
+			s.yaw = atan2(-dir.x, -dir.z)
+			await _wait(0.5)
+			if int(d.get("key", 0)) > 0:
+				keyed += 1
+				var mi: MeshInstance3D = d["panels"][0]
+				if mi.material_override is StandardMaterial3D and (mi.material_override as StandardMaterial3D).emission_enabled: tinted += 1
+			if n < 6 and (int(d.get("key", 0)) > 0 or n < 2):
+				await _capture("door_%d_key%d" % [n, int(d.get("key", 0))])
+				n += 1
+		_check("card doors show their card colour on the whole door (%d of %d)" % [tinted, keyed], keyed > 0 and tinted == keyed, "")
+		# walk every door from the hallway into its room (cards in hand): nothing unseen stops you
+		s._fleet_card(1, s.player.global_position); s._fleet_card(2, s.player.global_position); s._fleet_card(3, s.player.global_position)
+		var blocked: Array = []
+		var tried := 0
+		for d in s.board_doors:
+			var ck: String = ""
+			for rk in d["rooms"]:
+				if bool(Boarding.ROOMS[rk].get("conn", false)): ck = rk
+			if ck == "" or bool(Boarding.ROOMS[ck].get("pilot", false)) == false and false: continue
+			if ck == "": continue
+			var tgt: String = str(Boarding.ROOMS[ck].get("door_to", ""))
+			var cr: Array = Boarding.ROOMS[ck]["r"]
+			var cc := Vector3((float(cr[0]) + float(cr[1])) * 0.5, 0, (float(cr[2]) + float(cr[3])) * 0.5)
+			var dc: Vector3 = d["center"]
+			var dir := Vector3(dc.x - cc.x, 0, dc.z - cc.z).normalized()
+			var span := maxf(float(cr[1]) - float(cr[0]), float(cr[3]) - float(cr[2]))
+			var stand := dc - dir * (span + 30.0)
+			s.player.global_position = Vector3(stand.x, Boarding.floor_at(Vector3(cc.x, dc.y + 6, cc.z)) + 3.0, stand.z)
+			s.vel = Vector3.ZERO
+			s.yaw = atan2(-dir.x, -dir.z)
+			await _wait(0.2)
+			tried += 1
+			var t0 := 0.0
+			while t0 < 6.0 and Boarding.room_at(s.player.global_position) != tgt:
+				s.yaw = atan2(-dir.x, -dir.z)
+				s.move = Vector2(0, 1)
+				await get_tree().process_frame
+				t0 += get_process_delta_time()
+			s.move = Vector2.ZERO
+			if Boarding.room_at(s.player.global_position) != tgt:
+				blocked.append("%s->%s at %s (in %s)" % [ck, Boarding.ROOMS[tgt]["label"] if Boarding.ROOMS.has(tgt) else tgt, str(Vector2(dc.x, dc.z).round()), Boarding.room_at(s.player.global_position)])
+				if blocked.size() <= 3:
+					await _capture("door_blocked_%d" % blocked.size())
+		_check("on foot you walk through every door from the hallway into its room (%d)" % tried, blocked.is_empty(), str(blocked))
+		_finish_group()
+		return
 	if _flag("HL_FLEETBOARD"):   # v13.89 (owner: "use the same gameplay from the regular board missions"): a traced fleet deck in the boarding engine
 		var fids := ["imperium_trooptransport"]
 		if OS.get_environment("HL_FLEETBOARD") not in ["", "1"]: fids = OS.get_environment("HL_FLEETBOARD").split(",")

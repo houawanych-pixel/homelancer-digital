@@ -123,7 +123,23 @@ def board_layout(plan, play, src_w, src_h, pre="", y0=0.0, ways=None):
     # a connector at every door, from one side's rect edge to the other's; locks by key level
     locks = {tuple(l["door"]): int(l["key"]) for l in play.get("locks", [])}
     conns, lock_list, problems = 0, [], []
-    for x, y, o in plan["doors"]:
+    # v13.177 (owner: "multiple doors that lead into the same hallway ... it could just be one door"): a room gets one
+    # doorway onto the hallways (its card door first, if it has one); doors between two rooms stay
+    hall_door = set()
+    hk = [k for k in rooms if rooms[k].get("flow")]
+    hall_net = {k: k for k in hk}          # hallway rects that touch = one hallway
+    def _root(k):
+        while hall_net[k] != k: k = hall_net[k]
+        return k
+    for i, k1 in enumerate(hk):
+        r1 = shapes[k1][1]
+        for k2 in hk[i + 1:]:
+            r2 = shapes[k2][1]
+            if r1[0] <= r2[2] + 0.01 and r2[0] <= r1[2] + 0.01 and r1[1] <= r2[3] + 0.01 and r2[1] <= r1[3] + 0.01 and \
+               (min(r1[2], r2[2]) - max(r1[0], r2[0]) > 0.5 or min(r1[3], r2[3]) - max(r1[1], r2[1]) > 0.5):
+                hall_net[_root(k1)] = _root(k2)
+    dlist = sorted(plan["doors"], key=lambda dd: -locks.get((dd[0], dd[1]), 0))
+    for x, y, o in dlist:
         if o == "h": a, b = at(x, y - 2 * T - 2), at(x, y + 2 * T + 2)
         else: a, b = at(x - 2 * T - 2, y), at(x + 2 * T + 2, y)
         if a is not None and a == b and not rooms[a].get("flow"):   # the door sits inside a shaped room's box: look past it
@@ -147,6 +163,10 @@ def board_layout(plan, play, src_w, src_h, pre="", y0=0.0, ways=None):
             for st_ in range(1, 16):
                 hit = at(x, rb0[1] - st_) if o == "h" else at(rb0[0] - st_, y)
                 if hit and rooms[hit].get("flow"): a = hit; break
+        if rooms[a].get("flow") != rooms[b].get("flow"):   # (a room onto a hallway)
+            rk_ = (b, _root(a)) if rooms[a].get("flow") else (a, _root(b))      # (room, that hallway)
+            if rk_ in hall_door: continue
+            hall_door.add(rk_)
         ra, rb = shapes[a][1], shapes[b][1]
         pdoor = bool(rooms[a].get("pilot") or rooms[b].get("pilot"))
         Dw = D * PILOT_DOOR_K if pdoor else D

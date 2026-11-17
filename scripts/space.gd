@@ -2849,8 +2849,15 @@ func _board_doors(dt: float) -> void:
 			message.emit("%s CARD NEEDED: a guard on this ship carries it%s." % [ShipInterior.KEY_NAME[need], " (or punch the code in at the floor pad)" if d.has("pads") else ""])
 		var want := 0.0 if shut or not near else 1.0
 		d["open"] = move_toward(float(d["open"]), want, dt * 1.6)
+		# v13.177 (owner: "I didn't see the colour doors for the different access"): a card door's whole panel wears its
+		# card's colour (yellow / orange / red) until you can go through; a locked / sealed one is red
+		var pcol: Color = (ShipInterior.KEY_COL[need] if no_card and not bool(d["locked"]) and not bool(d["sealed"]) else Color(0.85, 0.18, 0.12)) if shut and (no_card or bool(d["locked"]) or bool(d["sealed"])) else Color(0, 0, 0, 0)
 		for mi: MeshInstance3D in d["panels"]:
 			mi.position = (mi.get_meta("closed_at") as Vector3) + (mi.get_meta("open_off") as Vector3) * float(d["open"])
+			if not mi.has_meta("pcol") or mi.get_meta("pcol") != pcol:
+				mi.set_meta("pcol", pcol)
+				if not mi.has_meta("base_mat"): mi.set_meta("base_mat", mi.material_override)
+				mi.material_override = mi.get_meta("base_mat") if pcol.a <= 0.0 else _door_tint(pcol)
 			var st := mi.get_node_or_null("Stripe") as MeshInstance3D
 			if st != null:
 				var want_col: Color = (ShipInterior.KEY_COL[need] if no_card and not bool(d["locked"]) and not bool(d["sealed"]) else Color(1.0, 0.2, 0.15)) if shut else Color(0.3, 1.0, 0.45)
@@ -2858,6 +2865,19 @@ func _board_doors(dt: float) -> void:
 					st.set_meta("col", want_col)
 					st.material_override = ShipFactory.mat(want_col, true)
 		if float(d["open"]) < 0.8: _push_out_box(d["box"][0], d["box"][1], "ground")
+
+var _door_tints := {}
+func _door_tint(c: Color) -> Material:
+	var k := c.to_html()
+	if not _door_tints.has(k):
+		var m := StandardMaterial3D.new()
+		m.albedo_color = c.darkened(0.25)
+		m.emission_enabled = true
+		m.emission = c
+		m.emission_energy_multiplier = 0.45
+		m.roughness = 0.5
+		_door_tints[k] = m
+	return _door_tints[k]
 
 # ---------------------------------------------------------------- v13.144 (owner): Metal Gear states on a fleet ship
 ## NEUTRAL (a friendly ship you were let aboard: guards walk their beat, weapons down, they leave you be), CAUTION
