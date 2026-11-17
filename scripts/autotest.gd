@@ -1830,6 +1830,42 @@ func _run() -> void:
 	if not _flag("HL_LANDFILM"):   # v12.52: the landing film is cut short in the other checks (they time the descent)
 		main.landing_film_min = 0.0
 		main.landing_film_max = 0.4
+	if _flag("HL_STBOARD"):   # v13.174 (owner: "a station should look just like the boarding levels"): Liberty Hub's own deck plan in the boarding engine
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var s0 := _sp()
+		main.dock(s0.station)
+		await _until(func(): return main.state == "hub", 15.0)
+		await _wait(0.5)
+		_check("v13.174: Liberty Hub has its deck plan for the boarding engine", main.station_board_path(GS.system_id) != "", GS.system_id)
+		var t0 := Time.get_ticks_msec()
+		main.board_station("visit")
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding, 90.0)
+		var dt_ms := Time.get_ticks_msec() - t0
+		var s := _sp()
+		_check("v13.174: WALK THE STATION boards Liberty Hub like a fleet ship (%d boxes, %.1f s)" % [Boarding.ROOMS.size(), dt_ms / 1000.0], s.boarding and Boarding.INFO.has("fleet") and Boarding.ROOMS.size() > 50, "%s" % main.state)
+		await _wait(2.0)
+		var nodes := 0
+		for c in s.get_children(): nodes += 1 + c.get_child_count()
+		_check("v13.174: calm (a visit), you start in the docking bay", s.stealth == "neutral" and Boarding.room_at(s.player.global_position) == "sbay", "%s %s" % [s.stealth, Boarding.room_at(s.player.global_position)])
+		await _shot("stboard_bay")
+		# walk the hall toward the hub: stand in the middle of the station, then in a named room
+		s.player.global_position = Vector3(0, 6, 0)
+		await _wait(0.8)
+		await _shot("stboard_hub")
+		var room_k := ""
+		for k in Boarding.ROOMS:
+			if str(k).begins_with("r_") and not bool(Boarding.ROOMS[k].get("pilot", false)) and not (s.board["fleet"]["levels"] as Dictionary).has(k): room_k = k; break
+		if room_k != "":
+			var r: Array = Boarding.ROOMS[room_k]["r"]
+			s.player.global_position = Vector3((float(r[0]) + float(r[1])) * 0.5, 6, (float(r[2]) + float(r[3])) * 0.5)
+			await _wait(0.8)
+			await _shot("stboard_room")
+			_check("v13.174: you can stand in %s" % str(Boarding.ROOMS[room_k]["label"]), Boarding.room_at(s.player.global_position) == room_k, Boarding.room_at(s.player.global_position))
+		print("[stboard] nodes %d build %d ms" % [nodes, dt_ms])
+		_finish_group()
+		return
 	if _flag("HL_STATIONWALK"):   # v13.165 (owner: "one world, two rules"): walk the station's deck calm; a sign opens its page; hit security and the SAME deck flips to the alarm
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)

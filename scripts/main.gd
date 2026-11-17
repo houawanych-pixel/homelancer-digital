@@ -1525,9 +1525,70 @@ func _on_walk_requested(id: String) -> void:
 	if id != "": open_station_interior(id, true)
 	else: walk_station()
 
+## v13.174 (owner: "a space station should look just like the boarding levels ... I may be on the Imperium side
+## invading this station to capture or rescue ... make everything universal"): the station's own deck plan
+## (tools/trace/station_to_board.py -> assets/stations_board/<model>.json), played in the boarding engine like a fleet
+## ship. "" = no plan for this station yet.
+static func station_board_path(sys_id: String) -> String:
+	var m := str((Data.RETOPO_STATIONS.get(sys_id, {}) as Dictionary).get("*", ""))
+	var p := "res://assets/stations_board/%s.json" % m
+	return p if m != "" and FileAccess.file_exists(p) else ""
+
+func board_station(kind: String, job := {}) -> void:
+	if not is_instance_valid(space) or state == "boarding": return
+	var path := station_board_path(GS.system_id)
+	var L := Boarding.fleet_layout(path)
+	if L.is_empty():
+		hud.flash_message("No deck plan for this station yet.")
+		return
+	var from := state
+	state = "boarding"
+	var base: Dictionary = hub.base if is_instance_valid(hub) else {}
+	var own := str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id]))
+	var fac := own if Factions.has(own) else "Unity"
+	var nm := str(base.get("name", "Station"))
+	board_from = {"sys": GS.system_id, "pos": Vector3.ZERO, "ship_at": Vector3.ZERO, "name": nm, "faction": fac,
+		"fleet_deck": "station:" + path.get_file().get_basename(), "job": not job.is_empty(), "kind": kind, "form": GS.form, "from": from, "station": true}
+	space.controls = false
+	hud.visible = false
+	hub.visible = false
+	fx.caption = nm.to_upper()
+	fx.sub = "WELCOME ABOARD" if kind == "visit" else "BOARDING"
+	Sfx.play("whoosh", -2.0, 0.8)
+	var tw := create_tween()
+	tw.tween_property(fx, "fade", 1.0, 0.5)
+	await tw.finished
+	await Packs.wait(PilotRig.PACK, 60.0)
+	var gpk := "crowd3d_orion" if fac.to_lower().begins_with("orion") else "crowd3d"
+	Packs.request(gpk)
+	await Packs.wait(gpk, 30.0)
+	GS.form = "mech"
+	if Data.FLEET_MECH:
+		Packs.request("mechs")
+		await Packs.wait("mechs", 60.0)
+	Boarding.use(L)
+	Boarding.INFO["name"] = nm
+	Boarding.INFO["plan_tex"] = ""
+	Boarding.INFO["plan_tex_decks"] = {}
+	_new_space("Boarding")
+	space.escape_pilot = not (Data.FLEET_MECH and Packs.is_ready("mechs"))
+	space.setup_boarding({"sys": board_from["sys"], "faction": fac, "name": nm, "escape": true, "mission": kind, "ship_id": ""})
+	_connect_space()
+	var tw2 := create_tween()
+	tw2.tween_property(fx, "fade", 0.0, 0.6)
+	await tw2.finished
+	fx.caption = ""
+	fx.sub = ""
+	space.controls = true
+	hud.visible = true
+	state = "flight"
+
 ## v13.165 (owner: "one world, two rules"): WALK THE STATION: the station's deck (the same one its alarm runs in), calm.
 func walk_station() -> void:
 	if state != "hub" or hub.lockdown or escape != null: return
+	if Data.STATION_BOARD_WALK and station_board_path(GS.system_id) != "":   # v13.174: the station's own deck plan, in the boarding engine
+		board_station("visit")
+		return
 	_escape_in_space(false, true)
 
 ## A service sign on the deck: that page of the station over the paused deck; BACK TO DECK returns.
