@@ -2326,6 +2326,11 @@ func fleet_waypoint() -> String:
 		(bc as Node3D).global_position = (steps[0]["at"] as Vector3) + Vector3(0, 15.0, 0)
 	var line: String = {"YELLOW CARD": "A guard's carrying the yellow card. I've marked him.", "ORANGE CARD": "The orange card's behind the yellow doors. Marked.",
 		"RED CARD": "Red card's with a guard behind the orange doors. Marked.", "WAY OUT": "That way's your way out. Move!"}.get(str(steps[0]["label"]), "There. That's your target. Marked on your map.")
+	if Boarding.STACKED:   # v13.183 (owner: "the key's on a different floor ... Evee can give you the directions")
+		var to_y: float = (steps[0]["at"] as Vector3).y
+		var dn_to: String = Boarding.deck_name(to_y)
+		if absf(to_y - Boarding.floor_at(player.global_position)) > 40.0 and dn_to != Boarding.deck_name(Boarding.floor_at(player.global_position)):
+			line = line.trim_suffix(".") + (". It's on the %s: take the lift." % dn_to)
 	return "Evee: \"%s\"" % line
 
 ## Out of the ship this frame? The regular decks: past the open side of the starboard bay. A fleet ship (v13.92): back
@@ -2402,6 +2407,10 @@ func _fleet_room_pick(rr: RandomNumberGenerator, level: int, used: Array) -> Vec
 		if int(lv[k]) != level or avoid.has(k) or used.has(k) or not Boarding.ROOMS.has(k) or Boarding.ROOMS[k].has("lift"): continue
 		cand.append(k)
 	if cand.is_empty(): return Vector3.INF
+	if Boarding.STACKED:   # v13.183 (owner: "the key's on a different floor: go up, get it, come back down"): each card on another deck than the last
+		var last_y: float = float(board.get("fleet_last_card_y", 0.0))
+		var off := cand.filter(func(k): return absf(float(Boarding.ROOMS[k]["y"][0]) - last_y) > 40.0)
+		if not off.is_empty(): cand = off
 	var sb: Array = Boarding.ROOMS["sbay"]["r"]
 	var s0 := Vector2((float(sb[0]) + float(sb[1])) * 0.5, (float(sb[2]) + float(sb[3])) * 0.5)
 	var cen := func(k: String) -> Vector2:
@@ -2410,6 +2419,7 @@ func _fleet_room_pick(rr: RandomNumberGenerator, level: int, used: Array) -> Vec
 	cand.sort_custom(func(a, b): return (cen.call(a) as Vector2).distance_to(s0) > (cen.call(b) as Vector2).distance_to(s0))
 	var k: String = cand[rr.randi_range(0, maxi(0, (cand.size() + 1) / 2 - 1))]
 	used.append(k)
+	board["fleet_last_card_y"] = float(Boarding.ROOMS[k]["y"][0])
 	var c: Vector2 = cen.call(k)
 	return Vector3(c.x, Boarding.floor_of(k, c.x, c.y), c.y)
 

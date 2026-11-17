@@ -385,7 +385,17 @@ def main():
         cv2.imwrite(os.path.join("assets", "holodeck", "%s_%s.jpg" % (sid, dname)), mp, [cv2.IMWRITE_JPEG_QUALITY, 80])
     if len(decks_done) > 1:
         elev = []
-        for e in play.get("elevators", []):
+        evs = play.get("elevators")
+        if not evs:   # v13.183 (owner: "elevators that take you to different floors"): one lift per shaft, every deck it reaches
+            shafts = {}
+            for dname in decks_done:
+                if dname == "main": continue
+                dplan = json.load(open(os.path.join(eng, "deck_%s.json" % dname)))
+                for lx, ly in dplan.get("lifts", []): shafts.setdefault((round(lx), round(ly)), []).append(dname)
+            for (lx, ly), ds in shafts.items():
+                order = [d for d in ("lower", "main", "upper") if d in ds or d == "main"]
+                evs = (evs or []) + [{"decks": order, "at": [lx, ly], "label": "LIFT"}]
+        for e in evs or []:
             ks = []
             for dname in e["decks"]:
                 k = decks_done[dname]["at"](*e["at"]) if dname in decks_done else None
@@ -394,12 +404,21 @@ def main():
             if None not in ks: elev.append({"rooms": ks, "label": e.get("label", "LIFT")})
         lay["fleet"]["elev"] = elev
         lay["fleet"]["decks"] = {d: DECKS[d][1] for d in decks_done}
+        lv = lay["fleet"].get("levels")
+        if lv is not None:   # v13.183: the other decks' rooms need what their lift needs (the game puts cards there too)
+            for e in elev:
+                need = max([lv.get(k, 0) for k in e["rooms"] if not k.startswith(("u_", "l_"))] or [0])
+                for k, R0 in lay["rooms"].items():
+                    if k.startswith(("u_", "l_")) and not R0.get("flow") and not R0.get("conn") and k not in e["rooms"]: lv.setdefault(k, need)
         R = lay["rooms"]
         flo = lambda k: float(R[k]["y"][0])
         jt = rep["joint"]
         seen, todo = {"sbay"}, ["sbay"]
         links = {}
-        for e in elev: links.setdefault(e["rooms"][0], []).append(e["rooms"][1]); links.setdefault(e["rooms"][1], []).append(e["rooms"][0])
+        for e in elev:
+            for ka in e["rooms"]:
+                for kb in e["rooms"]:
+                    if ka != kb: links.setdefault(ka, []).append(kb)
         while todo:
             k0 = todo.pop()
             for k1 in list(R.keys()):
@@ -407,6 +426,22 @@ def main():
             for k1 in links.get(k0, []):
                 if k1 not in seen: seen.add(k1); todo.append(k1)
         rep["cut_off"] = [R[k]["label"] + " (" + k + ")" for k in R if k not in seen and not R[k].get("flow") and not R[k].get("conn")]
+        if a.decks:   # v13.183: an extra-deck room nobody can reach (a plan fault) is left out, with its doors
+            gone = [k for k in R if k not in seen and k.startswith(("u_", "l_")) and not R[k].get("flow") and not R[k].get("conn")]
+            gone += [k for k in R if R[k].get("conn") and str(R[k].get("door_to", "")) in gone]
+            seen_r = {}
+            for k in list(R):   # (two doorways cut to the very same box: keep one)
+                if R[k].get("conn"):
+                    key_r = (tuple(R[k]["r"]), tuple(R[k]["y"]))
+                    if key_r in seen_r: gone.append(k)
+                    else: seen_r[key_r] = k
+            for k in gone: del R[k]
+            lay["fleet"]["locks"] = [l for l in lay["fleet"]["locks"] if not any(k in gone for k in l["rooms"])]
+            if gone: print("LEFT OUT (unreachable):", gone)
+            rep["overlaps"] = [(k1, k2) for k1, k2 in rep["overlaps"] if k1 in R and k2 in R]
+            rep["cut_off"] = [c for c in rep["cut_off"] if not any("(" + k + ")" in c for k in gone)]
+        if lay["fleet"].get("levels") is not None:   # (a room nobody can reach never holds a card)
+            for k in [k for k in lay["fleet"]["levels"] if k not in seen]: del lay["fleet"]["levels"][k]
         print("decks:", list(decks_done), "elevators:", [e["rooms"] for e in elev])
     out["board"] = lay
     print("board layout: %d rooms+halls+doors, %d hall rects, %d door connectors, %d locked" % (len(lay["rooms"]), rep["halls"], rep["connectors"], len(lay["fleet"]["locks"])))
