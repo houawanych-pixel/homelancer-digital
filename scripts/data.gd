@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.174"
+const VERSION := "v13.175"
 const STATION_BOARD_WALK := true   # v13.174: WALK THE STATION boards the station's own deck plan in the boarding engine (on once tested)
 ## v13.169 (owner: "no targets behind the wall"): inside a ship you and they need a clear line (no wall or shut door) to lock or fire
 const BOARD_LOS_FRAMES := 6   # re-checked every few frames per contact
