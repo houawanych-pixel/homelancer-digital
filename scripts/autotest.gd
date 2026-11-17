@@ -2152,7 +2152,7 @@ func _run() -> void:
 					for i in 6:
 						s.player.global_position = post.global_position + (post.global_position - (d1["center"] as Vector3)).normalized() * 220.0
 						await get_tree().process_frame
-					_check("v13.169: the targeted computer brings up the keypad; a wrong password keeps it up; walking away closes it", near_on and wrong_up and s.keypad.is_empty(), "on %s wrong %s gone %s" % [near_on, wrong_up, s.keypad.is_empty()])
+					_check("v13.169: the targeted computer brings up the keypad; a wrong password keeps it up; walking away closes it", near_on and wrong_up and s.keypad.is_empty(), "on %s wrong %s gone %s · tgt %s d %.0f reach %.0f form %s foot %s esc %s used %d" % [near_on, wrong_up, s.keypad.is_empty(), str(s.target.name if is_instance_valid(s.target) else "none"), post.global_position.distance_to(Vector3(by.x, (d1["pads"][0] as Vector3).y + 6.0, by.z)), Data.KEYPAD_REACH, GS.form, s.on_foot, s.escape_pilot, s.keypad_used.size()])
 		# TALK: a card carrier gives his code
 		var car: Array = s.enemies.filter(func(e): return e.has("code") and not bool((Boarding.ROOMS.get(Boarding.room_at((e["node"] as Node3D).global_position), {}) as Dictionary).get("pilot", false)))
 		if not car.is_empty():
