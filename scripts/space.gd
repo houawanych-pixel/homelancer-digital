@@ -1787,6 +1787,7 @@ func _board_update(dt: float) -> void:
 			vel = Vector3(vel.x * 0.3, vel.y, vel.z * 0.3)
 		life.update(dt)
 	_board_doors(dt)
+	_hostage_tick(dt)
 	if player.global_position.x < Boarding.ENTRY_X:   # (the port bay's open side: in only; out is the starboard bay)
 		player.global_position.x = Boarding.ENTRY_X
 		if vel.x < 0.0: vel.x = 0.0
@@ -2367,24 +2368,6 @@ func _fleet_tick(dt: float) -> void:
 	if here_k != "":
 		if not fl.has("seen"): fl["seen"] = {}
 		fl["seen"][here_k] = true
-	var hn = fl.get("hostage")
-	if hn != null and is_instance_valid(hn):
-		var hp := (hn as Node3D).global_position
-		var hd := Vector2(player.global_position.x - hp.x, player.global_position.z - hp.z).length()
-		# v13.178 (owner): the hostage shows up when you get to them; TRACTOR takes them, and the beam carries them with you
-		if not (hn as Node3D).visible and hd < Data.HOSTAGE_SHOW_AT and absf(player.global_position.y - hp.y) < 60.0:
-			(hn as Node3D).visible = true
-			Sfx.play("button", -4.0, 1.2)
-			message.emit("HOSTAGE FOUND! Use TRACTOR to take them with you.")
-		if bool(fl.get("towed", false)):   # held in your tractor beam: floating at your side
-			var cb: Basis = cam.global_transform.basis if is_instance_valid(cam) else Basis(Vector3.UP, yaw)   # (v13.180: to the camera's right, so it's on screen)
-			var rgt := Vector3(cb.x.x, 0, cb.x.z).normalized()
-			var fwd := Vector3(-cb.z.x, 0, -cb.z.z).normalized()
-			var side := rgt * Data.HOSTAGE_TOW_SIDE - fwd * Data.HOSTAGE_TOW_BACK
-			var want := player.global_position + side
-			want.y = maxf(Boarding.floor_at(want), player.global_position.y - 4.0) + 3.0 + sin(Time.get_ticks_msec() * 0.003) * 1.0
-			(hn as Node3D).global_position = hp.lerp(want, clampf(dt * 4.0, 0.0, 1.0))
-			_hostage_beam(hn as Node3D)
 	var bc = fl.get("beacon")
 	if bc != null and is_instance_valid(bc): (bc as Node3D).scale = Vector3.ONE * (1.0 + 0.15 * sin(Time.get_ticks_msec() * 0.006))
 
@@ -2877,6 +2860,29 @@ func _board_doors(dt: float) -> void:
 					st.material_override = ShipFactory.mat(want_col, true)
 		if float(d["open"]) < 0.8: _push_out_box(d["box"][0], d["box"][1], "ground")
 
+## v13.178: the hostage shows up when you reach them; once taken with TRACTOR they float beside you in the beam
+func _hostage_tick(dt: float) -> void:
+	if not board.has("fleet"): return
+	var fl: Dictionary = board["fleet"]
+	var hn = fl.get("hostage")
+	if hn != null and is_instance_valid(hn):
+		var hp := (hn as Node3D).global_position
+		var hd := Vector2(player.global_position.x - hp.x, player.global_position.z - hp.z).length()
+		# v13.178 (owner): the hostage shows up when you get to them; TRACTOR takes them, and the beam carries them with you
+		if not (hn as Node3D).visible and hd < Data.HOSTAGE_SHOW_AT and absf(player.global_position.y - hp.y) < 60.0:
+			(hn as Node3D).visible = true
+			Sfx.play("button", -4.0, 1.2)
+			message.emit("HOSTAGE FOUND! Use TRACTOR to take them with you.")
+		if bool(fl.get("towed", false)):   # held in your tractor beam: floating at your side
+			var cb: Basis = cam.global_transform.basis if is_instance_valid(cam) else Basis(Vector3.UP, yaw)   # (v13.180: to the camera's right, so it's on screen)
+			var rgt := Vector3(cb.x.x, 0, cb.x.z).normalized()
+			var fwd := Vector3(-cb.z.x, 0, -cb.z.z).normalized()
+			var side := rgt * Data.HOSTAGE_TOW_SIDE - fwd * Data.HOSTAGE_TOW_BACK
+			var want := player.global_position + side
+			want.y = maxf(Boarding.floor_at(want), player.global_position.y - 4.0) + 3.0 + sin(Time.get_ticks_msec() * 0.003) * 1.0
+			(hn as Node3D).global_position = hp.lerp(want, clampf(dt * 4.0, 0.0, 1.0))
+			_hostage_beam(hn as Node3D)
+
 ## v13.178: the tractor beam from you to the hostage (a glowing line)
 func _hostage_beam(hn: Node3D) -> void:
 	var bm := hn.get_node_or_null("Beam") as MeshInstance3D
@@ -2892,14 +2898,14 @@ func _hostage_beam(hn: Node3D) -> void:
 		bm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		hn.add_child(bm)
 		bm.top_level = true
-	var a := player.global_position + Vector3(0, 4.0, 0)
+	var a: Vector3 = (pilot_rig.global_position if is_instance_valid(pilot_rig) else player.global_position) + Vector3(0, esc_h() * 0.55, 0)
 	var b := hn.global_position + Vector3(0, guard_h() * 0.5, 0)
 	var L := a.distance_to(b)
 	if L < 0.5: return
 	var up := (b - a) / L
 	var ref := Vector3.FORWARD if absf(up.dot(Vector3.UP)) > 0.95 else Vector3.UP
 	var x := up.cross(ref).normalized()
-	bm.global_transform = Transform3D(Basis(x, up, x.cross(up)).scaled(Vector3(1, L, 1)), (a + b) * 0.5)
+	bm.global_transform = Transform3D(Basis(x, up * L, x.cross(up)), (a + b) * 0.5)
 
 var _door_tints := {}
 func _door_tint(c: Color) -> Material:

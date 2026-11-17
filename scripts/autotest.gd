@@ -2540,6 +2540,8 @@ func _run() -> void:
 				_check("%s rescue: the hostage appears when you reach them (%s), standing next to them is not enough (%s); TRACTOR takes them (%s) and they float beside you" % [fid, shown, not_yet, tm],
 					shown and not_yet and bool(b["fleet"].get("towed", false)) and Vector2(hp1.x - s.player.global_position.x, hp1.z - s.player.global_position.z).length() < 40.0, "%s %s %s %s" % [shown, not_yet, tm, hp1.distance_to(s.player.global_position)])
 				await _capture("fb_%s_hostage_tractor" % fid)
+				var bmn: Node3D = hn0.get_node_or_null("Beam")
+				print("[hostdbg] player ", s.player.global_position, " rig ", (s.pilot_rig.global_position if is_instance_valid(s.pilot_rig) else Vector3.ZERO), " host ", hn0.global_position, " cam ", s.cam.global_position, " beam ", (bmn.global_transform if bmn else Transform3D()), " towed ", b["fleet"].get("towed"))
 			await _wait(0.6)
 			_check("%s %s: the job's target is done" % [fid, kind], bool(b["fleet"]["done"]), str(b["fleet"]["done"]))
 			var exk: String = s.fleet_exit_key()   # v13.130 (owner's formula): the clock runs, the way in is blocked, another way out
