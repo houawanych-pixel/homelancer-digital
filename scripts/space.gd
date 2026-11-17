@@ -704,6 +704,31 @@ func _push_out_hull(n: Node3D, kind: String) -> bool:
 		p = cp + cn * (r + 0.05)
 		nrm = cn
 		hit = true
+	if not hit and n.has_meta("hit_half"):   # v13.172: deep inside the hull (warped in, spawned in, or it moved onto you): no face is near, so
+		# look out along the six axes; when nearly every way meets the hull you are inside it: out by the shortest way
+		var hh: Vector3 = n.get_meta("hit_half")
+		var lp := n.global_transform.affine_inverse() * p
+		if absf(lp.x) < hh.x and absf(lp.y) < hh.y and absf(lp.z) < hh.z:
+			var reach := hh.length() * 2.2
+			var best_d := INF
+			var best_p := Vector3.INF
+			var best_n := Vector3.ZERO
+			var met := 0
+			for dv in [Vector3.RIGHT, Vector3.LEFT, Vector3.UP, Vector3.DOWN, Vector3.FORWARD, Vector3.BACK]:
+				var rq2 := PhysicsRayQueryParameters3D.create(p, p + dv * reach, HULL_LAYER)
+				rq2.hit_back_faces = true
+				var rh2 := ss.intersect_ray(rq2)
+				if rh2.is_empty() or rh2["collider"] != sb: continue
+				met += 1
+				var dd := p.distance_to(rh2["position"])
+				if dd < best_d:
+					best_d = dd
+					best_p = (rh2["position"] as Vector3) + dv * (r + 1.0)
+					best_n = dv
+			if met >= 5 and best_p != Vector3.INF:
+				p = best_p
+				nrm = best_n
+				hit = true
 	if not hit: return false
 	player.global_position = p
 	hull_hits += 1
