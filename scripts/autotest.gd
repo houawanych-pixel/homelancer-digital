@@ -1857,6 +1857,7 @@ func _run() -> void:
 		await _wait(0.6)
 		var sb: Array = Boarding.ROOMS["sbay"]["r"]
 		for i in 10:
+			if not is_instance_valid(s) or not s.boarding: break   # (out: the space is rebuilt)
 			s.player.global_position = Vector3((float(sb[0]) + float(sb[1])) * 0.5, 6, (float(sb[2]) + float(sb[3])) * 0.5)
 			await get_tree().process_frame
 		await _until(func(): return main.state == "hub", 20.0)
