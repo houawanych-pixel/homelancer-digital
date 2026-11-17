@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.177"
+const VERSION := "v13.178"
 const STATION_BOARD_WALK := true   # v13.174: WALK THE STATION boards the station's own deck plan in the boarding engine
 const STATION_ATRIUM_R := 300.0   # u from the lift axis: standing in the hub's atrium (outside the lift car) brings up ENTER MAIN HUB
 const DOCK_INTO_DECK := true   # v13.176: dock at a station with its own deck plan: you arrive in its docking bay, the 360 hub is a room inside
@@ -1939,6 +1939,10 @@ const DEFAULT_SLOTS := ["light_missile", "heavy_missile", "mine"]
 const SECTION_SHARE := 0.4
 const LOOT_RANGE := 700.0
 const TRACTOR_TIME := 4.0
+const HOSTAGE_SHOW_AT := 160.0        # v13.178 (owner): m: the hostage appears when you get this close (they're hidden till then)
+const HOSTAGE_TRACTOR_REACH := 120.0  # m: TRACTOR takes the hostage from this close
+const HOSTAGE_TOW_SIDE := 14.0        # m: in the beam they float at your right ...
+const HOSTAGE_TOW_BACK := 18.0        # m: ... and a little behind
 # v6.9 (owner): the SPECIAL is now an electric storm: every hostile in tractor range is shocked: shields gone, frozen in
 # place for a few seconds, and hit about as hard as a heavy (super) missile. Same rules for when it is ready (half hull,
 # then critical); until then a tap is still an evasive move.
@@ -1978,7 +1982,9 @@ const SAVAGER_CRUISER_YAW := 180.0
 # v13.169 (owner: "an Imperial ship in the cloud was humongous ... we need a universal scale for every ship: capital
 # ships roughly the same size for every faction, the classes tone down from there"): ONE length per class, for every
 # faction and every model set (the old flagship sheet's battleships flew 1360 m next to 612 m fleet capitals)
-const SHIP_CLASS_LEN := {"Capital": 612.0, "Cruiser": 288.0, "Destroyer": 230.0, "Resupply": 200.0, "TroopTransport": 170.0, "Frigate": 150.0, "Escort": 110.0, "Scout": 45.0, "Bomber": 30.0}
+# v13.178 (owner: "the ship should be bigger, 4x all ships except fighters and bombers"): every big class x BIG_SHIP_K
+const BIG_SHIP_K := 4.0
+const SHIP_CLASS_LEN := {"Capital": 612.0 * BIG_SHIP_K, "Cruiser": 288.0 * BIG_SHIP_K, "Destroyer": 230.0 * BIG_SHIP_K, "Resupply": 200.0 * BIG_SHIP_K, "TroopTransport": 170.0 * BIG_SHIP_K, "Frigate": 150.0 * BIG_SHIP_K, "Escort": 110.0 * BIG_SHIP_K, "Scout": 45.0, "Bomber": 30.0}
 const FLEET_BATTLESHIP_LEN: float = SHIP_CLASS_LEN["Capital"]   # v11.89 was 1360 (owner: battleships 4x); v13.169: the universal capital length
 #   # m (v11.36 owner: "only as big as a station": = STATION_WIDTH)
 const FLEET_CRUISER_LEN: float = SHIP_CLASS_LEN["Cruiser"]   # v13.169 (was 360)
@@ -2530,10 +2536,10 @@ const ENEMIES := {
 	"liberator_fighter_l3": {"name": "Liberator Fighter Mk III", "class": "fighter", "faction": "Liberator", "model": "liberator_fighter_l3", "radius": 11.0, "hit_r": 12.0, "hull": 240.0, "shield": 150.0, "speed": 50.0, "turn": 1.3, "damage": 18.0, "rate": 1.9, "reward": 690, "missiles": true, "level": 3},   # v11.68
 	# v1.9n (owner): the SILVER fleet invasion's big ships (capital = slow, turrets all round, a big hit box; missiles,
 	# mines and the special do set damage to them, not a share of their hull)
-	"inv_battleship": {"name": "Battleship", "model": "savager_carrier", "scale": 4.708, "hull": 4500.0, "shield": 1500.0, "speed": 14.0, "turn": 0.05, "damage": 9.0, "rate": 3.0, "reward": 3000, "capital": true, "hit_r": 291.9, "range": 2600.0, "radius": 329.5},   # v13.171 (owner: "the enemy battleships the same size too"): the stand-in at the universal class length (SHIP_CLASS_LEN)
-	"inv_flagship": {"name": "Flagship", "model": "savager_carrier", "scale": 4.708, "hull": 7000.0, "shield": 2500.0, "speed": 10.0, "turn": 0.04, "damage": 10.0, "rate": 3.4, "reward": 5000, "capital": true, "hit_r": 274.6, "range": 3000.0, "radius": 313.8},   # v11.31: the huge destroyer   # v13.171 (owner: "the enemy battleships the same size too"): the stand-in at the universal class length (SHIP_CLASS_LEN)
-	"inv_warship": {"name": "Warship", "model": "savager_cruiser", "scale": 7.200, "hull": 4500.0, "shield": 1500.0, "speed": 20.0, "turn": 0.08, "damage": 8.0, "rate": 2.4, "reward": 1500, "capital": true, "hit_r": 136.8, "range": 2200.0, "radius": 151.2},   # v13.171 (owner: "the enemy battleships the same size too"): the stand-in at the universal class length (SHIP_CLASS_LEN)
-	"inv_destroyer": {"name": "Destroyer", "model": "savager_cruiser", "scale": 5.750, "hull": 3000.0, "shield": 1000.0, "speed": 28.0, "turn": 0.1, "damage": 7.0, "rate": 2.0, "reward": 1000, "capital": true, "hit_r": 115.0, "range": 2000.0, "radius": 123.2},   # v13.171 (owner: "the enemy battleships the same size too"): the stand-in at the universal class length (SHIP_CLASS_LEN)
+	"inv_battleship": {"name": "Battleship", "model": "savager_carrier", "scale": 18.832, "hull": 4500.0, "shield": 1500.0, "speed": 14.0, "turn": 0.05, "damage": 9.0, "rate": 3.0, "reward": 3000, "capital": true, "hit_r": 1167.600, "range": 5200.0, "radius": 1318.000},   # v13.171 (owner: "the enemy battleships the same size too"): the stand-in at the universal class length (SHIP_CLASS_LEN; v13.178 x4)
+	"inv_flagship": {"name": "Flagship", "model": "savager_carrier", "scale": 18.832, "hull": 7000.0, "shield": 2500.0, "speed": 10.0, "turn": 0.04, "damage": 10.0, "rate": 3.4, "reward": 5000, "capital": true, "hit_r": 1098.400, "range": 6000.0, "radius": 1255.200},   # v11.31: the huge destroyer   # v13.171 (owner: "the enemy battleships the same size too"): the stand-in at the universal class length (SHIP_CLASS_LEN; v13.178 x4)
+	"inv_warship": {"name": "Warship", "model": "savager_cruiser", "scale": 28.800, "hull": 4500.0, "shield": 1500.0, "speed": 20.0, "turn": 0.08, "damage": 8.0, "rate": 2.4, "reward": 1500, "capital": true, "hit_r": 547.200, "range": 4400.0, "radius": 604.800},   # v13.171 (owner: "the enemy battleships the same size too"): the stand-in at the universal class length (SHIP_CLASS_LEN; v13.178 x4)
+	"inv_destroyer": {"name": "Destroyer", "model": "savager_cruiser", "scale": 23.000, "hull": 3000.0, "shield": 1000.0, "speed": 28.0, "turn": 0.1, "damage": 7.0, "rate": 2.0, "reward": 1000, "capital": true, "hit_r": 460.000, "range": 4000.0, "radius": 492.800},   # v13.171 (owner: "the enemy battleships the same size too"): the stand-in at the universal class length (SHIP_CLASS_LEN; v13.178 x4)
 	# v12.68: the uncharted zones' own people and beasts (no faction): wildlife, pirates, rogue drones, derelicts
 	"void_ray": {"name": "Void Ray", "class": "wildlife", "model": "void_ray", "radius": 10.0, "hull": 120.0, "shield": 0.0, "speed": 40.0, "turn": 1.1, "damage": 5.0, "rate": 2.4, "reward": 180, "zone": "wildlife"},
 	"void_ray_alpha": {"name": "Void Ray Alpha", "class": "wildlife", "model": "void_ray", "scale": 1.8, "radius": 16.0, "hull": 420.0, "shield": 0.0, "speed": 38.0, "turn": 1.0, "damage": 8.0, "rate": 2.2, "reward": 520, "zone": "wildlife"},

@@ -2306,6 +2306,24 @@ func _run() -> void:
 		await _capture("visit_alert")
 		_finish_group()
 		return
+	if _flag("HL_SHIPLOOK"):   # v13.178 (owner: "ships flying upside down"): the Unity fleet from the chase camera
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		var sids := FleetCatalog.systems_of("Unity")
+		main._load_system(str(sids[0]), "station")
+		await _until(func(): return main.state == "flight" and main.space.sys_id == str(sids[0]), 15.0)
+		await _wait(2.0)
+		var s := _sp()
+		for v in s.fleet_visitors:
+			var vn: Node3D = v["node"]
+			var ln := float(Data.SHIP_CLASS_LEN.get(str(FleetCatalog.get_entry(str(v["id"]))["class"]), 100.0))
+			var fwd := -vn.global_transform.basis.z
+			_tp(vn.global_position - fwd * ln * 2.2 + Vector3(0, ln * 0.15, 0), vn.global_position)
+			await _frames(4)
+			await _capture("ship_%s" % str(v["id"]))
+			_check("%s flies top up (up %.2f)" % [v["id"], vn.global_transform.basis.y.y], vn.global_transform.basis.y.y > 0.9, "")
+		_finish_group()
+		return
 	if _flag("HL_DOORLOOK"):   # v13.177 (owner): look at fleet doors from the hallway: card colours, one door per hallway
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -2512,6 +2530,16 @@ func _run() -> void:
 			await _capture("fb_%s_%s" % [fid, kind])
 			if kind == "sabotage": s._destroy_unit(b["core"])
 			elif kind == "capture": s._destroy_unit(b["fleet"]["captain"])
+			elif kind == "rescue":   # v13.178 (owner): the hostage shows up when you get there; TRACTOR takes them
+				var hn0: Node3D = b["fleet"]["hostage"]
+				var shown: bool = hn0.visible
+				var not_yet: bool = not bool(b["fleet"]["done"])
+				var tm: String = s.tractor()
+				await _wait(1.0)
+				var hp1: Vector3 = hn0.global_position
+				_check("%s rescue: the hostage appears when you reach them (%s), standing next to them is not enough (%s); TRACTOR takes them (%s) and they float beside you" % [fid, shown, not_yet, tm],
+					shown and not_yet and bool(b["fleet"].get("towed", false)) and Vector2(hp1.x - s.player.global_position.x, hp1.z - s.player.global_position.z).length() < 40.0, "%s %s %s %s" % [shown, not_yet, tm, hp1.distance_to(s.player.global_position)])
+				await _capture("fb_%s_hostage_tractor" % fid)
 			await _wait(0.6)
 			_check("%s %s: the job's target is done" % [fid, kind], bool(b["fleet"]["done"]), str(b["fleet"]["done"]))
 			var exk: String = s.fleet_exit_key()   # v13.130 (owner's formula): the clock runs, the way in is blocked, another way out

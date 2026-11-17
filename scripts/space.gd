@@ -2101,6 +2101,7 @@ func _fleet_setup(root: Node3D, info: Dictionary, fac: String) -> void:
 				lb.modulate = Color(0.5, 1.0, 0.6)
 				lb.position.y = guard_h() + 4.0
 				hn.add_child(lb)
+				hn.visible = false   # v13.178 (owner: "the hostage appears when you get there and you tractor him"): hidden until you find them
 				fl["hostage"] = hn
 		var bc := MeshInstance3D.new()   # a column of light on the next place to go (the target, then the way out)
 		var cy := CylinderMesh.new()
@@ -2369,11 +2370,18 @@ func _fleet_tick(dt: float) -> void:
 	var hn = fl.get("hostage")
 	if hn != null and is_instance_valid(hn):
 		var hp := (hn as Node3D).global_position
-		if not bool(fl["done"]) and Vector2(player.global_position.x - hp.x, player.global_position.z - hp.z).length() < 40.0: _fleet_done()
-		if bool(fl["done"]):   # she follows you, a few steps behind
-			var want := player.global_position - (player.global_position - hp).normalized() * 30.0
-			var np := hp.lerp(Vector3(want.x, Boarding.floor_at(want), want.z), clampf(dt * 2.0, 0.0, 1.0))
-			if Vector2(player.global_position.x - hp.x, player.global_position.z - hp.z).length() > 30.0: (hn as Node3D).global_position = np
+		var hd := Vector2(player.global_position.x - hp.x, player.global_position.z - hp.z).length()
+		# v13.178 (owner): the hostage shows up when you get to them; TRACTOR takes them, and the beam carries them with you
+		if not (hn as Node3D).visible and hd < Data.HOSTAGE_SHOW_AT and absf(player.global_position.y - hp.y) < 60.0:
+			(hn as Node3D).visible = true
+			Sfx.play("button", -4.0, 1.2)
+			message.emit("HOSTAGE FOUND! Use TRACTOR to take them with you.")
+		if bool(fl.get("towed", false)):   # held in your tractor beam: floating at your side
+			var side := Basis(Vector3.UP, yaw) * Vector3(Data.HOSTAGE_TOW_SIDE, 0, Data.HOSTAGE_TOW_BACK)
+			var want := player.global_position + side
+			want.y = maxf(Boarding.floor_at(want), player.global_position.y - 4.0) + 3.0 + sin(Time.get_ticks_msec() * 0.003) * 1.0
+			(hn as Node3D).global_position = hp.lerp(want, clampf(dt * 4.0, 0.0, 1.0))
+			_hostage_beam(hn as Node3D)
 	var bc = fl.get("beacon")
 	if bc != null and is_instance_valid(bc): (bc as Node3D).scale = Vector3.ONE * (1.0 + 0.15 * sin(Time.get_ticks_msec() * 0.006))
 
@@ -2865,6 +2873,30 @@ func _board_doors(dt: float) -> void:
 					st.set_meta("col", want_col)
 					st.material_override = ShipFactory.mat(want_col, true)
 		if float(d["open"]) < 0.8: _push_out_box(d["box"][0], d["box"][1], "ground")
+
+## v13.178: the tractor beam from you to the hostage (a glowing line)
+func _hostage_beam(hn: Node3D) -> void:
+	var bm := hn.get_node_or_null("Beam") as MeshInstance3D
+	if bm == null:
+		bm = MeshInstance3D.new()
+		bm.name = "Beam"
+		var cy := CylinderMesh.new()
+		cy.top_radius = 0.6
+		cy.bottom_radius = 0.6
+		cy.height = 1.0
+		bm.mesh = cy
+		bm.material_override = _glow_mat(Color(0.45, 0.9, 1.0))
+		bm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		hn.add_child(bm)
+		bm.top_level = true
+	var a := player.global_position + Vector3(0, 4.0, 0)
+	var b := hn.global_position + Vector3(0, guard_h() * 0.5, 0)
+	var L := a.distance_to(b)
+	if L < 0.5: return
+	var up := (b - a) / L
+	var ref := Vector3.FORWARD if absf(up.dot(Vector3.UP)) > 0.95 else Vector3.UP
+	var x := up.cross(ref).normalized()
+	bm.global_transform = Transform3D(Basis(x, up, x.cross(up)).scaled(Vector3(1, L, 1)), (a + b) * 0.5)
 
 var _door_tints := {}
 func _door_tint(c: Color) -> Material:
@@ -11864,6 +11896,18 @@ func _on_mined(at: Vector3, mat: String, weapon: String) -> void:
 
 ## Switch the tractor beam on for a few seconds: every pod in range flies to you.
 func tractor() -> String:
+	if boarding and board.has("fleet"):   # v13.178 (owner): the hostage comes with you in the tractor beam
+		var fl: Dictionary = board["fleet"]
+		var hn = fl.get("hostage")
+		if hn != null and is_instance_valid(hn) and not bool(fl.get("towed", false)):
+			var hp := (hn as Node3D).global_position
+			if (hn as Node3D).visible and player.global_position.distance_to(hp) < Data.HOSTAGE_TRACTOR_REACH:
+				fl["towed"] = true
+				tractor_t = Data.TRACTOR_TIME
+				_fleet_done()
+				return "Tractor beam locked on the hostage: they come with you."
+			if (hn as Node3D).visible: return "Tractor beam: get closer to the hostage."
+		if bool(fl.get("towed", false)): return "Tractor beam: the hostage is in the beam."
 	var inrange := 0
 	for l in loot:
 		if (l["node"] as Node3D).global_position.distance_to(player.global_position) < Data.LOOT_RANGE: inrange += 1
@@ -15170,11 +15214,12 @@ func _spawn_fleet_catalog() -> void:
 				v["r"] = {"Capital": 9000.0, "Cruiser": 6200.0, "Destroyer": 4600.0}.get(str(e["class"]), 5000.0)
 				v["y"] = 260.0 + 90.0 * float(i)
 			"screen":
-				v["r"] = 2000.0 + 450.0 * float(i % 2)
+				v["r"] = 2800.0 + 600.0 * float(i % 2)   # (v13.178: clear of the 4x ships)
 				v["y"] = 120.0
 			"docked":   # parked off the station, nose out
 				var side := -1.0 if str(e["class"]) == "Resupply" else 1.0
-				n.global_position = c0 + Vector3(side * 1300.0, 60.0, 900.0)   # (clear of the 4x station)
+				var dln := float(Data.SHIP_CLASS_LEN.get(str(e["class"]), 200.0))
+				n.global_position = c0 + Vector3(side * (1300.0 + dln * 0.6), 60.0, 900.0 + dln * 0.3)   # (clear of the 4x station; v13.178: and of the 4x ship)
 				face(n, Vector3(side * 0.3, 0, 1).normalized())
 			"traffic":
 				v["t"] = 0.25 + 0.5 * float(i % 2)

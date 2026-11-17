@@ -36,13 +36,13 @@ const ROLE := {
 #   len   = length in metres in space: Data.SHIP_CLASS_LEN (v13.169: one universal length per class, every faction)
 #   speed = m/s cruise   turn = rad/s   hull / shield / guns = same units as Data.SHIPS
 const PLACEHOLDER_STATS := {
-	"Capital":        {"len": 612.0, "speed": 40.0,  "turn": 0.10, "hull": 9000, "shield": 6000, "guns": 24},
-	"Cruiser":        {"len": 288.0,  "speed": 60.0,  "turn": 0.18, "hull": 4000, "shield": 2600, "guns": 12},
-	"Destroyer":      {"len": 230.0,  "speed": 75.0,  "turn": 0.25, "hull": 2600, "shield": 1600, "guns": 10},
-	"Resupply":       {"len": 200.0,  "speed": 50.0,  "turn": 0.16, "hull": 2200, "shield": 900,  "guns": 2},
-	"TroopTransport": {"len": 170.0,  "speed": 70.0,  "turn": 0.22, "hull": 1800, "shield": 900,  "guns": 4},
-	"Frigate":        {"len": 150.0,  "speed": 95.0,  "turn": 0.35, "hull": 1200, "shield": 700,  "guns": 6},
-	"Escort":         {"len": 110.0,  "speed": 110.0, "turn": 0.45, "hull": 800,  "shield": 500,  "guns": 4},
+	"Capital":        {"len": 2448.0, "speed": 40.0,  "turn": 0.10, "hull": 9000, "shield": 6000, "guns": 24},
+	"Cruiser":        {"len": 1152.0,  "speed": 60.0,  "turn": 0.18, "hull": 4000, "shield": 2600, "guns": 12},
+	"Destroyer":      {"len": 920.0,  "speed": 75.0,  "turn": 0.25, "hull": 2600, "shield": 1600, "guns": 10},
+	"Resupply":       {"len": 800.0,  "speed": 50.0,  "turn": 0.16, "hull": 2200, "shield": 900,  "guns": 2},
+	"TroopTransport": {"len": 680.0,  "speed": 70.0,  "turn": 0.22, "hull": 1800, "shield": 900,  "guns": 4},
+	"Frigate":        {"len": 600.0,  "speed": 95.0,  "turn": 0.35, "hull": 1200, "shield": 700,  "guns": 6},
+	"Escort":         {"len": 440.0,  "speed": 110.0, "turn": 0.45, "hull": 800,  "shield": 500,  "guns": 4},
 	"Scout":          {"len": 45.0,   "speed": 170.0, "turn": 0.9,  "hull": 240,  "shield": 160,  "guns": 2},
 	"Bomber":         {"len": 30.0,   "speed": 150.0, "turn": 0.8,  "hull": 300,  "shield": 140,  "guns": 2},
 }
