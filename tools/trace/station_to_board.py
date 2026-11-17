@@ -209,7 +209,24 @@ def convert(st, deck_role="MAIN HUB"):
         if r.get("card"):
             c = r["poly"].representative_point()
             cards.append({"room": "r_" + slug(r["name"]), "key": min(3, int(r["card"])), "at": [round(c.x * S_BOARD, 2), 0.0, round(c.y * S_BOARD, 2)]})
-    lay = {"scale": S_BOARD, "ax": 0.0, "cy": 0.0, "src_w": 0, "src_h": 0, "rooms": rooms, "start": start,
+    # the deck's map picture (the in-game map shows it under the 3D rooms): 1 px per plan px, origin at (ax, cy)
+    L0 = D["_L"]
+    bx0, by0, bx1, by1 = L0["outline"].bounds
+    pad = 20
+    pw, ph = int(bx1 - bx0) + 2 * pad, int(by1 - by0) + 2 * pad
+    ax_, cy_ = -bx0 + pad, -by0 + pad
+    img = np.full((ph, pw, 3), (40, 22, 8), np.uint8)
+    def fill(g, col):
+        for q in T.parts(g): cv2.fillPoly(img, [np.round(np.array(q.exterior.coords) + (ax_, cy_)).astype(np.int32)], col)
+    def line(g):
+        for q in T.parts(g): cv2.polylines(img, [np.round(np.array(q.exterior.coords) + (ax_, cy_)).astype(np.int32)], True, (240, 240, 240), 1, cv2.LINE_AA)
+    fill(L0["outline"], (90, 50, 18))
+    fill(L0["ways"], (55, 45, 170)); line(L0["ways"])
+    for r in D["rooms"]:
+        fill(r["poly"], (45, 30, 120) if r["kind"] == "mech" else (175, 95, 30)); line(r["poly"])
+    os.makedirs(OUT, exist_ok=True)
+    cv2.imwrite(os.path.join(OUT, st["model"] + "_map.jpg"), img, [cv2.IMWRITE_JPEG_QUALITY, 85])
+    lay = {"scale": S_BOARD, "ax": ax_, "cy": cy_, "src_w": pw, "src_h": ph, "rooms": rooms, "start": start,
            "exit_x": 1.0e6, "entry_x": -1.0e6, "core": [0, 0, 0], "boss": [0, 0, 0], "seal": ["none", "none"], "escape": ["none", "none"],
            "route_in": [], "route_out": [], "info": {"kind": "fleet", "blocked": [], "station": True},
            "fleet": {"locks": locks, "cards": cards, "targets": {}, "entry": "sbay", "levels": {k: v for k, v in levels.items() if v > 0}}}

@@ -1568,7 +1568,7 @@ func board_station(kind: String, job := {}) -> void:
 		await Packs.wait("mechs", 60.0)
 	Boarding.use(L)
 	Boarding.INFO["name"] = nm
-	Boarding.INFO["plan_tex"] = ""
+	Boarding.INFO["plan_tex"] = path.get_basename() + "_map.jpg" if ResourceLoader.exists(path.get_basename() + "_map.jpg") else ""
 	Boarding.INFO["plan_tex_decks"] = {}
 	_new_space("Boarding")
 	space.escape_pilot = not (Data.FLEET_MECH and Packs.is_ready("mechs"))

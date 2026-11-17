@@ -1856,12 +1856,16 @@ func _run() -> void:
 		await _shot("stboard_hub")
 		var room_k := ""
 		for k in Boarding.ROOMS:
-			if str(k).begins_with("r_") and not bool(Boarding.ROOMS[k].get("pilot", false)) and not (s.board["fleet"]["levels"] as Dictionary).has(k): room_k = k; break
+			if str(k).begins_with("r_") and not bool(Boarding.ROOMS[k].get("pilot", false)) and not ((Boarding.INFO["fleet"] as Dictionary).get("levels", {}) as Dictionary).has(k): room_k = k; break
 		if room_k != "":
 			var r: Array = Boarding.ROOMS[room_k]["r"]
 			s.player.global_position = Vector3((float(r[0]) + float(r[1])) * 0.5, 6, (float(r[2]) + float(r[3])) * 0.5)
 			await _wait(0.8)
 			await _shot("stboard_room")
+			main.open_map()
+			await _wait(0.8)
+			await _shot("stboard_map")
+			main.open_map()
 			_check("v13.174: you can stand in %s" % str(Boarding.ROOMS[room_k]["label"]), Boarding.room_at(s.player.global_position) == room_k, Boarding.room_at(s.player.global_position))
 		print("[stboard] nodes %d build %d ms" % [nodes, dt_ms])
 		_finish_group()
