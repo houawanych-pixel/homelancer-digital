@@ -1867,6 +1867,23 @@ func _run() -> void:
 			await _shot("stboard_map")
 			main.open_map()
 			_check("v13.174: you can stand in %s" % str(Boarding.ROOMS[room_k]["label"]), Boarding.room_at(s.player.global_position) == room_k, Boarding.room_at(s.player.global_position))
+		# a service room is the door into its 360 page (v13.174)
+		var mc := ""
+		for k in Boarding.ROOMS: if str(Boarding.ROOMS[k].get("label", "")) == "MISSION CENTER": mc = k
+		if mc != "":
+			var r2: Array = Boarding.ROOMS[mc]["r"]
+			s.player.global_position = Vector3((float(r2[0]) + float(r2[1])) * 0.5, 6, (float(r2[2]) + float(r2[3])) * 0.5)
+			await _wait(0.6)
+			var sp: Dictionary = s.spot_near()
+			_check("v13.174: standing in the MISSION CENTER, ENTER comes up for its page", str(sp.get("screen", "")) == "board", str(sp))
+			await _shot("stboard_enter")
+			main.open_deck_spot()
+			await _wait(0.8)
+			_check("v13.174: ENTER opens the mission board page over the deck", main.deck_overlay and main.hub.visible and main.hub.screen in ["board", "missions"], main.hub.screen)
+			await _shot("stboard_page")
+			main.back_to_deck()
+			await _wait(0.6)
+			_check("v13.174: BACK TO DECK: you are in the station again", not main.deck_overlay and main.space.boarding and main.state == "flight", main.state)
 		print("[stboard] nodes %d build %d ms" % [nodes, dt_ms])
 		_finish_group()
 		return
