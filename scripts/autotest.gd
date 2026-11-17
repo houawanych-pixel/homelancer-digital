@@ -2333,6 +2333,17 @@ func _run() -> void:
 		await _wait(1.5)
 		var s := _sp()
 		if Data.FLEET_MECH: s.eject(); await _wait(0.5)
+		if Boarding.STACKED:   # v13.183: the card carriers are on different floors
+			var cd: Array = []
+			for e in s.enemies:
+				if e.has("card"): cd.append("%d:%s" % [int(e["card"]), Boarding.deck_name(Boarding.deck_y((e["node"] as Node3D).global_position))])
+			cd.sort()
+			var decks_set := {}
+			for c in cd: decks_set[str(c).split(":")[1]] = true
+			_check("the cards are on different floors (%s)" % str(cd), decks_set.size() >= mini(cd.size(), 2), "")
+			var rt: Array = s.fleet_route()
+			var said: String = s.fleet_waypoint()
+			_check("Evee leads you floor by floor: first step %s (%s)" % [rt[0]["label"] if not rt.is_empty() else "-", said], not rt.is_empty() and (str(rt[0]["label"]).begins_with("LIFT TO") or Boarding.deck_y(rt[0]["at"]) == Boarding.deck_y(s.player.global_position)), "")
 		var n := 0
 		var tinted := 0
 		var keyed := 0
@@ -2357,6 +2368,28 @@ func _run() -> void:
 				await _capture("door_%d_key%d" % [n, int(d.get("key", 0))])
 				n += 1
 		_check("card doors show their card colour on the whole door (%d of %d)" % [tinted, keyed], keyed > 0 and tinted == keyed, "")
+		# v13.185 (owner: "I got through locked doors with a sword attack"): a sword dash at a card door stops at it
+		var kd2: Dictionary = {}
+		for d in s.board_doors:
+			if int(d.get("key", 0)) >= 2: kd2 = d; break
+		if not kd2.is_empty():
+			var ck2: String = ""
+			for rk in kd2["rooms"]:
+				if bool(Boarding.ROOMS[rk].get("conn", false)): ck2 = rk
+			var dc2: Vector3 = kd2["center"]
+			var cr2: Array = Boarding.ROOMS[ck2]["r"] if ck2 != "" else [dc2.x, dc2.x, dc2.z, dc2.z]
+			var cc2 := Vector3((float(cr2[0]) + float(cr2[1])) * 0.5, 0, (float(cr2[2]) + float(cr2[3])) * 0.5)
+			var dir2 := Vector3(dc2.x - cc2.x, 0, dc2.z - cc2.z).normalized()
+			if dir2.length() < 0.5: dir2 = Vector3(1, 0, 0) if str(kd2["axis"]) == "x" else Vector3(0, 0, 1)
+			var st2 := dc2 - dir2 * 30.0
+			s.player.global_position = Vector3(st2.x, dc2.y + 3.0, st2.z)
+			await _frames(3)
+			for i in 40:
+				s._sword_move(dir2 * Data.SWORD_DASH_SPEED * 3.0, 1.0 / 30.0)
+				await get_tree().process_frame
+			var side0: float = (st2 - dc2).dot(dir2)
+			var side1: float = (s.player.global_position - dc2).dot(dir2)
+			_check("a sword dash at a shut %s door stops at the door (%.0f -> %.0f)" % [ShipInterior.KEY_NAME[int(kd2["key"])], side0, side1], side1 < 0.0, "")
 		# walk every door from the hallway into its room (cards in hand): nothing unseen stops you
 		s._fleet_card(1, s.player.global_position); s._fleet_card(2, s.player.global_position); s._fleet_card(3, s.player.global_position)
 		var blocked: Array = []

@@ -2272,7 +2272,8 @@ func _fleet_card(k: int, at: Vector3) -> void:
 	_popup(at + Vector3(0, 16, 0), "%s CARD" % ShipInterior.KEY_NAME[k], ShipInterior.KEY_COL[k])
 	message.emit("%s CARD TAKEN: the %s doors open for you now." % [ShipInterior.KEY_NAME[k], ShipInterior.KEY_NAME[k].to_lower()])
 	hail_face = "evee"
-	hail.emit("Evee", evee_card_line(k), false)   # v13.169 (owner: "when you get the keys Evee could say good job")
+	var nxt := fleet_route()   # v13.185 (owner: "when you complete the task she gives a small reminder of what to do next")
+	hail.emit("Evee", evee_card_line(k) + ((" Next: " + _evee_step_line(nxt[0])) if not nxt.is_empty() else ""), false)   # v13.169 (owner: "when you get the keys Evee could say good job")
 
 ## Evee when you get a card: "Good job! Now you've got the level 2 access key."
 static func evee_card_line(k: int) -> String:
@@ -2326,12 +2327,19 @@ func fleet_waypoint() -> String:
 		(bc as Node3D).global_position = (steps[0]["at"] as Vector3) + Vector3(0, 15.0, 0)
 	var line: String = {"YELLOW CARD": "A guard's carrying the yellow card. I've marked him.", "ORANGE CARD": "The orange card's behind the yellow doors. Marked.",
 		"RED CARD": "Red card's with a guard behind the orange doors. Marked.", "WAY OUT": "That way's your way out. Move!"}.get(str(steps[0]["label"]), "There. That's your target. Marked on your map.")
-	if Boarding.STACKED:   # v13.183 (owner: "the key's on a different floor ... Evee can give you the directions")
-		var to_y: float = (steps[0]["at"] as Vector3).y
-		var dn_to: String = Boarding.deck_name(to_y)
-		if absf(to_y - Boarding.floor_at(player.global_position)) > 40.0 and dn_to != Boarding.deck_name(Boarding.floor_at(player.global_position)):
-			line = line.trim_suffix(".") + (". It's on the %s: take the lift." % dn_to)
-	return "Evee: \"%s\"" % line
+	return "Evee: \"%s\"" % _evee_step_line(steps[0])
+
+## v13.185 (owner: "a simple guide to where to go ... who is the keyholder ... a small reminder of what to do next"):
+## Evee's one line for a route step
+func _evee_step_line(st: Dictionary) -> String:
+	var lab := str(st["label"])
+	if st.has("deck"): return "Take the lift %s to the %s. I've marked it." % ["up" if bool(st.get("up", true)) else "down", str(st["deck"])]
+	if lab.ends_with(" CARD"):
+		var who := str(st.get("who", "a guard"))
+		var dn := Boarding.deck_name(Boarding.deck_y(st["at"] as Vector3)) if Boarding.STACKED else ""
+		return "%s has the %s card%s. Marked." % [who, lab.trim_suffix(" CARD").to_lower(), (" on the " + dn) if dn != "" else ""]
+	if lab == "WAY OUT": return "Way out's marked. Move!"
+	return "%s: marked on your map." % lab.capitalize()
 
 ## Out of the ship this frame? The regular decks: past the open side of the starboard bay. A fleet ship (v13.92): back
 ## in the bay you came aboard by, once you have been out of it and the job is done.
@@ -2354,9 +2362,11 @@ func _fleet_tick(dt: float) -> void:
 	if bool(fl.get("wp_on", false)):   # v13.130: Evee's waypoint goes when you have got there (call her for the next)
 		var st := fleet_route()
 		if st.is_empty() or str(st[0]["label"]) != str(fl.get("wp_label", "")):
-			fl["wp_on"] = false
-			if is_instance_valid(fl.get("beacon")): (fl["beacon"] as Node3D).visible = false
-			message.emit("Evee: \"Got it. Call me if you need the next one.\"")
+			# v13.185 (owner): once she's guiding, she leads you on to the next point (the lift, the floor, the keyholder)
+			if st.is_empty():
+				fl["wp_on"] = false
+				if is_instance_valid(fl.get("beacon")): (fl["beacon"] as Node3D).visible = false
+			else: message.emit(fleet_waypoint())
 	var cf: Dictionary = fl.get("cutter_find", {})
 	if not cf.is_empty() and is_instance_valid(cf["node"]):
 		var cp: Vector3 = (cf["node"] as Node3D).global_position
@@ -2387,12 +2397,30 @@ func fleet_route() -> Array:
 			if _fleet_has(k): continue
 			for e in enemies:
 				if int(e.get("card", 0)) == k and is_instance_valid(e.get("node")):
-					out.append({"at": (e["node"] as Node3D).global_position, "label": "%s CARD" % ShipInterior.KEY_NAME[k], "col": ShipInterior.KEY_COL[k]})
+					out.append({"at": (e["node"] as Node3D).global_position, "label": "%s CARD" % ShipInterior.KEY_NAME[k], "col": ShipInterior.KEY_COL[k],
+						"who": str((e["node"] as Node3D).name)})
 					break
 		if fl.has("target_at"):
 			out.append({"at": fl["target_at"], "label": str(FLEET_MISSION_TEXT.get(str(fl["kind"]), "TARGET")).to_upper(), "col": Color(1.0, 0.82, 0.25)})
 	var sb: Array = Boarding.ROOMS[fleet_exit_key()]["r"]
 	out.append({"at": Vector3((float(sb[0]) + float(sb[1])) * 0.5, float(Boarding.ROOMS[fleet_exit_key()]["y"][0]), (float(sb[2]) + float(sb[3])) * 0.5), "label": "WAY OUT", "col": Color(0.4, 1.0, 0.5)})
+	# v13.185 (owner: "she directs you to the floor, and when you go up she directs you to the next point"): the next step
+	# on another deck: first the lift on this deck
+	if Boarding.STACKED and not out.is_empty() and is_instance_valid(player):
+		var my_y := Boarding.deck_y(player.global_position)
+		var to_y := Boarding.deck_y(out[0]["at"] as Vector3)
+		if absf(to_y - my_y) > 40.0:
+			for e: Dictionary in _elev:
+				var here_st: Array = []
+				var goes := false
+				for st in e["stops"]:
+					if absf(float(st[1]) - my_y) < 40.0: here_st = st
+					if absf(float(st[1]) - to_y) < 40.0: goes = true
+				if here_st.is_empty() or not goes: continue
+				var lr: Array = Boarding.ROOMS[str(here_st[0])]["r"]
+				out.push_front({"at": Vector3((float(lr[0]) + float(lr[1])) * 0.5, float(here_st[1]), (float(lr[2]) + float(lr[3])) * 0.5),
+					"label": "LIFT TO %s" % Boarding.deck_name(to_y), "col": Color(1.0, 0.85, 0.2), "deck": Boarding.deck_name(to_y), "up": to_y > my_y})
+				break
 	return out
 
 ## A room that needs exactly `level` cards to reach (not the entry, the way out, the job's room or a lift; not one already
@@ -2872,7 +2900,31 @@ func _board_doors(dt: float) -> void:
 				if not st.has_meta("col") or st.get_meta("col") != want_col:
 					st.set_meta("col", want_col)
 					st.material_override = ShipFactory.mat(want_col, true)
-		if float(d["open"]) < 0.8: _push_out_box(d["box"][0], d["box"][1], "ground")
+		if float(d["open"]) < 0.8:
+			_door_no_tunnel(d)
+			_push_out_box(d["box"][0], d["box"][1], "ground")
+	_door_prev = player.global_position
+
+## v13.185 (owner: "I was able to get through locked doors with a sword attack: block that"): a fast move (sword dash,
+## speed run) that would carry you across a shut door in one frame stops on your side of it
+var _door_prev := Vector3.INF
+func _door_no_tunnel(d: Dictionary) -> void:
+	if _door_prev == Vector3.INF or _door_prev.distance_to(player.global_position) > 60.0: return   # (a teleport, a lift: not a dash)
+	var now := player.global_position
+	var ax := str(d["axis"])
+	var at := float(d["at"])
+	var a0: float = _door_prev.x if ax == "x" else _door_prev.z
+	var a1: float = now.x if ax == "x" else now.z
+	if signf(a0 - at) == signf(a1 - at) or absf(a0 - at) < 0.01: return
+	var t := (at - a0) / (a1 - a0)
+	var cross := _door_prev.lerp(now, t)
+	var lat: float = cross.z if ax == "x" else cross.x
+	if lat < float(d["lo"]) - 2.0 or lat > float(d["hi"]) + 2.0: return
+	var base := float(d["base"])
+	if cross.y < base - 20.0 or cross.y > base + float(d["h"]): return
+	var back := at + signf(a0 - at) * (Boarding.WALL * 0.5 + 3.0)
+	player.global_position = Vector3(back, now.y, now.z) if ax == "x" else Vector3(now.x, now.y, back)
+	vel = Vector3.ZERO
 
 ## v13.182 (owner: "make the hostage like the bounty: after you talk to them they turn into an object you tractor;
 ## blue, like the bounties are red"): hidden until you reach them; walk up and they talk and turn into a BLUE pod;
