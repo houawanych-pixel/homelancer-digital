@@ -29,17 +29,23 @@ ways = unary_union([ways] + JOIN)
 hub = sc(B["hub"])
 LAB = {k: sc(p) for k, p in B["lab"].items()}
 MECH = ("Cargo", "Repair", "Shipyard", "Manufacturing", "Workshops", "Life Support", "Docking", "Arrival", "Crew & Staff", "Transit")
-R = {"Central Hub (Atrium)": hub.difference(ways)}
-if R["Central Hub (Atrium)"].geom_type != "Polygon": R["Central Hub (Atrium)"] = max(R["Central Hub (Atrium)"].geoms, key=lambda q_: q_.area)
+# the hub is one open plaza (owner: "the centre is the hub, it needs to be clear") with the main lift in its middle,
+# the same lift square on every deck (as the ships' lifts)
+from shapely.geometry import box as _bx
+ways = unary_union([ways, hub]).buffer(0)
+hc = hub.centroid; LH = 33
+R = {"Lift (main)": _bx(hc.x - LH, hc.y - LH, hc.x + LH, hc.y + LH)}
+ways = ways.difference(R["Lift (main)"])
 used = set(); n = 0
 for b in sorted(B["blocks"], key=lambda g: (round(g.centroid.y / 60), g.centroid.x)):
     g = sc(b).buffer(4 * K * 1.0, join_style=2).difference(ways).intersection(sc(B["floor"])).simplify(2.0)   # rooms meet the halls (as on the ships)
-    if g.geom_type != "Polygon" and not g.is_empty: g = max(g.geoms, key=lambda q_: q_.area)
-    if g.area < 2500 or g.geom_type != "Polygon": continue
-    nm = next((k for k, p in LAB.items() if k not in used and g.buffer(40).contains(p)), None)
-    if nm is None:
-        n += 1; nm = "%s %d" % ("Dock Bay" if g.centroid.distance(hub.centroid) > 330 * K else "Service Room", n)
-    used.add(nm); R[nm] = g
+    g = g.difference(unary_union(list(R.values())).buffer(T)) if R else g      # no room overlaps another
+    g = g.buffer(-24, join_style=2).buffer(24, join_style=2)                   # no thin necks: a block pinched round a lane end
+    for g in sorted([q_ for q_ in getattr(g, "geoms", [g]) if q_.geom_type == "Polygon" and q_.area >= 2500], key=lambda q_: -q_.area):   # is two rooms
+        nm = next((k for k, p in LAB.items() if k not in used and g.buffer(40).contains(p)), None)
+        if nm is None:
+            n += 1; nm = "%s %d" % ("Dock Bay" if g.centroid.distance(hub.centroid) > 330 * K else "Service Room", n)
+        used.add(nm); R[nm] = g
 # doors: one per room, at the middle of its longest contact with the halls (rooms sit a band off the halls: bridge it)
 DOORS, STUBS = [], []
 from shapely.ops import nearest_points
@@ -51,7 +57,7 @@ for k, g in R.items():
         p, q = nearest_points(g.exterior, ways); STUBS.append(planlib.hall((q.x, q.y), (p.x, p.y), w=planlib.DOOR + 8)); seg_p = p
         d = g.exterior.project(p)
     else:
-        for sg in (segs[:4] if k.startswith("Central Hub") else segs[:1])[1:]:
+        for sg in (segs[:1])[1:]:
             pp = sg.interpolate(0.5, normalized=True); dd = g.exterior.project(pp)
             a2, b2 = g.exterior.interpolate(max(0, dd - 6)), g.exterior.interpolate(dd + 6)
             DOORS.append((round(pp.x, 1), round(pp.y, 1), "h" if abs(b2.x - a2.x) >= abs(b2.y - a2.y) else "v"))
@@ -61,7 +67,7 @@ for k, g in R.items():
 halls = [h for h in getattr(ways, "geoms", [ways])] + STUBS
 H_, W_ = src.shape[0] * K, src.shape[1] * K
 AX = 553 * K
-sp = MAINW.representative_point(); start = (sp.x, sp.y)
+start = (hc.x, hc.y - 120)
 S = planlib.Ship("station_veranthos_customs", ENG, os.path.join(HERE, "..", "source.jpg"), AX, R, halls, DOORS, start=start, center_y=hub.centroid.y)
 bad = planlib.run(S)
 if bad:                                             # a block no walkway reaches stays service space (as on the ships)
@@ -72,12 +78,12 @@ if bad:                                             # a block no walkway reaches
     bad = planlib.run(S)
 P = json.load(open(os.path.join(ENG, "plan.json"))); P["px_per_m"] = 10.0 * K / 4.0; json.dump(P, open(os.path.join(ENG, "plan.json"), "w"))
 ov = json.load(open(os.path.join(ENG, "overrides.json"))) if os.path.exists(os.path.join(ENG, "overrides.json")) else {}
-ov["kinds"] = {k: ("mech" if k.startswith(MECH) or k.startswith("Central Hub") else "pilot") for k in R}
+ov["kinds"] = {k: ("lift" if k.startswith("Lift") else "mech" if k.startswith(MECH) else "pilot") for k in R}
 json.dump(ov, open(os.path.join(ENG, "overrides.json"), "w"), indent=1)
 pt = lambda k: [int(R[k].representative_point().x), int(R[k].representative_point().y)]
 docks = [k for k in R if k.startswith(("Dock", "Cargo"))]
-G = {"entry": {"room": docks[-1], "at": pt(docks[-1])}, "locks": [], "guards": [], "wreck": [], "lifts": [], "patrols": [],
-     "targets": {"sabotage": {"room": "Central Hub (Atrium)", "at": pt("Central Hub (Atrium)"), "key": 3}},
+G = {"entry": {"room": docks[-1], "at": pt(docks[-1])}, "locks": [], "guards": [], "wreck": [], "patrols": [],
+     "targets": {}, "lifts": [{"room": "Lift (main)", "at": pt("Lift (main)")}],
      "room_guards": {k: 1 for k in R}, "note": "Liberty Hub main deck (PROPOSED)"}
 json.dump(G, open(os.path.join(ENG, "gameplay.json"), "w"), indent=1)
 g1 = os.path.join(ENG, "gameplay_v1.json")

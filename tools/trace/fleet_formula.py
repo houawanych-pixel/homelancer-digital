@@ -50,7 +50,7 @@ def formula(sid):
     base = (planlib.raster(floor, (H, W)) > 0) & ~(planlib.raster(walls, (H, W)) > 0)
     dmask = {d: planlib.raster(dbox(d), (H, W)) > 0 for d in doors}
     room_doors = {k: [d for d in doors if R[k].distance(Point(d[0], d[1])) < T * 1.6] for k in R}
-    pt = {k: (R[k].representative_point() if not R[k].centroid.within(R[k]) else R[k].centroid) for k in R}
+    pt = {k: (R[k].representative_point() if not R[k].centroid.within(R[k].buffer(-3 * T)) else R[k].centroid) for k in R}   # v13.217: a centroid right on a wall (a concave room) is not a room point
     ipt = {k: (int(pt[k].x), int(pt[k].y)) for k in R}
 
     # (half resolution: the walls are 2 px, the doors 8 px across; 4x faster)

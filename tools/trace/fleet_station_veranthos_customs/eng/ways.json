@@ -1,13 +1,14 @@
 {
  "ship": "station_veranthos_customs",
  "rooms": {
-  "Central Hub (Atrium)": "mech",
+  "Lift (main)": "lift",
   "Arrival Complex": "mech",
+  "Dock Bay 3": "pilot",
   "Customs & Security": "pilot",
   "Passenger Services": "pilot",
   "Dock Bay 4": "pilot",
   "Dock Bay 5": "pilot",
-  "Commerce District (North)": "pilot",
+  "Commerce District (North)": "mech",
   "Service Room 6": "pilot",
   "Crew District A": "pilot",
   "Crew District B": "pilot",
@@ -21,8 +22,8 @@
   "Cargo Terminal C": "mech",
   "Service Room 11": "pilot",
   "Service Room 12": "pilot",
-  "Service Room 13": "pilot",
-  "Service Room 14": "pilot",
+  "Service Room 13": "mech",
+  "Service Room 14": "mech",
   "Ship Dealer & Showroom": "pilot",
   "Outfitting & Gear": "pilot",
   "Service Room 15": "pilot",
@@ -34,8 +35,8 @@
   "Service Room 21": "pilot",
   "Service Room 22": "pilot",
   "Medical Complex": "pilot",
-  "Service Room 23": "pilot",
-  "Service Room 24": "pilot",
+  "Service Room 23": "mech",
+  "Service Room 24": "mech",
   "Supplies & Administration": "pilot",
   "Service Room 25": "pilot",
   "Service Room 26": "pilot",
@@ -47,23 +48,24 @@
   "Service Room 32": "pilot",
   "Service Room 33": "pilot",
   "Service Room 34": "pilot",
-  "Commerce District (South)": "pilot",
+  "Commerce District (South)": "mech",
   "Service Room 35": "pilot",
   "Repair & Maintenance (South)": "mech",
   "Shipyard & Overhaul (South)": "mech",
   "Manufacturing & Workshops": "mech",
   "Workshops (East)": "mech",
-  "Crew & Staff Services": "mech",
+  "Service Room 36": "pilot",
   "Service Room 37": "pilot"
  },
  "rooms_base": {
-  "Central Hub (Atrium)": "mech",
+  "Lift (main)": "lift",
   "Arrival Complex": "mech",
+  "Dock Bay 3": "pilot",
   "Customs & Security": "pilot",
   "Passenger Services": "pilot",
   "Dock Bay 4": "pilot",
   "Dock Bay 5": "pilot",
-  "Commerce District (North)": "pilot",
+  "Commerce District (North)": "mech",
   "Service Room 6": "pilot",
   "Crew District A": "pilot",
   "Crew District B": "pilot",
@@ -77,8 +79,8 @@
   "Cargo Terminal C": "mech",
   "Service Room 11": "pilot",
   "Service Room 12": "pilot",
-  "Service Room 13": "pilot",
-  "Service Room 14": "pilot",
+  "Service Room 13": "mech",
+  "Service Room 14": "mech",
   "Ship Dealer & Showroom": "pilot",
   "Outfitting & Gear": "pilot",
   "Service Room 15": "pilot",
@@ -90,8 +92,8 @@
   "Service Room 21": "pilot",
   "Service Room 22": "pilot",
   "Medical Complex": "pilot",
-  "Service Room 23": "pilot",
-  "Service Room 24": "pilot",
+  "Service Room 23": "mech",
+  "Service Room 24": "mech",
   "Supplies & Administration": "pilot",
   "Service Room 25": "pilot",
   "Service Room 26": "pilot",
@@ -103,25 +105,25 @@
   "Service Room 32": "pilot",
   "Service Room 33": "pilot",
   "Service Room 34": "pilot",
-  "Commerce District (South)": "pilot",
+  "Commerce District (South)": "mech",
   "Service Room 35": "pilot",
   "Repair & Maintenance (South)": "mech",
   "Shipyard & Overhaul (South)": "mech",
   "Manufacturing & Workshops": "mech",
   "Workshops (East)": "mech",
-  "Crew & Staff Services": "mech",
+  "Service Room 36": "pilot",
   "Service Room 37": "pilot"
  },
  "cut_off_red": [],
  "doors": [
   {
    "at": [
-    1488.1,
-    1540.8
+    1626.0,
+    1578.0
    ],
-   "o": "v",
+   "o": "h",
    "rooms": [
-    "Central Hub (Atrium)"
+    "Lift (main)"
    ],
    "type": "mech",
    "key": 0
@@ -129,7 +131,7 @@
   {
    "at": [
     1680.4,
-    671.8
+    643.3
    ],
    "o": "v",
    "rooms": [
@@ -140,8 +142,20 @@
   },
   {
    "at": [
-    1080.5,
-    632.9
+    1594.6,
+    592.3
+   ],
+   "o": "v",
+   "rooms": [
+    "Dock Bay 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1007.3,
+    568.5
    ],
    "o": "h",
    "rooms": [
@@ -164,8 +178,8 @@
   },
   {
    "at": [
-    348.4,
-    776.7
+    347.1,
+    778.0
    ],
    "o": "h",
    "rooms": [
@@ -176,8 +190,8 @@
   },
   {
    "at": [
-    2970.9,
-    778.0
+    2969.6,
+    776.7
    ],
    "o": "h",
    "rooms": [
@@ -188,19 +202,19 @@
   },
   {
    "at": [
-    1630.9,
-    988.4
+    1528.5,
+    1010.7
    ],
    "o": "v",
    "rooms": [
     "Commerce District (North)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
    "at": [
-    1713.7,
+    1735.3,
     1037.2
    ],
    "o": "h",
@@ -261,7 +275,7 @@
   {
    "at": [
     1107.3,
-    1179.6
+    1221.0
    ],
    "o": "v",
    "rooms": [
@@ -272,8 +286,8 @@
   },
   {
    "at": [
-    1609.3,
-    1188.0
+    1540.1,
+    1191.1
    ],
    "o": "h",
    "rooms": [
@@ -284,8 +298,8 @@
   },
   {
    "at": [
-    1732.3,
-    1255.2
+    1833.5,
+    1268.3
    ],
    "o": "h",
    "rooms": [
@@ -297,7 +311,7 @@
   {
    "at": [
     2210.7,
-    1221.0
+    1223.0
    ],
    "o": "v",
    "rooms": [
@@ -308,8 +322,8 @@
   },
   {
    "at": [
-    663.1,
-    1141.3
+    663.9,
+    1142.1
    ],
    "o": "v",
    "rooms": [
@@ -320,8 +334,8 @@
   },
   {
    "at": [
-    2654.9,
-    1141.3
+    2782.4,
+    1006.9
    ],
    "o": "v",
    "rooms": [
@@ -332,10 +346,10 @@
   },
   {
    "at": [
-    1405.6,
-    1368.8
+    1474.1,
+    1300.3
    ],
-   "o": "h",
+   "o": "v",
    "rooms": [
     "Service Room 11"
    ],
@@ -344,10 +358,10 @@
   },
   {
    "at": [
-    1846.9,
-    1303.3
+    1913.6,
+    1370.0
    ],
-   "o": "v",
+   "o": "h",
    "rooms": [
     "Service Room 12"
    ],
@@ -356,32 +370,32 @@
   },
   {
    "at": [
-    1559.8,
-    1381.0
+    1561.6,
+    1379.8
    ],
    "o": "h",
    "rooms": [
     "Service Room 13"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
    "at": [
-    1758.0,
-    1380.9
+    1769.1,
+    1388.2
    ],
    "o": "h",
    "rooms": [
     "Service Room 14"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
    "at": [
-    1115.0,
-    1326.0
+    1056.7,
+    1302.4
    ],
    "o": "h",
    "rooms": [
@@ -392,8 +406,8 @@
   },
   {
    "at": [
-    2261.3,
-    1302.4
+    2203.0,
+    1326.0
    ],
    "o": "h",
    "rooms": [
@@ -404,10 +418,10 @@
   },
   {
    "at": [
-    1208.2,
-    1523.2
+    1269.4,
+    1444.2
    ],
-   "o": "h",
+   "o": "v",
    "rooms": [
     "Service Room 15"
    ],
@@ -429,7 +443,7 @@
   {
    "at": [
     2018.6,
-    1466.1
+    1468.0
    ],
    "o": "v",
    "rooms": [
@@ -440,7 +454,7 @@
   },
   {
    "at": [
-    2048.6,
+    2081.2,
     1406.2
    ],
    "o": "h",
@@ -452,10 +466,10 @@
   },
   {
    "at": [
-    1328.3,
-    1685.6
+    1367.7,
+    1602.7
    ],
-   "o": "h",
+   "o": "v",
    "rooms": [
     "Service Room 19"
    ],
@@ -489,7 +503,7 @@
   {
    "at": [
     2404.9,
-    1597.8
+    1595.8
    ],
    "o": "v",
    "rooms": [
@@ -500,10 +514,10 @@
   },
   {
    "at": [
-    1040.7,
-    1631.1
+    1049.3,
+    1625.9
    ],
-   "o": "v",
+   "o": "h",
    "rooms": [
     "Medical Complex"
    ],
@@ -512,34 +526,34 @@
   },
   {
    "at": [
-    1575.5,
-    1716.5
+    1577.3,
+    1717.2
    ],
    "o": "h",
    "rooms": [
     "Service Room 23"
    ],
-   "type": "pilot",
-   "key": 0
+   "type": "mech",
+   "key": 3
   },
   {
    "at": [
-    1742.6,
-    1716.5
+    1769.3,
+    1701.6
    ],
    "o": "h",
    "rooms": [
     "Service Room 24"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
    "at": [
-    2277.3,
-    1639.9
+    2270.3,
+    1625.9
    ],
-   "o": "v",
+   "o": "h",
    "rooms": [
     "Supplies & Administration"
    ],
@@ -548,10 +562,10 @@
   },
   {
    "at": [
-    1435.8,
-    1744.8
+    1465.9,
+    1773.0
    ],
-   "o": "v",
+   "o": "h",
    "rooms": [
     "Service Room 25"
    ],
@@ -572,8 +586,8 @@
   },
   {
    "at": [
-    1494.9,
-    1827.4
+    1487.5,
+    1871.8
    ],
    "o": "h",
    "rooms": [
@@ -584,8 +598,8 @@
   },
   {
    "at": [
-    1829.2,
-    1872.4
+    1830.5,
+    1871.8
    ],
    "o": "h",
    "rooms": [
@@ -596,20 +610,20 @@
   },
   {
    "at": [
-    687.9,
-    2120.7
+    696.4,
+    2110.9
    ],
    "o": "v",
    "rooms": [
     "Service Room 29"
    ],
    "type": "pilot",
-   "key": 0
+   "key": 2
   },
   {
    "at": [
     994.5,
-    1885.9
+    1907.0
    ],
    "o": "v",
    "rooms": [
@@ -620,8 +634,8 @@
   },
   {
    "at": [
-    1410.9,
-    1883.6
+    1338.3,
+    1956.2
    ],
    "o": "h",
    "rooms": [
@@ -632,8 +646,8 @@
   },
   {
    "at": [
-    1981.2,
-    1957.7
+    2036.8,
+    2003.6
    ],
    "o": "h",
    "rooms": [
@@ -645,7 +659,7 @@
   {
    "at": [
     2323.5,
-    1885.9
+    1890.4
    ],
    "o": "v",
    "rooms": [
@@ -656,8 +670,8 @@
   },
   {
    "at": [
-    2630.1,
-    2120.7
+    2621.6,
+    2110.9
    ],
    "o": "v",
    "rooms": [
@@ -675,13 +689,13 @@
    "rooms": [
     "Commerce District (South)"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
    "at": [
     1682.6,
-    2126.1
+    2121.4
    ],
    "o": "v",
    "rooms": [
@@ -692,34 +706,34 @@
   },
   {
    "at": [
-    763.2,
-    2101.2
+    779.2,
+    2082.9
    ],
    "o": "v",
    "rooms": [
     "Repair & Maintenance (South)"
    ],
    "type": "mech",
-   "key": 0
+   "key": 2
   },
   {
    "at": [
-    2554.8,
-    2101.2
+    2614.4,
+    2169.2
    ],
    "o": "v",
    "rooms": [
     "Shipyard & Overhaul (South)"
    ],
    "type": "mech",
-   "key": 0
+   "key": 1
   },
   {
    "at": [
-    1290.8,
-    2039.6
+    1195.2,
+    2034.8
    ],
-   "o": "v",
+   "o": "h",
    "rooms": [
     "Manufacturing & Workshops"
    ],
@@ -728,10 +742,10 @@
   },
   {
    "at": [
-    2162.2,
-    2054.7
+    2185.0,
+    2104.1
    ],
-   "o": "v",
+   "o": "h",
    "rooms": [
     "Workshops (East)"
    ],
@@ -741,18 +755,18 @@
   {
    "at": [
     1629.4,
-    2540.2
+    2554.8
    ],
    "o": "v",
    "rooms": [
-    "Crew & Staff Services"
+    "Service Room 36"
    ],
-   "type": "mech",
+   "type": "pilot",
    "key": 0
   },
   {
    "at": [
-    1732.4,
+    1751.2,
     2555.6
    ],
    "o": "h",
@@ -766,15 +780,15 @@
  "entry": "Cargo Terminal C",
  "mech_rooms_unreached": [],
  "counts": {
-  "mech_rooms": 9,
-  "pilot_rooms": 45,
-  "mech_doors": 9,
-  "pilot_doors": 45,
+  "mech_rooms": 13,
+  "pilot_rooms": 41,
+  "mech_doors": 14,
+  "pilot_doors": 41,
   "locked": {
-   "OPEN": 54,
-   "YELLOW": 0,
-   "ORANGE": 0,
-   "RED": 0
+   "OPEN": 51,
+   "YELLOW": 1,
+   "ORANGE": 2,
+   "RED": 1
   }
  }
 }

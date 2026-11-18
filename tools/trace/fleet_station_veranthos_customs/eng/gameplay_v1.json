@@ -9,21 +9,21 @@
  "locks": [],
  "guards": [],
  "wreck": [],
- "lifts": [],
  "patrols": [],
- "targets": {
-  "sabotage": {
-   "room": "Central Hub (Atrium)",
+ "targets": {},
+ "lifts": [
+  {
+   "room": "Lift (main)",
    "at": [
     1659,
-    1546
-   ],
-   "key": 3
+    1545
+   ]
   }
- },
+ ],
  "room_guards": {
-  "Central Hub (Atrium)": 1,
+  "Lift (main)": 1,
   "Arrival Complex": 1,
+  "Dock Bay 3": 1,
   "Customs & Security": 1,
   "Passenger Services": 1,
   "Dock Bay 4": 1,
@@ -74,7 +74,7 @@
   "Shipyard & Overhaul (South)": 1,
   "Manufacturing & Workshops": 1,
   "Workshops (East)": 1,
-  "Crew & Staff Services": 1,
+  "Service Room 36": 1,
   "Service Room 37": 1
  },
  "note": "Liberty Hub main deck (PROPOSED)"

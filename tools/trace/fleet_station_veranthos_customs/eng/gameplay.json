@@ -1,29 +1,19 @@
 {
- "entry": {
-  "room": "Cargo Terminal C",
-  "at": [
-   2709,
-   1147
-  ]
- },
- "locks": [],
- "guards": [],
  "wreck": [],
- "lifts": [],
  "patrols": [],
- "targets": {
-  "sabotage": {
-   "room": "Central Hub (Atrium)",
+ "lifts": [
+  {
+   "room": "Lift (main)",
    "at": [
     1659,
-    1546
-   ],
-   "key": 3
+    1545
+   ]
   }
- },
+ ],
  "room_guards": {
-  "Central Hub (Atrium)": 1,
+  "Lift (main)": 1,
   "Arrival Complex": 1,
+  "Dock Bay 3": 1,
   "Customs & Security": 1,
   "Passenger Services": 1,
   "Dock Bay 4": 1,
@@ -55,14 +45,14 @@
   "Service Room 21": 1,
   "Service Room 22": 1,
   "Medical Complex": 1,
-  "Service Room 23": 1,
+  "Service Room 23": 2,
   "Service Room 24": 1,
   "Supplies & Administration": 1,
   "Service Room 25": 1,
   "Service Room 26": 1,
   "Service Room 27": 1,
   "Service Room 28": 1,
-  "Service Room 29": 1,
+  "Service Room 29": 2,
   "Service Room 30": 1,
   "Service Room 31": 1,
   "Service Room 32": 1,
@@ -71,11 +61,176 @@
   "Commerce District (South)": 1,
   "Service Room 35": 1,
   "Repair & Maintenance (South)": 1,
-  "Shipyard & Overhaul (South)": 1,
+  "Shipyard & Overhaul (South)": 2,
   "Manufacturing & Workshops": 1,
   "Workshops (East)": 1,
-  "Crew & Staff Services": 1,
+  "Service Room 36": 1,
   "Service Room 37": 1
  },
- "note": "Liberty Hub main deck (PROPOSED)"
+ "note": "Liberty Hub main deck (PROPOSED)",
+ "formula": {
+  "C": "Service Room 23",
+  "A_gate": "Shipyard & Overhaul (South)",
+  "card_yellow": "Dock Bay 4",
+  "card_red": "Service Room 29",
+  "entry": "Cargo Terminal C",
+  "way_out": "Repair & Maintenance (South)",
+  "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
+ },
+ "entry": {
+  "room": "Cargo Terminal C",
+  "at": [
+   2646,
+   1244
+  ]
+ },
+ "exit": {
+  "room": "Repair & Maintenance (South)",
+  "at": [
+   684,
+   2246
+  ]
+ },
+ "locks": [
+  {
+   "door": [
+    1577.3,
+    1717.2
+   ],
+   "key": 3,
+   "why": "the objective (Service Room 23)"
+  },
+  {
+   "door": [
+    696.4,
+    2110.9
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    779.2,
+    2082.9
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    2614.4,
+    2169.2
+   ],
+   "key": 1,
+   "why": "the orange card's room (Shipyard & Overhaul (South))"
+  }
+ ],
+ "guards": [
+  {
+   "key": 1,
+   "room": "Dock Bay 4",
+   "at": [
+    307,
+    755
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Shipyard & Overhaul (South)",
+   "at": [
+    2633,
+    2246
+   ]
+  },
+  {
+   "key": 3,
+   "room": "Service Room 29",
+   "at": [
+    741,
+    1901
+   ]
+  }
+ ],
+ "targets": {
+  "sabotage": {
+   "room": "Service Room 23",
+   "at": [
+    1508,
+    1696
+   ],
+   "key": 3
+  },
+  "capture": {
+   "room": "Service Room 23",
+   "at": [
+    1508,
+    1696
+   ],
+   "key": 3
+  },
+  "rescue": {
+   "room": "Service Room 23",
+   "at": [
+    1508,
+    1696
+   ],
+   "key": 3
+  }
+ },
+ "room_level": {
+  "Arrival Complex": 0,
+  "Dock Bay 3": 0,
+  "Customs & Security": 0,
+  "Passenger Services": 0,
+  "Dock Bay 4": 0,
+  "Dock Bay 5": 0,
+  "Commerce District (North)": 0,
+  "Service Room 6": 0,
+  "Crew District A": 0,
+  "Crew District B": 0,
+  "Service Room 7": 0,
+  "Service Room 8": 0,
+  "Residential District": 0,
+  "Service Room 9": 0,
+  "Service Room 10": 0,
+  "Commerce District (East)": 0,
+  "Cargo Terminal A": 0,
+  "Cargo Terminal C": 0,
+  "Service Room 11": 0,
+  "Service Room 12": 0,
+  "Service Room 13": 0,
+  "Service Room 14": 0,
+  "Ship Dealer & Showroom": 0,
+  "Outfitting & Gear": 0,
+  "Service Room 15": 0,
+  "Service Room 16": 0,
+  "Service Room 17": 0,
+  "Service Room 18": 0,
+  "Service Room 19": 0,
+  "Service Room 20": 0,
+  "Service Room 21": 0,
+  "Service Room 22": 0,
+  "Medical Complex": 0,
+  "Service Room 23": 3,
+  "Service Room 24": 0,
+  "Supplies & Administration": 0,
+  "Service Room 25": 0,
+  "Service Room 26": 0,
+  "Service Room 27": 0,
+  "Service Room 28": 0,
+  "Service Room 29": 2,
+  "Service Room 30": 0,
+  "Service Room 31": 0,
+  "Service Room 32": 0,
+  "Service Room 33": 0,
+  "Service Room 34": 0,
+  "Commerce District (South)": 0,
+  "Service Room 35": 0,
+  "Repair & Maintenance (South)": 2,
+  "Shipyard & Overhaul (South)": 1,
+  "Manufacturing & Workshops": 0,
+  "Workshops (East)": 0,
+  "Service Room 36": 0,
+  "Service Room 37": 0
+ }
 }
