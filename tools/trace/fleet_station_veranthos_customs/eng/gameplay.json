@@ -1,140 +1,176 @@
 {
- "entry": {
-  "room": "Docking Bay",
-  "at": [
-   512,
-   883
-  ]
- },
- "locks": [
-  {
-   "door": [
-    512,
-    928
-   ],
-   "key": 1,
-   "why": "aft of the bay"
-  },
-  {
-   "door": [
-    512,
-    634
-   ],
-   "key": 2,
-   "why": "the command section"
-  },
-  {
-   "door": [
-    512,
-    530
-   ],
-   "key": 3,
-   "why": "the bridge"
-  },
-  {
-   "door": [
-    512,
-    1022
-   ],
-   "key": 3,
-   "why": "the reactor core"
-  },
-  {
-   "door": [
-    502,
-    819
-   ],
-   "key": 3,
-   "why": "the detention"
-  }
- ],
- "guards": [
-  {
-   "key": 1,
-   "room": "Armory",
-   "at": [
-    626,
-    819
-   ]
-  },
-  {
-   "key": 2,
-   "room": "Engineering",
-   "at": [
-    512,
-    1000
-   ]
-  },
-  {
-   "key": 3,
-   "room": "Main Hub",
-   "at": [
-    512,
-    601
-   ]
-  }
- ],
- "targets": {
-  "sabotage": {
-   "room": "Reactor Core",
-   "at": [
-    512,
-    1050
-   ],
-   "key": 3
-  },
-  "capture": {
-   "room": "Command Center",
-   "at": [
-    512,
-    512
-   ],
-   "key": 3
-  },
-  "rescue": {
-   "room": "Detention",
-   "at": [
-    398,
-    819
-   ],
-   "key": 3
-  }
- },
  "wreck": [],
  "lifts": [
   {
    "room": "Lift (port)",
    "at": [
-    488,
-    698
+    476,
+    774
    ]
   },
   {
    "room": "Lift (starboard)",
    "at": [
-    536,
-    698
+    548,
+    774
    ]
   }
  ],
  "patrols": [],
  "room_guards": {
   "Command Center": 1,
+  "Main Hub": 2,
+  "Engineering": 2,
   "Station Security": 1,
   "Comms": 1,
-  "Main Hub": 1,
-  "Mission Center": 2,
-  "Shipyard": 2,
-  "Supplies": 2,
-  "Medical Bay": 2,
-  "Pilots' Lounge": 2,
-  "Mech Dealer": 2,
-  "Detention": 1,
-  "Armory": 1,
-  "Cargo Hold A": 2,
-  "Cargo Hold B": 2,
-  "Engineering": 2,
-  "Reactor Core": 1,
-  "Power Plant": 1
+  "Mission Center": 1,
+  "Shipyard": 1,
+  "Supplies": 1,
+  "Medical Bay": 1,
+  "Pilots' Lounge": 1,
+  "Mech Dealer": 1,
+  "Armory": 2,
+  "Detention": 2,
+  "Docking Port": 1,
+  "Docking Port (east)": 1,
+  "Upper Port": 2,
+  "Upper Port (east)": 1,
+  "Cargo Hold": 1,
+  "Cargo Hold (east)": 2,
+  "Cargo Port": 1,
+  "Cargo Port (east)": 1
+ },
+ "formula": {
+  "C": "Engineering",
+  "A_gate": "Cargo Hold (east)",
+  "card_yellow": "Docking Port",
+  "card_red": "Upper Port",
+  "entry": "Docking Bay",
+  "way_out": "Cargo Hold",
+  "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
+ },
+ "entry": {
+  "room": "Docking Bay",
+  "at": [
+   512,
+   900
+  ]
+ },
+ "exit": {
+  "room": "Cargo Hold",
+  "at": [
+   244,
+   1043
+  ]
+ },
+ "locks": [
+  {
+   "door": [
+    512,
+    1012
+   ],
+   "key": 3,
+   "why": "the objective (Engineering)"
+  },
+  {
+   "door": [
+    345,
+    452
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    300,
+    1060
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    724.0,
+    1060
+   ],
+   "key": 1,
+   "why": "the orange card's room (Cargo Hold (east))"
+  }
+ ],
+ "guards": [
+  {
+   "key": 1,
+   "room": "Docking Port",
+   "at": [
+    175,
+    587
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Cargo Hold (east)",
+   "at": [
+    779,
+    1043
+   ]
+  },
+  {
+   "key": 3,
+   "room": "Upper Port",
+   "at": [
+    316,
+    423
+   ]
+  }
+ ],
+ "targets": {
+  "sabotage": {
+   "room": "Engineering",
+   "at": [
+    512,
+    1047
+   ],
+   "key": 3
+  },
+  "capture": {
+   "room": "Engineering",
+   "at": [
+    512,
+    1047
+   ],
+   "key": 3
+  },
+  "rescue": {
+   "room": "Engineering",
+   "at": [
+    512,
+    1047
+   ],
+   "key": 3
+  }
+ },
+ "room_level": {
+  "Command Center": 0,
+  "Main Hub": 0,
+  "Docking Bay": 0,
+  "Engineering": 3,
+  "Station Security": 0,
+  "Comms": 0,
+  "Mission Center": 0,
+  "Shipyard": 0,
+  "Supplies": 0,
+  "Medical Bay": 0,
+  "Pilots' Lounge": 0,
+  "Mech Dealer": 0,
+  "Armory": 0,
+  "Detention": 0,
+  "Docking Port": 0,
+  "Docking Port (east)": 0,
+  "Upper Port": 2,
+  "Upper Port (east)": 0,
+  "Cargo Hold": 2,
+  "Cargo Hold (east)": 1,
+  "Cargo Port": 0,
+  "Cargo Port (east)": 0
  }
 }

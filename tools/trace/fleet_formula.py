@@ -79,11 +79,14 @@ def formula(sid):
         big = mech if not relax else [k for k in R if K[k] != "lift" and room_doors[k]]
         # C: the big room near the middle (area, weighted toward the centre)
         Cs = sorted(big, key=lambda k: -R[k].area * (1.0 - 0.6 * pt[k].distance(Point(cx, cy)) / span))[:3]
+        ov = json.load(open(os.path.join(here, "overrides.json"))) if os.path.exists(os.path.join(here, "overrides.json")) else {}
+        if ov.get("C") in R: Cs = [ov["C"]]   # v13.191 (a station: the objective room is chosen, not the biggest - that's its docking bay)
         for C in Cs:
             others = [k for k in big if k != C]
             # entry / way out: two rooms far apart, both away from C
             pairs = sorted(itertools.permutations(others, 2), key=lambda ab: -(dist(*ab) + 0.5 * (dist(ab[0], C) + dist(ab[1], C))))[:12 if relax == 0 else 60]
             head = pairs[:6]; rng.shuffle(head); pairs = head + pairs[6:]
+            if ov.get("entry") in R: pairs = [ab for ab in pairs if ab[0] == ov["entry"]] or [(ov["entry"], b) for b in others if b != ov["entry"]]
             for entry, exit_ in pairs:
                 sA = -side(exit_) if side(exit_) != 0 else int(rng.choice([-1, 1]))   # (A across the ship from the way out)
                 lat = lambda k: abs(pt[k].x - AX)
