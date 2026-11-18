@@ -15313,22 +15313,8 @@ func _spawn_fleet_catalog() -> void:
 		var n := _fleet_standin(e)
 		add_child(n)
 		var st: Dictionary = e["stats"]
-		var v := {"id": e["id"], "node": n, "mode": e["presence"], "speed": float(st["speed"]), "ang": a0 + float(i) * 0.7}
-		match str(e["presence"]):
-			"patrol":
-				v["r"] = {"Capital": 9000.0, "Cruiser": 6200.0, "Destroyer": 4600.0}.get(str(e["class"]), 5000.0)
-				v["y"] = 260.0 + 90.0 * float(i)
-			"screen":
-				v["r"] = 2800.0 + 600.0 * float(i % 2)   # (v13.178: clear of the 4x ships)
-				v["y"] = 120.0
-			"docked":   # parked off the station, nose out
-				var side := -1.0 if str(e["class"]) == "Resupply" else 1.0
-				var dln := float(Data.SHIP_CLASS_LEN.get(str(e["class"]), 200.0))
-				n.global_position = c0 + Vector3(side * (1300.0 + dln * 0.6), 60.0, 900.0 + dln * 0.3)   # (clear of the 4x station; v13.178: and of the 4x ship)
-				face(n, Vector3(side * 0.3, 0, 1).normalized())
-			"traffic":
-				v["t"] = 0.25 + 0.5 * float(i % 2)
-				v["dir"] = 1.0 if i % 2 == 0 else -1.0
+		var v := {"id": e["id"], "node": n, "mode": "orbit", "speed": float(st["speed"]), "ang": a0 + float(i) * 0.7, "cls": str(e["class"])}
+		_fleet_route_plan(v, i)
 		fleet_visitors.append(v)
 		i += 1
 	_update_fleet_visitors(0.0)
@@ -15410,23 +15396,109 @@ func _on_fleet_cat_pack(pk: String) -> void:
 	Packs.pack_ready.disconnect(_on_fleet_cat_pack)
 	if not fleet_visitors.is_empty(): _spawn_fleet_catalog()
 
+## v13.189 (owner: "nine ships crowded in front of the station: scatter them round the whole system, 9 different areas,
+## each its own flight routine - round a planet, the station, along the trade lane - no two the same; one of each"):
+## where each class flies. Places are names ("station", "planet", "gate", "far:<n>") looked up each frame.
+func _fleet_route_plan(v: Dictionary, i: int) -> void:
+	var cls := str(v["cls"])
+	var ln := float(Data.SHIP_CLASS_LEN.get(cls, 200.0))
+	var spots := _fleet_spots()
+	var far1: String = spots[2] if spots.size() > 2 else "gate"
+	var far2: String = spots[3] if spots.size() > 3 else ("gate" if far1 != "gate" else "planet")
+	v["dir"] = 1.0
+	v["y"] = 0.0
+	match cls:
+		"Capital":   # slow and wide round the planet, high over it
+			v.merge({"mode": "orbit", "at": "planet", "r": _fleet_anchor_r("planet") + 9000.0, "y": 2500.0, "dir": 1.0, "bob": 300.0}, true)
+		"Cruiser":   # a figure-eight between the station and the planet
+			v.merge({"mode": "eight", "at": "station", "to": "planet", "y": -1500.0}, true)
+		"Destroyer":   # guards the jump gate, the other way round
+			v.merge({"mode": "orbit", "at": "gate", "r": 7000.0, "y": 600.0, "dir": -1.0, "squash": 0.7}, true)
+		"Resupply":   # the trade lane: station to planet and back, on its own side
+			v.merge({"mode": "lane", "at": "station", "to": "planet", "t": 0.3, "side": 2500.0, "y": 400.0}, true)
+		"TroopTransport":   # its own run, out to a far place
+			v.merge({"mode": "lane", "at": "station", "to": far1, "t": 0.6, "side": -3000.0, "y": -800.0}, true)
+		"Frigate":   # round the station, well clear of it
+			v.merge({"mode": "orbit", "at": "station", "r": 9000.0 + ln, "y": 1200.0, "dir": -1.0, "squash": 0.8}, true)
+		"Escort":   # on the resupply ship's wing
+			v.merge({"mode": "escort", "lead": "Resupply", "off": Vector3(1400.0, 300.0, 600.0)}, true)
+		"Scout":   # the long tour of the whole system
+			v.merge({"mode": "tour", "pts": ["station", "planet", far1, "gate", far2], "k": i % 3, "y": 1800.0}, true)
+		"Bomber":   # its own beat round a far place
+			v.merge({"mode": "orbit", "at": far2, "r": _fleet_anchor_r(far2) + 4000.0, "y": -600.0, "dir": 1.0}, true)
+	var c0 := _fleet_anchor(str(v.get("at", "station")))
+	(v["node"] as Node3D).global_position = c0 + Vector3(cos(float(v["ang"])), 0, sin(float(v["ang"]))) * float(v.get("r", 4000.0))
+
+## the places in this system the fleet uses: "station", "planet", then the other worlds / landmarks with a size ("far:<i>")
+func _fleet_spots() -> Array:
+	var out: Array = ["station", "planet"]
+	for k in extras.size():
+		var x = extras[k]
+		if is_instance_valid(x) and ((x as Node3D).get_meta("info", {}) as Dictionary).has("radius"): out.append("far:%d" % k)
+	return out
+
+func _fleet_anchor(nm: String) -> Vector3:
+	var n := _fleet_anchor_node(nm)
+	return n.global_position if n != null else (station.global_position if is_instance_valid(station) else Vector3.ZERO)
+
+func _fleet_anchor_node(nm: String) -> Node3D:
+	if nm == "station": return station if is_instance_valid(station) else null
+	if nm == "planet": return planet if is_instance_valid(planet) else (station if is_instance_valid(station) else null)
+	if nm == "gate": return gate if is_instance_valid(gate) else (planet if is_instance_valid(planet) else null)
+	if nm.begins_with("far:"):
+		var k := int(nm.substr(4))
+		if k < extras.size() and is_instance_valid(extras[k]): return extras[k]
+	return null
+
+func _fleet_anchor_r(nm: String) -> float:
+	var n := _fleet_anchor_node(nm)
+	if n == null: return 2000.0
+	if n.has_meta("radius"): return float(n.get_meta("radius")) * 1.4
+	return float((n.get_meta("info", {}) as Dictionary).get("radius", 1500.0)) * 1.4
+
 func _update_fleet_visitors(dt: float) -> void:
-	var c0: Vector3 = station.global_position if is_instance_valid(station) else Vector3.ZERO
 	for v in fleet_visitors:
 		var n: Node3D = v["node"]
 		if not is_instance_valid(n): continue
+		var pos := n.global_position
+		var want := pos
 		match str(v["mode"]):
-			"patrol", "screen":
-				var r := float(v["r"])
-				v["ang"] = float(v["ang"]) + dt * float(v["speed"]) * 0.5 / r
+			"orbit":   # round its own place, its own height and way round
+				var c: Vector3 = _fleet_anchor(str(v["at"]))
+				v["ang"] = float(v["ang"]) + dt * float(v["speed"]) * float(v["dir"]) / float(v["r"])
 				var a := float(v["ang"])
-				n.global_position = c0 + Vector3(cos(a) * r, float(v["y"]), sin(a) * r)
-				face(n, Vector3(-sin(a), 0, cos(a)))
-			"traffic":
-				if not is_instance_valid(planet): continue
-				var pa := dock_point(station); var pb := dock_point(planet)
-				v["t"] = float(v["t"]) + dt * float(v["speed"]) * 0.25 / maxf(pa.distance_to(pb), 1.0) * float(v["dir"])
-				if v["t"] > 1.0 or v["t"] < 0.0:
-					v["dir"] = -float(v["dir"]); v["t"] = clampf(float(v["t"]), 0.0, 1.0)
-				n.global_position = pa.lerp(pb, float(v["t"])) + Vector3(0, 90.0 + 25.0 * float(v["dir"]), 60.0 * float(v["dir"]))
-				face(n, (pb - pa).normalized() * float(v["dir"]))
+				want = c + Vector3(cos(a) * float(v["r"]), float(v["y"]) + sin(a * 0.5) * float(v.get("bob", 0.0)), sin(a) * float(v["r"]) * float(v.get("squash", 1.0)))
+			"eight":   # a figure-eight between two places
+				var ca: Vector3 = _fleet_anchor(str(v["at"]))
+				var cb: Vector3 = _fleet_anchor(str(v["to"]))
+				var mid := (ca + cb) * 0.5
+				var half := maxf(ca.distance_to(cb) * 0.5, 1.0)
+				var ax := (cb - ca).normalized()
+				var side := ax.cross(Vector3.UP).normalized()
+				v["ang"] = float(v["ang"]) + dt * float(v["speed"]) / (half * 1.6)
+				var a2 := float(v["ang"])
+				want = mid + ax * sin(a2) * half * 0.8 + side * sin(a2 * 2.0) * half * 0.18 + Vector3(0, float(v["y"]), 0)
+			"lane":   # up and down a run between two places, keeping to its own side
+				var pa := _fleet_anchor(str(v["at"]))
+				var pb := _fleet_anchor(str(v["to"]))
+				var L := maxf(pa.distance_to(pb), 1.0)
+				v["t"] = float(v["t"]) + dt * float(v["speed"]) / L * float(v["dir"])
+				if float(v["t"]) > 0.92 or float(v["t"]) < 0.08:
+					v["dir"] = -float(v["dir"])
+					v["t"] = clampf(float(v["t"]), 0.08, 0.92)
+				var sd := (pb - pa).normalized().cross(Vector3.UP).normalized() * float(v["side"]) * float(v["dir"])
+				want = pa.lerp(pb, float(v["t"])) + sd + Vector3(0, float(v["y"]), 0)
+			"tour":   # the long way round: place to place across the whole system
+				var pts: Array = v["pts"]
+				var tgt: Vector3 = _fleet_anchor(str(pts[int(v["k"]) % pts.size()])) + Vector3(0, float(v["y"]), 6000.0)
+				if pos.distance_to(tgt) < 3000.0: v["k"] = int(v["k"]) + 1
+				want = pos + (tgt - pos).normalized() * minf(pos.distance_to(tgt), float(v["speed"]) * dt * 4.0)
+			"escort":   # on the wing of another fleet ship
+				var lead: Array = fleet_visitors.filter(func(o): return str(o.get("cls", "")) == str(v["lead"]))
+				if lead.is_empty() or not is_instance_valid(lead[0]["node"]): continue
+				var ldn: Node3D = lead[0]["node"]
+				want = ldn.global_position + ldn.global_basis.orthonormalized() * (v["off"] as Vector3)
+				if dt > 0.0: want = pos.lerp(want, minf(1.0, dt * 0.8))
+		var mv := want - pos
+		if mv.length() > 0.5: face(n, mv.normalized())
+		n.global_position = want

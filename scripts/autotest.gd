@@ -4119,6 +4119,16 @@ func _run() -> void:
 			_check("v12.97: %s's 9 fleet ships fly in %s" % [fac, sids[0]], ids.size() == 9 and ids.all(func(i): return str(i).begins_with(fac.to_lower())), str(ids))
 			# v13.140: Unity and Imperium fly their Tripo models (nose -Z, the class length); the rest keep the placeholder
 			var real := s.fleet_visitors.filter(func(v): return not bool((v["node"] as Node3D).get_meta("placeholder", true)))
+			# v13.189 (owner: "scatter them round the whole system ... no two the same"): spread out, each its own routine
+			await _wait(1.0)
+			var close := 0
+			for va in s.fleet_visitors:
+				for vb in s.fleet_visitors:
+					if va != vb and str(va.get("cls")) != "Escort" and str(vb.get("cls")) != "Escort" and (va["node"] as Node3D).global_position.distance_to((vb["node"] as Node3D).global_position) < 3000.0: close += 1
+			var near_st: int = s.fleet_visitors.filter(func(v): return (v["node"] as Node3D).global_position.distance_to(s.station.global_position) < 5000.0).size()
+			var modes := {}
+			for v in s.fleet_visitors: modes["%s:%s:%s:%d" % [v["mode"], v.get("at", v.get("lead", "")), v.get("to", ""), int(v.get("r", 0))]] = true
+			_check("v13.189: %s's fleet spread round the system (%d pairs close, %d near the station, %d routines)" % [fac, close / 2, near_st, modes.size()], close == 0 and near_st <= 1 and modes.size() >= 8, str(modes.keys()))
 			if fac == "Unity":
 				_check("v13.140: all 9 Unity fleet ships are the real models", real.size() == 9, "%d real" % real.size())
 				var capn: Node3D = s.fleet_visitors[0]["node"]
@@ -4128,7 +4138,7 @@ func _run() -> void:
 			else: _check("v13.140: %s keeps its placeholders (no models yet)" % fac, real.is_empty())
 			if fac == "Unity":
 				# v13.143 (owner): TARGET picks the fleet ship in front of you, NEXT the next one; scan; REQUEST BOARDING
-				var dkn: Node3D = s.fleet_visitors.filter(func(v): return v["mode"] == "docked")[0]["node"]
+				var dkn: Node3D = s.fleet_visitors.filter(func(v): return str(v.get("cls", "")) == "Resupply")[0]["node"]
 				_tp(dkn.global_position + Vector3(0, 80, 900), dkn.global_position)
 				await _frames(3)
 				main._on_hud("tgt_front")
@@ -4150,7 +4160,7 @@ func _run() -> void:
 				var p0 := cap.global_position
 				await _wait(1.0)
 				_check("v12.97: the capital is on patrol (moving)", cap.global_position.distance_to(p0) > 1.0)
-				var dk: Node3D = s.fleet_visitors.filter(func(v): return v["mode"] == "docked")[0]["node"]
+				var dk: Node3D = s.fleet_visitors.filter(func(v): return str(v.get("cls", "")) == "Resupply")[0]["node"]
 				_tp(dk.global_position + Vector3(0, 260, 520), dk.global_position)
 				s.controls = false
 				await _shot("fleet_docked_visitors", 0.6)
@@ -4159,7 +4169,7 @@ func _run() -> void:
 				s.cam.look_at(dk.global_position, Vector3(0, 0, -1))
 				await _capture("fleet_topdown_check")
 				s.set_process(true)
-				var sc: Node3D = s.fleet_visitors.filter(func(v): return v["mode"] == "screen")[0]["node"]
+				var sc: Node3D = s.fleet_visitors.filter(func(v): return str(v.get("cls", "")) == "Frigate")[0]["node"]
 				_tp(sc.global_position + Vector3(0, 200, 330), sc.global_position)
 				await _shot("fleet_screen", 0.3)
 				_tp(cap.global_position + Vector3(0, 1400, 1600), cap.global_position)
