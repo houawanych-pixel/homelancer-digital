@@ -258,6 +258,21 @@ def convert(st):
     T.build(st)
     K = T.KEEP[st["model"]]
     decks = K["decks"]
+    # v13.216 (owner, Nov 18: "put the new plan in the game", the ship-style Liberty Hub main deck): a station folder may
+    # hold eng/main_deck_override.json (fleet_station_<id>/concept2/to_board_override.py); it replaces the MAIN HUB deck's
+    # walkways, outline and rooms, in this deck frame (plan px, middle 0,0)
+    ovp = os.path.join(HERE, "fleet_station_" + st["model"].replace("st3d_", ""), "eng", "main_deck_override.json")
+    if os.path.exists(ovp):
+        from shapely.geometry import shape as _shape
+        O = json.load(open(ovp))
+        for D in decks:
+            if D["role"] != "MAIN HUB": continue
+            D["_L"]["ways"] = _shape(O["ways"]); D["_L"]["outline"] = _shape(O["outline"])
+            bp = _shape(O["bay"]) if O.get("bay") else None                    # the docking bay you come aboard by
+            if bp is not None: D["_L"]["ways"] = unary_union([D["_L"]["ways"], bp])
+            D["_L"]["pods"] = [bp] if bp is not None else []
+            D["rooms"] = [{"name": r["name"], "kind": r["kind"], "key": r["key"], "card": r.get("card"), "poly": _shape(r["poly"])} for r in O["rooms"]]
+            print("main deck from", os.path.relpath(ovp, HERE), len(D["rooms"]), "rooms")
     rooms, locks, problems, cards, levels, deck_names, lift_keys = {}, [], [], [], {}, [], []
     for D in decks:
         k = D["deck"] - 1
