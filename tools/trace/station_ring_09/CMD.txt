@@ -1,0 +1,1 @@
+python3 -I tools/trace/wall_trace.py tools/trace/station_ring_09/source.jpg tools/trace/station_ring_09 --mode glow --bright 120 --crop 120:2280,0:1080
