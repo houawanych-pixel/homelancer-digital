@@ -96,21 +96,54 @@ for k in list(R):
         if parts: R[k] = max(parts, key=lambda p: p.area)
         else: del R[k]
 
-# ---- doors: one per room per walkway piece it meets
+# ---- service space (owner, Nov 18: "space behind the walls ... for fuse boxes", like the SWTOR ship / station plans):
+# each district block keeps a band of non-walkable service space round its room (conduit, ducts, power, fuse boxes);
+# the room is the block pulled in until it covers ~60 % of the block (12..60 px = 1..5 m of service space), and a short
+# doorway passage crosses the band from the walkway to the room's door.
+COVER, S_MIN, S_MAX = 0.60, 12.0, 60.0
+NO_INSET = ("Central Hub", "Cargo Terminal B", "Cargo Terminal D")   # (the two pointed wedges: a band would close their door)
 pieces = list(getattr(net, "geoms", [net]))
-DOORS = []
-def door_on(g, seg):
-    p = seg.interpolate(0.5, normalized=True)
-    d = g.exterior.project(p); q0, q1 = g.exterior.interpolate(max(0, d - 4)), g.exterior.interpolate(d + 4)
-    return (round(p.x, 1), round(p.y, 1), "h" if abs(q1.x - q0.x) >= abs(q1.y - q0.y) else "v")
-for k, g in R.items():
-    for hp in pieces:
-        touch = g.exterior.intersection(hp.buffer(T))
-        segs = sorted([p for p in getattr(touch, "geoms", [touch]) if not p.is_empty and p.length > 0], key=lambda p: -p.length)
-        if segs and segs[0].length >= DOOR: DOORS.append(door_on(g, segs[0]))
+DOORS, PASS = [], []
+def door_pt(g, hp):
+    touch = g.exterior.intersection(hp.buffer(T))
+    segs = sorted([p for p in getattr(touch, "geoms", [touch]) if not p.is_empty and p.length > 0], key=lambda p: -p.length)
+    return segs[0].interpolate(0.5, normalized=True) if segs and segs[0].length >= DOOR else None
+def orient(a, b):   # door box across a passage running a -> b
+    return "h" if abs(b.y - a.y) >= abs(b.x - a.x) else "v"
+SERVICE = []
+for k in list(R):
+    g = R[k]
+    contacts = [p for p in (door_pt(g, hp) for hp in pieces) if p is not None]
+    if k.startswith(NO_INSET) or k.startswith("Docking Bay") or g.area < 12000:   # small blocks: no room for a band
+        for p in contacts:
+            d = g.exterior.project(p); q0, q1 = g.exterior.interpolate(max(0, d - 4)), g.exterior.interpolate(d + 4)
+            DOORS.append((round(p.x, 1), round(p.y, 1), "h" if abs(q1.x - q0.x) >= abs(q1.y - q0.y) else "v"))
+        continue
+    lo, hi = S_MIN, S_MAX
+    for _ in range(14):
+        mid = (lo + hi) / 2; inner = g.buffer(-mid, join_style=2)
+        if inner.is_empty or inner.area / g.area < COVER: hi = mid
+        else: lo = mid
+    inner = g.buffer(-lo, join_style=2)
+    for s_try in (lo, S_MIN, 6.0):                           # thin blocks get a thinner band
+        inner = g.buffer(-s_try, join_style=2)
+        if not inner.is_empty and inner.area > 1500: break
+    if inner.is_empty or inner.area < 800: inner = g          # too thin for service space: keep the block
+    if inner.geom_type != "Polygon": inner = max(inner.geoms, key=lambda q: q.area)
+    inner = inner.simplify(1.0)
+    SERVICE.append(g.difference(inner))
+    R[k] = inner
+    for p in contacts[:2]:                                   # one or two doors per room
+        from shapely.ops import nearest_points as _np
+        q = _np(inner.exterior, p)[0]
+        L_ = max(1e-6, math.hypot(p.x - q.x, p.y - q.y)); ux, uy = (p.x - q.x) / L_, (p.y - q.y) / L_
+        PASS.append(hall((p.x + ux * 12, p.y + uy * 12), (q.x - ux * 2, q.y - uy * 2), w=DOOR + 6))   # runs into the walkway
+        DOORS.append((round(q.x, 1), round(q.y, 1), orient(p, q)))
+pieces = pieces + PASS
 
 S = Ship("liberty_hub_main", HERE, SRC, AX, R, pieces, DOORS, start=polar(90, R2 + 60), center_y=CY)
 if __name__ == "__main__":
-    print("unnamed blocks:", n_unnamed, "| sheet names not placed:", [k for k in SHEET if k not in R])
+    cov = sum(g.area for g in R.values()) / OUTLINE.area
+    print("rooms cover %.0f %% of the deck" % (100 * cov)); print("unnamed blocks:", n_unnamed, "| sheet names not placed:", [k for k in SHEET if k not in R])
     bad = run(S)
     sys.exit(1 if bad else 0)

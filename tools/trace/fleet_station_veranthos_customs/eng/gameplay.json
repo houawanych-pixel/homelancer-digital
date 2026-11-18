@@ -113,7 +113,7 @@
   {
    "door": [
     844.8,
-    1212.8
+    1227.1
    ],
    "key": 2,
    "why": "the red card / the way out"
@@ -140,8 +140,8 @@
    "key": 1,
    "room": "Service Block W3",
    "at": [
-    484,
-    859
+    483,
+    858
    ]
   },
   {
@@ -156,8 +156,8 @@
    "key": 3,
    "room": "Security Control",
    "at": [
-    945,
-    1272
+    941,
+    1268
    ]
   }
  ],
