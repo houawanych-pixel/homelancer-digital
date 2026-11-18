@@ -198,7 +198,45 @@ def both(gs):
         out.append(g)
         if g.bounds[2] < AX - 1: out.append(mir(g))
     return out
+# ---- PILOT WAYS + ROOMS (owner, Nov 18: "some blue walkways and some rooms ... yellow walkways for pilots, which are a
+# lot smaller, and blue for the multiple rooms"): every people / service block inside the round body gets a YELLOW pilot
+# corridor down its long axis and is split into BLUE rooms off both sides of it (perpendicular party walls, one wall
+# gap), the corridor runs on to the nearest red mech way (a pilot door). Blocks too narrow get one room.
+PW, WALL, ROOM_D = 4 * Z, 1.5 * Z, 20 * Z           # pilot way 4 px (~3 m), wall gap, room depth along the corridor
+YELLOW_WAYS, ROOMS2 = [], []
+def split_block(r):
+    rect = cv2.minAreaRect(np.array(r.exterior.coords, np.float32))
+    (cx, cy), (w, h), ang = rect
+    if w < h: w, h, ang = h, w, ang + 90
+    u = np.array([math.cos(math.radians(ang)), math.sin(math.radians(ang))]); v = np.array([-u[1], u[0]])
+    if h < 2 * 10 * Z + PW or w < 18 * Z:            # one room
+        ROOMS2.append(r); return
+    c = np.array([cx, cy])
+    spine = LineString([tuple(c - u * w), tuple(c + u * w)]).intersection(r)
+    if spine.is_empty: ROOMS2.append(r); return
+    if spine.geom_type != "LineString": spine = max(spine.geoms, key=lambda g_: g_.length)
+    corr = spine.buffer(PW / 2, cap_style=2)
+    rest = r.difference(corr.buffer(WALL))
+    n_ = max(1, int(round(spine.length / ROOM_D)))
+    cuts = [LineString([tuple(c + u * t - v * h), tuple(c + u * t + v * h)]).buffer(WALL / 2, cap_style=2)
+            for t in np.linspace(-spine.length / 2, spine.length / 2, n_ + 1)[1:-1]]
+    rest = rest.difference(unary_union(cuts)) if cuts else rest
+    for q in getattr(rest, "geoms", [rest]):
+        if q.geom_type == "Polygon" and q.area > (7 * Z) ** 2: ROOMS2.append(q.simplify(0.8 * Z))
+    # the corridor runs on to the nearest red way from its nearer end
+    ends = [Point(spine.coords[0]), Point(spine.coords[-1])]
+    e = min(ends, key=lambda p: p.distance(WAYS))
+    q = _np(WAYS, e)[0]
+    YELLOW_WAYS.append(unary_union([corr, LineString([(e.x, e.y), (q.x, q.y)]).buffer(PW / 2, cap_style=2)]))
+inner_body = Point(AX, CYH).buffer(300 * Z)
+for lst in (PILOT, SERVICE):
+    keep = []
+    for r in lst:
+        if r.centroid.within(inner_body) and r.area > (14 * Z) ** 2: split_block(r)
+        else: keep.append(r)
+    lst[:] = keep
 PILOT, SERVICE, MECHR = both(PILOT), both(SERVICE), both(MECHR)
+ROOMS2, YELLOW_WAYS = both(ROOMS2), both(YELLOW_WAYS)
 
 RED, BLUE, NAVY = (60, 50, 215), (235, 130, 40), (90, 50, 28)
 def fill(img, g, col):
@@ -212,12 +250,14 @@ def outline(img, g, col, t):
 def draw(base, alpha):
     img = base.copy(); f = img.copy()
     fill(f, FLOOR, (60, 36, 20)); fill(f, WAYS, RED)
+    for g in ROOMS2: fill(f, g, BLUE)
+    for g in YELLOW_WAYS: fill(f, g, (0, 210, 255))
     for g in PILOT: fill(f, g, BLUE)
     for g in SERVICE: fill(f, g, NAVY)
     for g in MECHR: fill(f, g, (40, 30, 150))
     img = cv2.addWeighted(f, alpha, img, 1 - alpha, 0)
     outline(img, FLOOR, (255, 255, 255), Z); outline(img, WAYS, (255, 255, 255), Z // 2 + 1)
-    for g in PILOT + SERVICE + MECHR: outline(img, g, (255, 255, 255), Z // 2 + 1)
+    for g in PILOT + SERVICE + MECHR + ROOMS2 + YELLOW_WAYS: outline(img, g, (255, 255, 255), Z // 2 + 1)
     for r_, nm in NAMES:
         g2 = mir(r_); nm2 = next((k for k, p in LAB.items() if g2.buffer(BAND).contains(p)), nm)
         for g_, nm in ((r_, nm), (g2, nm2)):
@@ -230,5 +270,5 @@ cv2.imwrite(os.path.join(HERE, OUT + ".png"), draw(np.full((H, W, 3), (40, 22, 8
 cv2.imwrite(os.path.join(HERE, OUT + "_on_map.jpg"), draw((src * 0.5).astype(np.uint8), 0.6), [cv2.IMWRITE_JPEG_QUALITY, 88])
 sc = lambda g: mapping(affinity.scale(g, 1 / Z, 1 / Z, origin=(0, 0)))
 json.dump({"units": "source px", "axis_x": AXS, "hub_y": CYH / Z, "floor": sc(FLOOR), "mech_ways": sc(WAYS),
-           "pilot_rooms": [sc(g) for g in PILOT], "service": [sc(g) for g in SERVICE], "mech_rooms": [sc(g) for g in MECHR], "names": [[sc(r), n] for r, n in NAMES]}, open(os.path.join(HERE, OUT + ".json"), "w"))
+           "pilot_rooms": [sc(g) for g in PILOT], "service": [sc(g) for g in SERVICE], "mech_rooms": [sc(g) for g in MECHR], "pilot_ways": [sc(g) for g in YELLOW_WAYS], "rooms": [sc(g) for g in ROOMS2], "names": [[sc(r), n] for r, n in NAMES]}, open(os.path.join(HERE, OUT + ".json"), "w"))
 print("runs", len(lines), "pilot rooms", len(PILOT), "service blocks", len(SERVICE))
