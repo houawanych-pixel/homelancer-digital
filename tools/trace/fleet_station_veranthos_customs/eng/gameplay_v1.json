@@ -1,210 +1,81 @@
 {
+ "entry": {
+  "room": "Cargo Terminal C",
+  "at": [
+   2709,
+   1147
+  ]
+ },
+ "locks": [],
+ "guards": [],
  "wreck": [],
  "lifts": [],
  "patrols": [],
- "room_guards": {
-  "Central Hub (Atrium)": 2,
-  "Commerce District (North, west wing)": 1,
-  "Commerce District (North)": 1,
-  "Residential District (West)": 1,
-  "Service Block W3": 1,
-  "Service Block E4": 1,
-  "Commerce District (East)": 1,
-  "Service Block W5": 1,
-  "Service Block E6": 1,
-  "Atrium Shops (NE)": 1,
-  "Ship Dealer & Showroom": 1,
-  "Service Block W8": 1,
-  "Service Block W9": 1,
-  "Service Block E10": 1,
-  "Service Block E11": 1,
-  "Outfitting & Gear": 1,
-  "Service Block W13": 1,
-  "Service Block E14": 1,
-  "Service Block W18": 1,
-  "Service Block E19": 1,
-  "Service Block W22": 1,
-  "Service Block E23": 1,
-  "Commerce District (South, west wing)": 1,
-  "Commerce District (South)": 1,
-  "Manufacturing & Workshops": 1,
-  "Workshops (East)": 1,
-  "Crew District A": 1,
-  "Crew District B": 1,
-  "Cargo Terminal A (Freight)": 1,
-  "Cargo Terminal C (General)": 1,
-  "Cargo Terminal B (Freight)": 1,
-  "Medical Complex (Hospital)": 1,
-  "Supplies & Administration": 1,
-  "Atrium Shops (NW)": 1,
-  "Atrium Shops (SW)": 1,
-  "Atrium Shops (SE)": 1
- },
- "note": "Liberty Hub main deck in the Liberty silhouette, start values for fleet_formula.py (PROPOSED)",
- "formula": {
-  "C": "Central Hub (Atrium)",
-  "A_gate": "Docking Bay E2",
-  "card_yellow": "Service Block W1",
-  "card_red": "Customs & Security",
-  "entry": "Docking Bay E3",
-  "way_out": "Docking Bay W1",
-  "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
- },
- "room_level": {
-  "Central Hub (Atrium)": 3,
-  "Docking Bay W1": 2,
-  "Docking Bay W2": 0,
-  "Docking Bay W3": 0,
-  "Docking Bay W4": 0,
-  "Docking Bay E1": 0,
-  "Docking Bay E2": 1,
-  "Docking Bay E3": 0,
-  "Docking Bay E4": 0,
-  "Customs & Security": 2,
-  "Passenger Services": 0,
-  "Service Block W1": 0,
-  "Service Block E2": 0,
-  "Commerce District (North, west wing)": 0,
-  "Commerce District (North)": 0,
-  "Service Block W3": 0,
-  "Service Block E4": 0,
-  "Residential District (West)": 0,
-  "Service Block W5": 0,
-  "Service Block E6": 0,
-  "Commerce District (East)": 0,
-  "Cargo Terminal A (Freight)": 0,
-  "Service Block W7": 0,
-  "Service Block E8": 0,
-  "Cargo Terminal C (General)": 0,
-  "Service Block W9": 0,
-  "Atrium Shops (NE)": 0,
-  "Ship Dealer & Showroom": 0,
-  "Service Block W10": 0,
-  "Service Block W11": 0,
-  "Service Block E12": 0,
-  "Service Block E13": 0,
-  "Outfitting & Gear": 0,
-  "Service Block W14": 0,
-  "Service Block W15": 0,
-  "Service Block E16": 0,
-  "Service Block E17": 0,
-  "Medical Complex (Hospital)": 0,
-  "Service Block W18": 0,
-  "Atrium Shops (SE)": 0,
-  "Supplies & Administration": 0,
-  "Service Block W19": 0,
-  "Service Block E20": 0,
-  "Service Block W21": 0,
-  "Service Block W22": 0,
-  "Service Block W23": 0,
-  "Service Block W24": 0,
-  "Service Block E25": 0,
-  "Service Block E26": 0,
-  "Service Block E27": 0,
-  "Service Block E28": 0,
-  "Commerce District (South, west wing)": 0,
-  "Commerce District (South)": 0,
-  "Life Support & Utilities": 0,
-  "Security Control": 0
- },
- "entry": {
-  "room": "Docking Platform E4",
-  "at": [
-   1282,
-   1442
-  ]
- },
- "exit": {
-  "room": "Docking Bay W1",
-  "at": [
-   426,
-   176
-  ]
- },
- "locks": [
-  {
-   "door": [
-    709.4,
-    800.0
-   ],
-   "key": 3,
-   "why": "the objective (Central Hub (Atrium))"
-  },
-  {
-   "door": [
-    759.0,
-    372.2
-   ],
-   "key": 2,
-   "why": "the red card / the way out"
-  },
-  {
-   "door": [
-    439.5,
-    200.0
-   ],
-   "key": 2,
-   "why": "the red card / the way out"
-  },
-  {
-   "door": [
-    1147.9,
-    633.6
-   ],
-   "key": 1,
-   "why": "the orange card's room (Docking Bay E2)"
-  }
- ],
- "guards": [
-  {
-   "key": 1,
-   "room": "Service Block W1",
-   "at": [
-    522,
-    394
-   ]
-  },
-  {
-   "key": 2,
-   "room": "Docking Bay E2",
-   "at": [
-    1316,
-    521
-   ]
-  },
-  {
-   "key": 3,
-   "room": "Customs & Security",
-   "at": [
-    647,
-    391
-   ]
-  }
- ],
  "targets": {
   "sabotage": {
    "room": "Central Hub (Atrium)",
    "at": [
-    800,
-    801
-   ],
-   "key": 3
-  },
-  "capture": {
-   "room": "Outfitting & Gear",
-   "at": [
-    1152,
-    726
-   ],
-   "key": 3
-  },
-  "rescue": {
-   "room": "Ship Dealer & Showroom",
-   "at": [
-    445,
-    724
+    1659,
+    1546
    ],
    "key": 3
   }
- }
+ },
+ "room_guards": {
+  "Central Hub (Atrium)": 1,
+  "Arrival Complex": 1,
+  "Customs & Security": 1,
+  "Passenger Services": 1,
+  "Dock Bay 4": 1,
+  "Dock Bay 5": 1,
+  "Commerce District (North)": 1,
+  "Service Room 6": 1,
+  "Crew District A": 1,
+  "Crew District B": 1,
+  "Service Room 7": 1,
+  "Service Room 8": 1,
+  "Residential District": 1,
+  "Service Room 9": 1,
+  "Service Room 10": 1,
+  "Commerce District (East)": 1,
+  "Cargo Terminal A": 1,
+  "Cargo Terminal C": 1,
+  "Service Room 11": 1,
+  "Service Room 12": 1,
+  "Service Room 13": 1,
+  "Service Room 14": 1,
+  "Ship Dealer & Showroom": 1,
+  "Outfitting & Gear": 1,
+  "Service Room 15": 1,
+  "Service Room 16": 1,
+  "Service Room 17": 1,
+  "Service Room 18": 1,
+  "Service Room 19": 1,
+  "Service Room 20": 1,
+  "Service Room 21": 1,
+  "Service Room 22": 1,
+  "Medical Complex": 1,
+  "Service Room 23": 1,
+  "Service Room 24": 1,
+  "Supplies & Administration": 1,
+  "Service Room 25": 1,
+  "Service Room 26": 1,
+  "Service Room 27": 1,
+  "Service Room 28": 1,
+  "Service Room 29": 1,
+  "Service Room 30": 1,
+  "Service Room 31": 1,
+  "Service Room 32": 1,
+  "Service Room 33": 1,
+  "Service Room 34": 1,
+  "Commerce District (South)": 1,
+  "Service Room 35": 1,
+  "Repair & Maintenance (South)": 1,
+  "Shipyard & Overhaul (South)": 1,
+  "Manufacturing & Workshops": 1,
+  "Workshops (East)": 1,
+  "Crew & Staff Services": 1,
+  "Service Room 37": 1
+ },
+ "note": "Liberty Hub main deck (PROPOSED)"
 }

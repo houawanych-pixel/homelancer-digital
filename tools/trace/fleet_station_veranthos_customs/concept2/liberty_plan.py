@@ -269,6 +269,9 @@ def split_block(r):
     e = min(ends, key=lambda p: p.distance(WAYS))
     q = _np(WAYS, e)[0]
     YELLOW_WAYS.append(unary_union([corr, LineString([(e.x, e.y), (q.x, q.y)]).buffer(PW / 2, cap_style=2)]))
+import pickle as _pk
+_pk.dump({"blocks": both(PILOT + SERVICE + MECHR), "ways": WAYS, "hub": HUB, "hub_ring": HUB_YELLOW, "hub_room": HUB_ROOMG,
+          "lab": LAB, "floor": FLOOR, "Z": Z}, open(os.path.join(HERE, "blocks.pkl"), "wb"))
 inner_body = Point(AX, CYH).buffer(300 * Z)
 for lst in (PILOT, SERVICE, MECHR):
     keep = []
