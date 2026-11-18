@@ -39,3 +39,11 @@ the owner approves a station; his marks get fixed by rerunning the script with p
 fleet-ship rules (centre line + width, 45-degree spines, octagon ring and junctions, mirrored), red mech / blue pilot /
 yellow lifts. Output `stations/<model>/walkways.json` (metres from the lift axis, +y front) and `walkways.jpg`.
 Step 2 fits the traced library rooms along them. The v13.166 room plans (`plan.*`) are superseded.
+
+## Alien: Isolation room library (Nov 18 2026, PROPOSED)
+`alien_lib.py MAPDIR...` cuts each zoom-traced Alien map (`alien_*/zoom_pieces.json`) into library pieces: wide parts =
+ROOMS, narrow parts = HALLS (width auto from the map's most common corridor), the map's own inner wall lines kept as
+walls; every room-hall / room-room contact becomes ONE flat door face (snapped to 45 deg). Output per map `lib/`
+(pieces.json, lib_overlay.jpg, lib_sheet.jpg). `alien_lib_index.py` gathers all rooms into
+`room_library/alien_rooms.json` (196 rooms, each from 0,0, sizes in map px and in the map's grid cells) +
+`alien_rooms_sheet.jpg`. Not yet: metres per grid cell (owner), hand fixes for rooms split by floor markings.
