@@ -1,0 +1,62 @@
+{
+ "entry": {
+  "room": "Docking A",
+  "at": [
+   410,
+   222
+  ]
+ },
+ "locks": [],
+ "guards": [],
+ "wreck": [],
+ "patrols": [],
+ "targets": {},
+ "lifts": [
+  {
+   "room": "Lift (port)",
+   "at": [
+    529,
+    407
+   ]
+  },
+  {
+   "room": "Lift (starboard)",
+   "at": [
+    929,
+    407
+   ]
+  },
+  {
+   "room": "Freight Lift (port)",
+   "at": [
+    447,
+    987
+   ]
+  },
+  {
+   "room": "Freight Lift (starboard)",
+   "at": [
+    1011,
+    987
+   ]
+  }
+ ],
+ "room_guards": {
+  "Observation Deck": 1,
+  "Command Plaza": 2,
+  "Central Concourse": 2,
+  "Transit Hub": 2,
+  "Security Checkpoint": 2,
+  "Docking A": 2,
+  "Docking B": 2,
+  "Customs A": 1,
+  "Customs B": 1,
+  "Market & Services A": 1,
+  "Market & Services B": 1,
+  "Dock Pad NW": 2,
+  "Dock Pad NE": 2,
+  "Dock Pad SW": 2,
+  "Dock Pad SE": 2
+ },
+ "note": "Liberty Hub MAIN HUB deck"
+}

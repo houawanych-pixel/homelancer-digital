@@ -1,0 +1,26 @@
+{
+ "entry": "Docking A",
+ "kinds": {
+  "Observation Deck": "pilot",
+  "Command Plaza": "mech",
+  "Central Concourse": "mech",
+  "Transit Hub": "mech",
+  "Security Checkpoint": "mech",
+  "Docking A": "mech",
+  "Docking B": "mech",
+  "Customs A": "pilot",
+  "Customs B": "pilot",
+  "Market & Services A": "pilot",
+  "Market & Services B": "pilot",
+  "Lift (port)": "lift",
+  "Lift (starboard)": "lift",
+  "Freight Lift (port)": "lift",
+  "Freight Lift (starboard)": "lift",
+  "Dock Pad NW": "mech",
+  "Dock Pad NE": "mech",
+  "Dock Pad W": "mech",
+  "Dock Pad E": "mech",
+  "Dock Pad SW": "mech",
+  "Dock Pad SE": "mech"
+ }
+}

@@ -1,0 +1,450 @@
+{
+ "ship": "station_liberty_main",
+ "rooms": {
+  "Observation Deck": "pilot",
+  "Command Plaza": "mech",
+  "Central Concourse": "mech",
+  "Transit Hub": "mech",
+  "Security Checkpoint": "mech",
+  "Docking A": "mech",
+  "Docking B": "mech",
+  "Customs A": "pilot",
+  "Customs B": "pilot",
+  "Market & Services A": "pilot",
+  "Market & Services B": "pilot",
+  "Lift (port)": "lift",
+  "Lift (starboard)": "lift",
+  "Freight Lift (port)": "lift",
+  "Freight Lift (starboard)": "lift",
+  "Dock Pad NW": "mech",
+  "Dock Pad NE": "mech",
+  "Dock Pad W": "mech",
+  "Dock Pad E": "mech",
+  "Dock Pad SW": "mech",
+  "Dock Pad SE": "mech"
+ },
+ "rooms_base": {
+  "Observation Deck": "pilot",
+  "Command Plaza": "mech",
+  "Central Concourse": "mech",
+  "Transit Hub": "mech",
+  "Security Checkpoint": "mech",
+  "Docking A": "mech",
+  "Docking B": "mech",
+  "Customs A": "pilot",
+  "Customs B": "pilot",
+  "Market & Services A": "pilot",
+  "Market & Services B": "pilot",
+  "Lift (port)": "lift",
+  "Lift (starboard)": "lift",
+  "Freight Lift (port)": "lift",
+  "Freight Lift (starboard)": "lift",
+  "Dock Pad NW": "mech",
+  "Dock Pad NE": "mech",
+  "Dock Pad W": "mech",
+  "Dock Pad E": "mech",
+  "Dock Pad SW": "mech",
+  "Dock Pad SE": "mech"
+ },
+ "cut_off_red": [],
+ "doors": [
+  {
+   "at": [
+    729,
+    160
+   ],
+   "o": "h",
+   "rooms": [
+    "Observation Deck"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    729,
+    330
+   ],
+   "o": "h",
+   "rooms": [
+    "Command Plaza"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    729,
+    572
+   ],
+   "o": "h",
+   "rooms": [
+    "Command Plaza"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    729,
+    600
+   ],
+   "o": "h",
+   "rooms": [
+    "Central Concourse"
+   ],
+   "type": "mech",
+   "key": 3
+  },
+  {
+   "at": [
+    729,
+    950
+   ],
+   "o": "h",
+   "rooms": [
+    "Central Concourse"
+   ],
+   "type": "mech",
+   "key": 3
+  },
+  {
+   "at": [
+    729,
+    978
+   ],
+   "o": "h",
+   "rooms": [
+    "Transit Hub"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    729,
+    1200
+   ],
+   "o": "h",
+   "rooms": [
+    "Transit Hub"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    729,
+    1228
+   ],
+   "o": "h",
+   "rooms": [
+    "Security Checkpoint"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    600,
+    450
+   ],
+   "o": "v",
+   "rooms": [
+    "Command Plaza"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    530,
+    775
+   ],
+   "o": "v",
+   "rooms": [
+    "Central Concourse"
+   ],
+   "type": "mech",
+   "key": 3
+  },
+  {
+   "at": [
+    585,
+    1090
+   ],
+   "o": "v",
+   "rooms": [
+    "Transit Hub"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    474,
+    525
+   ],
+   "o": "v",
+   "rooms": [
+    "Customs A"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    474,
+    808
+   ],
+   "o": "v",
+   "rooms": [
+    "Market & Services A"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    290,
+    808
+   ],
+   "o": "v",
+   "rooms": [
+    "Market & Services A"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    502,
+    407
+   ],
+   "o": "v",
+   "rooms": [
+    "Lift (port)"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    474,
+    987
+   ],
+   "o": "v",
+   "rooms": [
+    "Freight Lift (port)"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    488.0,
+    334.3
+   ],
+   "o": "h",
+   "rooms": [
+    "Docking A"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    281.0,
+    560.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Dock Pad NW"
+   ],
+   "type": "mech",
+   "key": 1
+  },
+  {
+   "at": [
+    272.0,
+    1010.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Dock Pad W"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    420.0,
+    1340.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Dock Pad SW"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    858.0,
+    450
+   ],
+   "o": "v",
+   "rooms": [
+    "Command Plaza"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    928.0,
+    775
+   ],
+   "o": "v",
+   "rooms": [
+    "Central Concourse"
+   ],
+   "type": "mech",
+   "key": 3
+  },
+  {
+   "at": [
+    873.0,
+    1090
+   ],
+   "o": "v",
+   "rooms": [
+    "Transit Hub"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    984.0,
+    525
+   ],
+   "o": "v",
+   "rooms": [
+    "Customs B"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    984.0,
+    808
+   ],
+   "o": "v",
+   "rooms": [
+    "Market & Services B"
+   ],
+   "type": "pilot",
+   "key": 2
+  },
+  {
+   "at": [
+    1168.0,
+    808
+   ],
+   "o": "v",
+   "rooms": [
+    "Market & Services B"
+   ],
+   "type": "pilot",
+   "key": 2
+  },
+  {
+   "at": [
+    956.0,
+    407
+   ],
+   "o": "v",
+   "rooms": [
+    "Lift (starboard)"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    984.0,
+    987
+   ],
+   "o": "v",
+   "rooms": [
+    "Freight Lift (starboard)"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    970.0,
+    334.3
+   ],
+   "o": "h",
+   "rooms": [
+    "Docking B"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1177.0,
+    560.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Dock Pad NE"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1186.0,
+    1010.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Dock Pad E"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1038.0,
+    1340.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Dock Pad SE"
+   ],
+   "type": "mech",
+   "key": 2
+  }
+ ],
+ "entry": "Docking A",
+ "mech_rooms_unreached": [],
+ "counts": {
+  "mech_rooms": 12,
+  "pilot_rooms": 5,
+  "mech_doors": 25,
+  "pilot_doors": 7,
+  "locked": {
+   "OPEN": 24,
+   "YELLOW": 1,
+   "ORANGE": 3,
+   "RED": 4
+  }
+ }
+}

@@ -1,0 +1,212 @@
+{
+ "wreck": [],
+ "patrols": [],
+ "lifts": [
+  {
+   "room": "Lift (port)",
+   "at": [
+    529,
+    407
+   ]
+  },
+  {
+   "room": "Lift (starboard)",
+   "at": [
+    929,
+    407
+   ]
+  },
+  {
+   "room": "Freight Lift (port)",
+   "at": [
+    447,
+    987
+   ]
+  },
+  {
+   "room": "Freight Lift (starboard)",
+   "at": [
+    1011,
+    987
+   ]
+  }
+ ],
+ "room_guards": {
+  "Observation Deck": 1,
+  "Command Plaza": 2,
+  "Central Concourse": 2,
+  "Transit Hub": 2,
+  "Security Checkpoint": 2,
+  "Docking A": 2,
+  "Docking B": 2,
+  "Customs A": 1,
+  "Customs B": 1,
+  "Market & Services A": 1,
+  "Market & Services B": 2,
+  "Dock Pad NW": 2,
+  "Dock Pad NE": 2,
+  "Dock Pad SW": 2,
+  "Dock Pad SE": 2
+ },
+ "note": "Liberty Hub MAIN HUB deck",
+ "formula": {
+  "C": "Central Concourse",
+  "A_gate": "Dock Pad NW",
+  "card_yellow": "Dock Pad E",
+  "card_red": "Market & Services B",
+  "entry": "Docking A",
+  "way_out": "Dock Pad SE",
+  "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
+ },
+ "entry": {
+  "room": "Docking A",
+  "at": [
+   442,
+   255
+  ]
+ },
+ "exit": {
+  "room": "Dock Pad SE",
+  "at": [
+   1098,
+   1340
+  ]
+ },
+ "locks": [
+  {
+   "door": [
+    729,
+    600
+   ],
+   "key": 3,
+   "why": "the objective (Central Concourse)"
+  },
+  {
+   "door": [
+    729,
+    950
+   ],
+   "key": 3,
+   "why": "the objective (Central Concourse)"
+  },
+  {
+   "door": [
+    530,
+    775
+   ],
+   "key": 3,
+   "why": "the objective (Central Concourse)"
+  },
+  {
+   "door": [
+    928.0,
+    775
+   ],
+   "key": 3,
+   "why": "the objective (Central Concourse)"
+  },
+  {
+   "door": [
+    984.0,
+    808
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    1168.0,
+    808
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    1038.0,
+    1340.0
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    281.0,
+    560.0
+   ],
+   "key": 1,
+   "why": "the orange card's room (Dock Pad NW)"
+  }
+ ],
+ "guards": [
+  {
+   "key": 1,
+   "room": "Dock Pad E",
+   "at": [
+    1242,
+    1010
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Dock Pad NW",
+   "at": [
+    252,
+    494
+   ]
+  },
+  {
+   "key": 3,
+   "room": "Market & Services B",
+   "at": [
+    1076,
+    808
+   ]
+  }
+ ],
+ "targets": {
+  "sabotage": {
+   "room": "Central Concourse",
+   "at": [
+    729,
+    775
+   ],
+   "key": 3
+  },
+  "capture": {
+   "room": "Central Concourse",
+   "at": [
+    729,
+    775
+   ],
+   "key": 3
+  },
+  "rescue": {
+   "room": "Central Concourse",
+   "at": [
+    729,
+    775
+   ],
+   "key": 3
+  }
+ },
+ "room_level": {
+  "Observation Deck": 0,
+  "Command Plaza": 0,
+  "Central Concourse": 3,
+  "Transit Hub": 0,
+  "Security Checkpoint": 0,
+  "Docking A": 0,
+  "Docking B": 0,
+  "Customs A": 0,
+  "Customs B": 0,
+  "Market & Services A": 0,
+  "Market & Services B": 2,
+  "Dock Pad NW": 1,
+  "Dock Pad NE": 0,
+  "Dock Pad W": 0,
+  "Dock Pad E": 0,
+  "Dock Pad SW": 0,
+  "Dock Pad SE": 2
+ }
+}
