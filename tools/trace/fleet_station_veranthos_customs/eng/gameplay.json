@@ -4,178 +4,72 @@
  "patrols": [],
  "room_guards": {
   "Central Hub (Atrium)": 2,
-  "Arrival Complex (A/B)": 1,
-  "Transit Hub": 2,
-  "Crew & Staff Services": 1,
+  "Service Block W1": 2,
   "Customs & Security": 1,
   "Passenger Services": 1,
-  "Service Block W1": 1,
   "Service Block E2": 1,
   "Commerce District (North, west wing)": 1,
   "Commerce District (North)": 1,
-  "Repair & Maintenance Complex (North)": 1,
-  "Crew District A": 2,
-  "Crew District B": 2,
-  "Shipyard & Overhaul Docks (North)": 1,
-  "Residential District (West)": 2,
-  "Commerce District (East)": 2,
-  "Cargo Terminal A (Freight)": 2,
-  "Atrium Shops (NW)": 2,
-  "Atrium Shops (NE)": 2,
-  "Cargo Terminal C (General)": 2,
+  "Crew District A": 1,
+  "Crew District B": 1,
+  "Cargo Terminal A (Freight)": 1,
+  "Residential District (West)": 1,
+  "Commerce District (East)": 1,
+  "Cargo Terminal C (General)": 1,
+  "Atrium Shops (NW)": 1,
+  "Atrium Shops (NE)": 1,
   "Ship Dealer & Showroom": 1,
   "Outfitting & Gear": 1,
   "Service Block W3": 1,
   "Service Block E4": 1,
-  "Atrium Shops (SW)": 2,
-  "Atrium Shops (SE)": 2,
-  "Cargo Terminal B (Freight)": 2,
-  "Medical Complex (Hospital)": 2,
-  "Supplies & Administration": 2,
-  "Cargo Terminal D (Industrial)": 2,
-  "Service Block W5": 2,
-  "Service Block E6": 2,
-  "Repair & Maintenance Complex (South)": 1,
+  "Atrium Shops (SW)": 1,
+  "Atrium Shops (SE)": 1,
+  "Cargo Terminal B (Freight)": 1,
+  "Medical Complex (Hospital)": 1,
+  "Supplies & Administration": 1,
+  "Cargo Terminal D (Industrial)": 1,
+  "Service Block W5": 1,
+  "Service Block E6": 1,
   "Commerce District (South, west wing)": 1,
   "Commerce District (South)": 1,
-  "Shipyard & Overhaul Docks (South)": 1,
-  "Manufacturing & Workshops": 2,
-  "Workshops (East)": 2,
   "Life Support & Utilities": 2,
   "Security Control": 2,
-  "Dock SW 3": 2
+  "Docking Bay E2": 2
  },
- "note": "Liberty Hub main deck, start values for fleet_formula.py (PROPOSED)",
+ "note": "Liberty Hub main deck in the Liberty silhouette, start values for fleet_formula.py (PROPOSED)",
  "formula": {
   "C": "Central Hub (Atrium)",
-  "A_gate": "Cargo Terminal D (Industrial)",
+  "A_gate": "Docking Bay E2",
   "card_yellow": "Service Block W3",
-  "card_red": "Dock SW 3",
-  "entry": "Cargo Terminal C (General)",
-  "way_out": "Cargo Terminal A (Freight)",
+  "card_red": "Security Control",
+  "entry": "Docking Bay E1",
+  "way_out": "Docking Bay W3",
   "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
- },
- "entry": {
-  "room": "Cargo Terminal C (General)",
-  "at": [
-   896,
-   351
-  ]
- },
- "exit": {
-  "room": "Cargo Terminal A (Freight)",
-  "at": [
-   117,
-   351
-  ]
- },
- "locks": [
-  {
-   "door": [
-    441.0,
-    447.0
-   ],
-   "key": 3,
-   "why": "the objective (Central Hub (Atrium))"
-  },
-  {
-   "door": [
-    160.5,
-    671.6
-   ],
-   "key": 2,
-   "why": "the red card / the way out"
-  },
-  {
-   "door": [
-    174.5,
-    435.0
-   ],
-   "key": 2,
-   "why": "the red card / the way out"
-  },
-  {
-   "door": [
-    839.5,
-    459.0
-   ],
-   "key": 1,
-   "why": "the orange card's room (Cargo Terminal D (Industrial))"
-  }
- ],
- "guards": [
-  {
-   "key": 1,
-   "room": "Service Block W3",
-   "at": [
-    263,
-    492
-   ]
-  },
-  {
-   "key": 2,
-   "room": "Cargo Terminal D (Industrial)",
-   "at": [
-    895,
-    546
-   ]
-  },
-  {
-   "key": 3,
-   "room": "Dock SW 3",
-   "at": [
-    138,
-    687
-   ]
-  }
- ],
- "targets": {
-  "sabotage": {
-   "room": "Central Hub (Atrium)",
-   "at": [
-    507,
-    447
-   ],
-   "key": 3
-  },
-  "capture": {
-   "room": "Central Hub (Atrium)",
-   "at": [
-    507,
-    447
-   ],
-   "key": 3
-  },
-  "rescue": {
-   "room": "Central Hub (Atrium)",
-   "at": [
-    507,
-    447
-   ],
-   "key": 3
-  }
  },
  "room_level": {
   "Central Hub (Atrium)": 3,
-  "Arrival Complex (A/B)": 0,
-  "Transit Hub": 0,
-  "Crew & Staff Services": 0,
+  "Docking Bay W1": 0,
+  "Docking Bay W2": 0,
+  "Docking Bay W3": 2,
+  "Docking Bay W4": 0,
+  "Docking Bay E1": 0,
+  "Docking Bay E2": 1,
+  "Docking Bay E3": 0,
+  "Docking Bay E4": 0,
+  "Service Block W1": 0,
   "Customs & Security": 0,
   "Passenger Services": 0,
-  "Service Block W1": 0,
   "Service Block E2": 0,
   "Commerce District (North, west wing)": 0,
   "Commerce District (North)": 0,
-  "Repair & Maintenance Complex (North)": 0,
   "Crew District A": 0,
   "Crew District B": 0,
-  "Shipyard & Overhaul Docks (North)": 0,
+  "Cargo Terminal A (Freight)": 0,
   "Residential District (West)": 0,
   "Commerce District (East)": 0,
-  "Cargo Terminal A (Freight)": 2,
+  "Cargo Terminal C (General)": 0,
   "Atrium Shops (NW)": 0,
   "Atrium Shops (NE)": 0,
-  "Cargo Terminal C (General)": 0,
   "Ship Dealer & Showroom": 0,
   "Outfitting & Gear": 0,
   "Service Block W3": 0,
@@ -185,28 +79,112 @@
   "Cargo Terminal B (Freight)": 0,
   "Medical Complex (Hospital)": 0,
   "Supplies & Administration": 0,
-  "Cargo Terminal D (Industrial)": 1,
+  "Cargo Terminal D (Industrial)": 0,
   "Service Block W5": 0,
   "Service Block E6": 0,
-  "Repair & Maintenance Complex (South)": 0,
   "Commerce District (South, west wing)": 0,
   "Commerce District (South)": 0,
-  "Shipyard & Overhaul Docks (South)": 0,
-  "Manufacturing & Workshops": 0,
-  "Workshops (East)": 0,
   "Life Support & Utilities": 0,
-  "Security Control": 0,
-  "Dock NW 1": 0,
-  "Dock NW 2": 0,
-  "Dock NW 3": 0,
-  "Dock NE 1": 0,
-  "Dock NE 2": 0,
-  "Dock NE 3": 0,
-  "Dock SW 1": 0,
-  "Dock SW 2": 0,
-  "Dock SW 3": 2,
-  "Dock SE 1": 0,
-  "Dock SE 2": 0,
-  "Dock SE 3": 0
+  "Security Control": 2
+ },
+ "entry": {
+  "room": "Docking Bay E1",
+  "at": [
+   1173,
+   175
+  ]
+ },
+ "exit": {
+  "room": "Docking Bay W3",
+  "at": [
+   347,
+   1130
+  ]
+ },
+ "locks": [
+  {
+   "door": [
+    701.2,
+    800.0
+   ],
+   "key": 3,
+   "why": "the objective (Central Hub (Atrium))"
+  },
+  {
+   "door": [
+    844.8,
+    1212.8
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    477.6,
+    1059.7
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    1193.0,
+    610.9
+   ],
+   "key": 1,
+   "why": "the orange card's room (Docking Bay E2)"
+  }
+ ],
+ "guards": [
+  {
+   "key": 1,
+   "room": "Service Block W3",
+   "at": [
+    484,
+    859
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Docking Bay E2",
+   "at": [
+    1330,
+    512
+   ]
+  },
+  {
+   "key": 3,
+   "room": "Security Control",
+   "at": [
+    945,
+    1272
+   ]
+  }
+ ],
+ "targets": {
+  "sabotage": {
+   "room": "Central Hub (Atrium)",
+   "at": [
+    800,
+    800
+   ],
+   "key": 3
+  },
+  "capture": {
+   "room": "Central Hub (Atrium)",
+   "at": [
+    800,
+    800
+   ],
+   "key": 3
+  },
+  "rescue": {
+   "room": "Central Hub (Atrium)",
+   "at": [
+    800,
+    800
+   ],
+   "key": 3
+  }
  }
 }

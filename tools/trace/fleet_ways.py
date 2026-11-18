@@ -45,6 +45,12 @@ def ways(sid):
     px_m = float(P.get("px_per_m", 10.0))
     for k in R:
         if K[k] == "pilot" and R[k].area / (px_m * px_m) >= BIG_M2: K[k] = "mech"
+    # v13.205: a deck may name its rooms' kinds itself (eng/overrides.json "kinds": {room: "mech" | "pilot"}), e.g. a
+    # station where the districts are big but are people's places (commerce, crew, medical)
+    ovp = os.path.join(here, "overrides.json")
+    if os.path.exists(ovp):
+        for k, v in json.load(open(ovp)).get("kinds", {}).items():
+            if k in K: K[k] = v
     entry = G["entry"]["room"]
     halls = unary_union([shape(h) for h in P["halls"]])
     T = float(P["thickness"])
