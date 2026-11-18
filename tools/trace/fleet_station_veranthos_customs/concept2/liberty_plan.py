@@ -21,6 +21,7 @@ from shapely import affinity
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 Z, AXS = 4, 553
+PW0, WALL0 = 4 * Z, 1.5 * Z
 OUT = "liberty_plan"
 M_ = np.load(os.path.join(HERE, "masks.npz")); floor, mech, pilot = M_["floor"], M_["mech"], M_["pilot"]
 # ---- LIBERTY HUB SHEET walkways (owner, Nov 18: "put these walkways in, have these rooms"): the sheet's own walkway
@@ -168,9 +169,18 @@ fl = Polygon(cv2.approxPolyDP(max(cs, key=cv2.contourArea), 7.0 * Z, True).resha
 flh = fl.intersection(box(0, 0, AX, H)); FLOOR = unary_union([flh, mir(flh)]).buffer(0.5).buffer(-0.5)
 WAYS = unary_union([ways_half.intersection(box(0, 0, AX + 1, H)), mir(ways_half.intersection(box(0, 0, AX + 1, H)))]).intersection(FLOOR)
 WAYS = unary_union([q for q in getattr(WAYS, "geoms", [WAYS]) if q.area > (30 * Z) ** 2])
+# ---- THE HUB (owner: "the centre is the hub, it needs to be clear: a small yellow circle with a small circle room"):
+# no mech ways inside it; an open plaza, a small yellow pilot ring walkway, a small round room in the middle
+HUB_R, HUB_RING, HUB_ROOM = 62 * Z, 30 * Z, 24 * Z
+HUB = Point(AX, CYH).buffer(HUB_R, 128)
+WAYS = WAYS.difference(HUB.buffer(-WIDTHS[1] / 2))         # the red ways now stop at the hub's edge
+HUB_YELLOW = Point(AX, CYH).buffer(HUB_RING + PW0 / 2, 128).difference(Point(AX, CYH).buffer(HUB_RING - PW0 / 2, 128))
+HUB_YELLOW = unary_union([HUB_YELLOW] + [LineString([(AX + (HUB_RING) * math.cos(t), CYH + (HUB_RING) * math.sin(t)),
+              (AX + (HUB_R - 2) * math.cos(t), CYH + (HUB_R - 2) * math.sin(t))]).buffer(PW0 / 2, cap_style=2) for t in (0, math.pi / 2, math.pi, 3 * math.pi / 2)])
+HUB_ROOMG = Point(AX, CYH).buffer(HUB_ROOM - PW0 / 2 - WALL0, 128)
 
 # ---- rooms: every block the ways close in, pulled in by the service band (walls parallel to the ways)
-blocks = FLOOR.difference(WAYS)
+blocks = FLOOR.difference(WAYS).difference(HUB)
 pil = pilot.astype(bool)
 PILOT, SERVICE, MECHR, NAMES = [], [], [], []
 USED = set()
@@ -205,38 +215,70 @@ def both(gs):
 PW, WALL, ROOM_D = 4 * Z, 1.5 * Z, 20 * Z           # pilot way 4 px (~3 m), wall gap, room depth along the corridor
 YELLOW_WAYS, ROOMS2 = [], []
 def split_block(r):
-    rect = cv2.minAreaRect(np.array(r.exterior.coords, np.float32))
-    (cx, cy), (w, h), ang = rect
-    if w < h: w, h, ang = h, w, ang + 90
-    u = np.array([math.cos(math.radians(ang)), math.sin(math.radians(ang))]); v = np.array([-u[1], u[0]])
-    if h < 2 * 10 * Z + PW or w < 18 * Z:            # one room
-        ROOMS2.append(r); return
-    c = np.array([cx, cy])
-    spine = LineString([tuple(c - u * w), tuple(c + u * w)]).intersection(r)
-    if spine.is_empty: ROOMS2.append(r); return
-    if spine.geom_type != "LineString": spine = max(spine.geoms, key=lambda g_: g_.length)
-    corr = spine.buffer(PW / 2, cap_style=2)
+    """the yellow pilot way follows the block's own shape (its medial axis, straightened into 0/45/90 legs, or a true
+    arc where it keeps one distance from the hub), the blue rooms fill both sides of it, cut every ROOM_D along it"""
+    x0, y0, x1, y1 = [int(v) for v in r.bounds]
+    if min(x1 - x0, y1 - y0) < 2 * 10 * Z + PW: ROOMS2.append(r); return
+    m = np.zeros((y1 - y0 + 4, x1 - x0 + 4), np.uint8)
+    cv2.fillPoly(m, [(np.array(r.exterior.coords) - [x0 - 2, y0 - 2]).astype(np.int32)], 1)
+    dt = cv2.distanceTransform(m, cv2.DIST_L2, 5)
+    sk_ = skeletonize(m > 0).astype(np.uint8)
+    for _ in range(int(14 * Z)):                    # prune the medial axis' corner branches
+        d_ = cv2.filter2D(sk_, -1, np.ones((3, 3)), borderType=0) - 1
+        e_ = (sk_ > 0) & (d_ <= 1)
+        if not e_.any() or sk_.sum() - e_.sum() < 6 * Z: break
+        sk_[e_] = 0
+    pts = np.argwhere(sk_ > 0)
+    if len(pts) < 4 * Z: ROOMS2.append(r); return
+    # order the axis pixels into one path (longest shortest-path through the axis)
+    S_ = set(map(tuple, pts))
+    def bfs(a):
+        par = {a: None}; q = deque([a]); last = a
+        while q:
+            c_ = q.popleft(); last = c_
+            for dy, dx in NB8:
+                n2 = (c_[0] + dy, c_[1] + dx)
+                if n2 in S_ and n2 not in par: par[n2] = c_; q.append(n2)
+        return last, par
+    a, _ = bfs(tuple(pts[0])); b, par = bfs(a)
+    path = []; c_ = b
+    while c_ is not None: path.append((c_[1] + x0 - 2, c_[0] + y0 - 2)); c_ = par[c_]
+    xy = np.array(path, float)
+    rad = np.hypot(xy[:, 0] - AX, xy[:, 1] - CYH); ang = np.unwrap(np.arctan2(xy[:, 1] - CYH, xy[:, 0] - AX))
+    if rad.std() < 3 * Z and abs(ang[-1] - ang[0]) > math.radians(15):
+        R_ = rad.mean(); ts = np.linspace(ang[0], ang[-1], 40)
+        line = LineString([(AX + R_ * math.cos(t), CYH + R_ * math.sin(t)) for t in ts])
+    else:
+        line = LineString(snap_leg(xy))
+    line = line.intersection(r.buffer(-WALL))
+    if line.is_empty or line.length < 14 * Z: ROOMS2.append(r); return
+    if line.geom_type != "LineString": line = max(getattr(line, "geoms", [line]), key=lambda g_: g_.length)
+    if line.length < 14 * Z: ROOMS2.append(r); return
+    corr = line.buffer(PW / 2, cap_style=2, join_style=2)
     rest = r.difference(corr.buffer(WALL))
-    n_ = max(1, int(round(spine.length / ROOM_D)))
-    cuts = [LineString([tuple(c + u * t - v * h), tuple(c + u * t + v * h)]).buffer(WALL / 2, cap_style=2)
-            for t in np.linspace(-spine.length / 2, spine.length / 2, n_ + 1)[1:-1]]
-    rest = rest.difference(unary_union(cuts)) if cuts else rest
+    n_ = max(1, int(round(line.length / ROOM_D)))
+    cuts = []
+    for t in np.linspace(0, line.length, n_ + 1)[1:-1]:
+        p0 = np.array(line.interpolate(t).coords[0]); p1 = np.array(line.interpolate(min(line.length, t + 2)).coords[0])
+        d_ = p1 - p0; d_ /= max(1e-6, np.hypot(*d_)); nv = np.array([-d_[1], d_[0]])
+        cuts.append(LineString([tuple(p0 - nv * 400 * Z), tuple(p0 + nv * 400 * Z)]).buffer(WALL / 2, cap_style=2))
+    if cuts: rest = rest.difference(unary_union(cuts))
     for q in getattr(rest, "geoms", [rest]):
         if q.geom_type == "Polygon" and q.area > (7 * Z) ** 2: ROOMS2.append(q.simplify(0.8 * Z))
-    # the corridor runs on to the nearest red way from its nearer end
-    ends = [Point(spine.coords[0]), Point(spine.coords[-1])]
+    ends = [Point(line.coords[0]), Point(line.coords[-1])]
     e = min(ends, key=lambda p: p.distance(WAYS))
     q = _np(WAYS, e)[0]
     YELLOW_WAYS.append(unary_union([corr, LineString([(e.x, e.y), (q.x, q.y)]).buffer(PW / 2, cap_style=2)]))
 inner_body = Point(AX, CYH).buffer(300 * Z)
-for lst in (PILOT, SERVICE):
+for lst in (PILOT, SERVICE, MECHR):
     keep = []
     for r in lst:
-        if r.centroid.within(inner_body) and r.area > (14 * Z) ** 2: split_block(r)
-        else: keep.append(r)
+        if r.area > (14 * Z) ** 2: split_block(r)
+        else: ROOMS2.append(r)
     lst[:] = keep
 PILOT, SERVICE, MECHR = both(PILOT), both(SERVICE), both(MECHR)
 ROOMS2, YELLOW_WAYS = both(ROOMS2), both(YELLOW_WAYS)
+ROOMS2 += [HUB_ROOMG]; YELLOW_WAYS += [HUB_YELLOW]
 
 RED, BLUE, NAVY = (60, 50, 215), (235, 130, 40), (90, 50, 28)
 def fill(img, g, col):
@@ -249,12 +291,12 @@ def outline(img, g, col, t):
         for ring in [p.exterior] + list(p.interiors): cv2.polylines(img, [np.array(ring.coords, np.int32)], True, col, t, cv2.LINE_AA)
 def draw(base, alpha):
     img = base.copy(); f = img.copy()
-    fill(f, FLOOR, (60, 36, 20)); fill(f, WAYS, RED)
+    fill(f, FLOOR, (60, 36, 20)); fill(f, WAYS, RED); fill(f, HUB, (120, 80, 45))
     for g in ROOMS2: fill(f, g, BLUE)
     for g in YELLOW_WAYS: fill(f, g, (0, 210, 255))
     for g in PILOT: fill(f, g, BLUE)
-    for g in SERVICE: fill(f, g, NAVY)
-    for g in MECHR: fill(f, g, (40, 30, 150))
+    for g in SERVICE: fill(f, g, BLUE)
+    for g in MECHR: fill(f, g, BLUE)
     img = cv2.addWeighted(f, alpha, img, 1 - alpha, 0)
     outline(img, FLOOR, (255, 255, 255), Z); outline(img, WAYS, (255, 255, 255), Z // 2 + 1)
     for g in PILOT + SERVICE + MECHR + ROOMS2 + YELLOW_WAYS: outline(img, g, (255, 255, 255), Z // 2 + 1)
