@@ -32,26 +32,42 @@ mk = cv2.imread(os.path.join(HERE, "..", "source_mask.png"), 0) > 127
 cs, _ = cv2.findContours(mk.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 OUTLINE = Polygon(cv2.approxPolyDP(max(cs, key=cv2.contourArea), 2.0, True).reshape(-1, 2)).buffer(-14, join_style=2)   # 1.2 m hull
 
-# ---- walkways (sizes: the sheet's, scaled onto the body: the body is ~470 px round, the sheet's ~300)
-K_ = 1.3
-RA, R1, R2 = 86 * K_, 172 * K_, 306 * K_
+# ---- walkways: the SHEET'S OWN walkway network (sheet_cells.py -> sheet_walk_centre.png, mirror-true), laid on the
+# silhouette by one scale + shift (sheet middle 512, 445 -> 800, 800); each centre line becomes a walkway W1 wide
+S_ = 1.40
+SC = (512.0, 445.0)
+RA, R2 = 74 * S_, 300 * S_
 W1, W2 = 26, 18
-ARMS = [239, 212, 141, 128]               # the six arms (+ mirror): measured on the silhouette, angle of each tip from the middle
-HALLS = [hall(*ring_pts(RA, RA), w=W2), hall(*ring_pts(R1, R1 * 0.97), w=W1), hall(*octring_pts(R2), w=W1),
-         hall((AX - 900, CY), (AX + 900, CY), w=W1).intersection(OUTLINE),          # the cross
-         hall((AX, CY - 900), (AX, CY + 900), w=W1).intersection(OUTLINE)]
-RING2 = Polygon(octring_pts(R2)[:-1])
+# the sheet's room blocks (sheet_cells.py: clean, mirror-true), moved onto the silhouette; the walkways are the gaps
+import json as _json
+from shapely import affinity as _af
+from shapely.geometry import shape as _shape
+def to_sil(g): return _af.affine_transform(g, [S_, 0, 0, S_, AX - S_ * SC[0], CY - S_ * SC[1]])
+blocks = []
+for cj in _json.load(open(os.path.join(HERE, "sheet_cells.json")))["cells"]:
+    g = _shape(cj)
+    if g.area < 350 or g.centroid.distance(Point(*SC)) < 80: continue          # specks; the atrium (it is the Central Hub)
+    g = to_sil(g.buffer(-3.5, join_style=2)).intersection(OUTLINE)            # half the sheet's walkway width each side
+    if not g.is_empty and g.area > 900: blocks.append(g)
+core = unary_union([b.buffer(W1, join_style=2) for b in blocks]).buffer(-W1 / 2, join_style=2)
+core = Polygon(max(getattr(core, "geoms", [core]), key=lambda q: q.area).exterior)      # the network's own outer edge
+ARMS = [239, 212, 141, 128]               # the six arms (+ mirror): measured on the silhouette
 def spoke(a, r0, r1, clip, w=W2): return hall(polar(a, r0), polar(a, r1), w=w).intersection(clip)
-LS = [spoke(a, R1, R2 + 30, RING2.buffer(10)) for a in (250, 200, 160, 110)]        # short walkways between the rings
-LS += [spoke(225, R1, R2 + 30, RING2.buffer(10)), spoke(135, R1, R2 + 30, RING2.buffer(10))]   # the diagonals between the rings (the arms carry the walkways out)
-DOCK_R = {}
-for a in ARMS:                                                                     # out along each arm to its dock
-    t = R2
+DOCK_R = {}; LS = []
+for a in ARMS:                             # a walkway out along each arm to its docking bay (the arms are not on the sheet)
+    t = R2 * 0.8
     while OUTLINE.contains(Point(*polar(a, t + 10))): t += 4
     DOCK_R[a] = t
-    LS.append(spoke(a, R2, t - 70, OUTLINE, w=W1))
-HALLS += LS + [M(h) for h in LS]
-net = unary_union(HALLS).intersection(OUTLINE.buffer(2))
+    LS.append(spoke(a, R2 * 0.6, t - 70, OUTLINE, w=W1))
+LS += [M(h) for h in LS]
+LS += [hall((AX - 900, CY), (AX + 900, CY), w=W1).intersection(OUTLINE), hall((AX, CY - 900), (AX, CY + 900), w=W1).intersection(OUTLINE)]
+ringwalk = core.exterior.buffer(W1 / 2, join_style=2)                         # a walkway round the network's edge
+rim = OUTLINE.difference(core).difference(unary_union(LS + [ringwalk]).buffer(T / 2))
+blocks += [p for p in getattr(rim, "geoms", [rim]) if p.area > 900]
+rooms_all = unary_union(blocks + [circle(AX, CY, RA - W2 / 2 - T)])
+net = OUTLINE.difference(rooms_all.buffer(T / 2))
+parts = sorted(getattr(net, "geoms", [net]), key=lambda q: -q.area)
+net = parts[0]
 
 # ---- names: the sheet's districts by angle and band (0 = shops band, 1 = between the rings, 2 = outside the outer ring)
 SHEET_C, SHEET_R2 = (507.0, 447.0), 300.0
@@ -66,8 +82,7 @@ SHEET = {"Customs & Security": (420, 128), "Passenger Services": (594, 128), "Cr
          "Commerce District (North)": (537, 200), "Commerce District (North, west wing)": (477, 200),
          "Commerce District (South)": (537, 668), "Commerce District (South, west wing)": (477, 668)}
 def to_here(p):
-    dx, dy = p[0] - SHEET_C[0], p[1] - SHEET_C[1]; a = math.atan2(dy, dx); r = math.hypot(dx, dy) / SHEET_R2 * R2
-    q = Point(AX + r * math.cos(a), CY + r * math.sin(a))
+    q = Point(AX + S_ * (p[0] - SC[0]), CY + S_ * (p[1] - SC[1])); a = math.atan2(q.y - CY, q.x - AX); r = math.hypot(q.x - AX, q.y - CY)
     while not OUTLINE.contains(q) and r > 0: r -= 4; q = Point(AX + r * math.cos(a), CY + r * math.sin(a))
     return q
 LABELS = {k: to_here(p) for k, p in SHEET.items()}

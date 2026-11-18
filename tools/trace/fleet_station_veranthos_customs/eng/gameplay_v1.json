@@ -4,37 +4,52 @@
  "patrols": [],
  "room_guards": {
   "Central Hub (Atrium)": 2,
-  "Service Block W1": 2,
   "Customs & Security": 1,
   "Passenger Services": 1,
+  "Service Block W1": 1,
   "Service Block E2": 1,
   "Commerce District (North, west wing)": 1,
   "Commerce District (North)": 1,
-  "Crew District A": 1,
-  "Crew District B": 1,
-  "Cargo Terminal A (Freight)": 1,
-  "Residential District (West)": 1,
-  "Commerce District (East)": 1,
-  "Cargo Terminal C (General)": 1,
-  "Atrium Shops (NW)": 1,
-  "Atrium Shops (NE)": 1,
-  "Ship Dealer & Showroom": 1,
-  "Outfitting & Gear": 1,
   "Service Block W3": 1,
   "Service Block E4": 1,
-  "Atrium Shops (SW)": 1,
-  "Atrium Shops (SE)": 1,
-  "Cargo Terminal B (Freight)": 1,
-  "Medical Complex (Hospital)": 1,
-  "Supplies & Administration": 1,
-  "Cargo Terminal D (Industrial)": 1,
+  "Residential District (West)": 1,
   "Service Block W5": 1,
   "Service Block E6": 1,
+  "Commerce District (East)": 1,
+  "Cargo Terminal A (Freight)": 1,
+  "Service Block W7": 1,
+  "Service Block E8": 1,
+  "Cargo Terminal C (General)": 1,
+  "Service Block W9": 1,
+  "Atrium Shops (NE)": 1,
+  "Ship Dealer & Showroom": 1,
+  "Service Block W10": 1,
+  "Service Block W11": 1,
+  "Service Block E12": 1,
+  "Service Block E13": 1,
+  "Outfitting & Gear": 1,
+  "Service Block W14": 1,
+  "Service Block W15": 1,
+  "Service Block E16": 1,
+  "Service Block E17": 1,
+  "Medical Complex (Hospital)": 1,
+  "Service Block W18": 1,
+  "Atrium Shops (SE)": 1,
+  "Supplies & Administration": 1,
+  "Service Block W19": 1,
+  "Service Block E20": 1,
+  "Service Block W21": 1,
+  "Service Block W22": 1,
+  "Service Block W23": 1,
+  "Service Block W24": 1,
+  "Service Block E25": 1,
+  "Service Block E26": 1,
+  "Service Block E27": 1,
+  "Service Block E28": 1,
   "Commerce District (South, west wing)": 1,
   "Commerce District (South)": 1,
-  "Life Support & Utilities": 2,
-  "Security Control": 2,
-  "Docking Bay E2": 2
+  "Life Support & Utilities": 1,
+  "Security Control": 1
  },
  "note": "Liberty Hub main deck in the Liberty silhouette, start values for fleet_formula.py (PROPOSED)",
  "formula": {
@@ -88,10 +103,10 @@
   "Security Control": 2
  },
  "entry": {
-  "room": "Docking Bay E1",
+  "room": "Docking Bay W4",
   "at": [
-   1173,
-   175
+   480,
+   1311
   ]
  },
  "exit": {
@@ -113,7 +128,7 @@
   {
    "door": [
     844.8,
-    1212.8
+    1227.1
    ],
    "key": 2,
    "why": "the red card / the way out"
@@ -140,8 +155,8 @@
    "key": 1,
    "room": "Service Block W3",
    "at": [
-    484,
-    859
+    483,
+    858
    ]
   },
   {
@@ -156,33 +171,33 @@
    "key": 3,
    "room": "Security Control",
    "at": [
-    945,
-    1272
+    941,
+    1268
    ]
   }
  ],
  "targets": {
   "sabotage": {
-   "room": "Central Hub (Atrium)",
+   "room": "Life Support & Utilities",
    "at": [
-    800,
-    800
+    641,
+    1264
    ],
    "key": 3
   },
   "capture": {
-   "room": "Central Hub (Atrium)",
+   "room": "Security Control",
    "at": [
-    800,
-    800
+    958,
+    1264
    ],
    "key": 3
   },
   "rescue": {
-   "room": "Central Hub (Atrium)",
+   "room": "Supplies & Administration",
    "at": [
-    800,
-    800
+    1092,
+    896
    ],
    "key": 3
   }
