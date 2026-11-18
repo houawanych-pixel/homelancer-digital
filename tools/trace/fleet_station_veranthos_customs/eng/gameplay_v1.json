@@ -1,0 +1,90 @@
+{
+ "entry": {
+  "room": "Dock SW 2",
+  "at": [
+   154,
+   705
+  ]
+ },
+ "exit": {
+  "room": "Dock NE 2",
+  "at": [
+   858,
+   195
+  ]
+ },
+ "locks": [],
+ "guards": [],
+ "targets": {
+  "sabotage": {
+   "room": "Life Support & Utilities",
+   "at": [
+    419,
+    813
+   ],
+   "key": 3
+  },
+  "capture": {
+   "room": "Security Control",
+   "at": [
+    594,
+    814
+   ],
+   "key": 3
+  },
+  "rescue": {
+   "room": "Medical Complex (Hospital)",
+   "at": [
+    297,
+    605
+   ],
+   "key": 3
+  }
+ },
+ "wreck": [],
+ "lifts": [],
+ "patrols": [],
+ "room_guards": {
+  "Central Hub (Atrium)": 2,
+  "Arrival Complex (A/B)": 1,
+  "Transit Hub": 2,
+  "Crew & Staff Services": 1,
+  "Customs & Security": 1,
+  "Passenger Services": 1,
+  "Service Block W1": 1,
+  "Service Block E2": 1,
+  "Commerce District (North, west wing)": 1,
+  "Commerce District (North)": 1,
+  "Repair & Maintenance Complex (North)": 1,
+  "Crew District A": 2,
+  "Crew District B": 2,
+  "Shipyard & Overhaul Docks (North)": 1,
+  "Residential District (West)": 2,
+  "Commerce District (East)": 2,
+  "Cargo Terminal A (Freight)": 2,
+  "Atrium Shops (NW)": 2,
+  "Atrium Shops (NE)": 2,
+  "Cargo Terminal C (General)": 2,
+  "Ship Dealer & Showroom": 1,
+  "Outfitting & Gear": 1,
+  "Service Block W3": 1,
+  "Service Block E4": 1,
+  "Atrium Shops (SW)": 2,
+  "Atrium Shops (SE)": 2,
+  "Cargo Terminal B (Freight)": 2,
+  "Medical Complex (Hospital)": 2,
+  "Supplies & Administration": 2,
+  "Cargo Terminal D (Industrial)": 2,
+  "Service Block W5": 2,
+  "Service Block E6": 2,
+  "Repair & Maintenance Complex (South)": 1,
+  "Commerce District (South, west wing)": 1,
+  "Commerce District (South)": 1,
+  "Shipyard & Overhaul Docks (South)": 1,
+  "Manufacturing & Workshops": 2,
+  "Workshops (East)": 2,
+  "Life Support & Utilities": 2,
+  "Security Control": 2
+ },
+ "note": "Liberty Hub main deck, start values for fleet_formula.py (PROPOSED)"
+}

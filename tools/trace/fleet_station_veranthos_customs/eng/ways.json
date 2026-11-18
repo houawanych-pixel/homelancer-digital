@@ -1,0 +1,800 @@
+{
+ "ship": "station_veranthos_customs",
+ "rooms": {
+  "Central Hub (Atrium)": "mech",
+  "Arrival Complex (A/B)": "pilot",
+  "Transit Hub": "pilot",
+  "Crew & Staff Services": "pilot",
+  "Customs & Security": "pilot",
+  "Passenger Services": "pilot",
+  "Service Block W1": "pilot",
+  "Service Block E2": "pilot",
+  "Commerce District (North, west wing)": "pilot",
+  "Commerce District (North)": "pilot",
+  "Repair & Maintenance Complex (North)": "mech",
+  "Crew District A": "pilot",
+  "Crew District B": "pilot",
+  "Shipyard & Overhaul Docks (North)": "pilot",
+  "Residential District (West)": "pilot",
+  "Commerce District (East)": "pilot",
+  "Cargo Terminal A (Freight)": "mech",
+  "Atrium Shops (NW)": "mech",
+  "Atrium Shops (NE)": "mech",
+  "Cargo Terminal C (General)": "mech",
+  "Ship Dealer & Showroom": "pilot",
+  "Outfitting & Gear": "pilot",
+  "Service Block W3": "pilot",
+  "Service Block E4": "pilot",
+  "Atrium Shops (SW)": "mech",
+  "Atrium Shops (SE)": "mech",
+  "Cargo Terminal B (Freight)": "mech",
+  "Medical Complex (Hospital)": "pilot",
+  "Supplies & Administration": "pilot",
+  "Cargo Terminal D (Industrial)": "mech",
+  "Service Block W5": "pilot",
+  "Service Block E6": "pilot",
+  "Repair & Maintenance Complex (South)": "mech",
+  "Commerce District (South, west wing)": "pilot",
+  "Commerce District (South)": "pilot",
+  "Shipyard & Overhaul Docks (South)": "pilot",
+  "Manufacturing & Workshops": "mech",
+  "Workshops (East)": "mech",
+  "Life Support & Utilities": "mech",
+  "Security Control": "mech",
+  "Dock NW 1": "pilot",
+  "Dock NW 2": "pilot",
+  "Dock NW 3": "pilot",
+  "Dock NE 1": "pilot",
+  "Dock NE 2": "pilot",
+  "Dock NE 3": "pilot",
+  "Dock SW 1": "pilot",
+  "Dock SW 2": "pilot",
+  "Dock SW 3": "pilot",
+  "Dock SE 1": "pilot",
+  "Dock SE 2": "pilot",
+  "Dock SE 3": "pilot"
+ },
+ "rooms_base": {
+  "Central Hub (Atrium)": "mech",
+  "Arrival Complex (A/B)": "pilot",
+  "Transit Hub": "pilot",
+  "Crew & Staff Services": "pilot",
+  "Customs & Security": "pilot",
+  "Passenger Services": "pilot",
+  "Service Block W1": "pilot",
+  "Service Block E2": "pilot",
+  "Commerce District (North, west wing)": "pilot",
+  "Commerce District (North)": "pilot",
+  "Repair & Maintenance Complex (North)": "mech",
+  "Crew District A": "pilot",
+  "Crew District B": "pilot",
+  "Shipyard & Overhaul Docks (North)": "pilot",
+  "Residential District (West)": "pilot",
+  "Commerce District (East)": "pilot",
+  "Cargo Terminal A (Freight)": "mech",
+  "Atrium Shops (NW)": "mech",
+  "Atrium Shops (NE)": "mech",
+  "Cargo Terminal C (General)": "mech",
+  "Ship Dealer & Showroom": "pilot",
+  "Outfitting & Gear": "pilot",
+  "Service Block W3": "pilot",
+  "Service Block E4": "pilot",
+  "Atrium Shops (SW)": "mech",
+  "Atrium Shops (SE)": "mech",
+  "Cargo Terminal B (Freight)": "mech",
+  "Medical Complex (Hospital)": "pilot",
+  "Supplies & Administration": "pilot",
+  "Cargo Terminal D (Industrial)": "mech",
+  "Service Block W5": "pilot",
+  "Service Block E6": "pilot",
+  "Repair & Maintenance Complex (South)": "mech",
+  "Commerce District (South, west wing)": "pilot",
+  "Commerce District (South)": "pilot",
+  "Shipyard & Overhaul Docks (South)": "pilot",
+  "Manufacturing & Workshops": "mech",
+  "Workshops (East)": "mech",
+  "Life Support & Utilities": "mech",
+  "Security Control": "mech",
+  "Dock NW 1": "pilot",
+  "Dock NW 2": "pilot",
+  "Dock NW 3": "pilot",
+  "Dock NE 1": "pilot",
+  "Dock NE 2": "pilot",
+  "Dock NE 3": "pilot",
+  "Dock SW 1": "pilot",
+  "Dock SW 2": "pilot",
+  "Dock SW 3": "pilot",
+  "Dock SE 1": "pilot",
+  "Dock SE 2": "pilot",
+  "Dock SE 3": "pilot"
+ },
+ "cut_off_red": [],
+ "doors": [
+  {
+   "at": [
+    441.0,
+    447.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Central Hub (Atrium)"
+   ],
+   "type": "mech",
+   "key": 3
+  },
+  {
+   "at": [
+    507.0,
+    110.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Arrival Complex (A/B)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    507.0,
+    858.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Transit Hub"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    507.0,
+    790.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Crew & Staff Services"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    507.0,
+    838.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Crew & Staff Services"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    441.7,
+    143.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Customs & Security"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    562.2,
+    143.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Passenger Services"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    289.9,
+    217.1
+   ],
+   "o": "h",
+   "rooms": [
+    "Service Block W1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    696.0,
+    199.1
+   ],
+   "o": "h",
+   "rooms": [
+    "Service Block E2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    495.0,
+    256.9
+   ],
+   "o": "v",
+   "rooms": [
+    "Commerce District (North, west wing)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    562.9,
+    167.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Commerce District (North)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    252.5,
+    261.6
+   ],
+   "o": "h",
+   "rooms": [
+    "Repair & Maintenance Complex (North)"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    394.1,
+    306.5
+   ],
+   "o": "h",
+   "rooms": [
+    "Crew District A"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    639.2,
+    178.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Crew District B"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    796.5,
+    295.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Shipyard & Overhaul Docks (North)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    254.0,
+    293.3
+   ],
+   "o": "h",
+   "rooms": [
+    "Residential District (West)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    751.5,
+    285.2
+   ],
+   "o": "h",
+   "rooms": [
+    "Commerce District (East)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    174.5,
+    435.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Cargo Terminal A (Freight)"
+   ],
+   "type": "mech",
+   "key": 2
+  },
+  {
+   "at": [
+    430.5,
+    312.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Atrium Shops (NW)"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    649.0,
+    376.4
+   ],
+   "o": "v",
+   "rooms": [
+    "Atrium Shops (NE)"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    825.0,
+    404.6
+   ],
+   "o": "v",
+   "rooms": [
+    "Cargo Terminal C (General)"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    213.0,
+    385.8
+   ],
+   "o": "v",
+   "rooms": [
+    "Ship Dealer & Showroom"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    801.0,
+    405.8
+   ],
+   "o": "v",
+   "rooms": [
+    "Outfitting & Gear"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    213.0,
+    488.2
+   ],
+   "o": "v",
+   "rooms": [
+    "Service Block W3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    801.0,
+    508.3
+   ],
+   "o": "v",
+   "rooms": [
+    "Service Block E4"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    495.0,
+    547.4
+   ],
+   "o": "v",
+   "rooms": [
+    "Atrium Shops (SW)"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    621.7,
+    459.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Atrium Shops (SE)"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    189.0,
+    495.6
+   ],
+   "o": "v",
+   "rooms": [
+    "Cargo Terminal B (Freight)"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    224.6,
+    572.6
+   ],
+   "o": "h",
+   "rooms": [
+    "Medical Complex (Hospital)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    768.2,
+    592.8
+   ],
+   "o": "h",
+   "rooms": [
+    "Supplies & Administration"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    839.5,
+    459.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Cargo Terminal D (Industrial)"
+   ],
+   "type": "mech",
+   "key": 1
+  },
+  {
+   "at": [
+    371.4,
+    595.3
+   ],
+   "o": "v",
+   "rooms": [
+    "Service Block W5"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    668.1,
+    688.4
+   ],
+   "o": "h",
+   "rooms": [
+    "Service Block E6"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    276.8,
+    664.5
+   ],
+   "o": "v",
+   "rooms": [
+    "Repair & Maintenance Complex (South)"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    495.0,
+    637.1
+   ],
+   "o": "v",
+   "rooms": [
+    "Commerce District (South, west wing)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    545.7,
+    727.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Commerce District (South)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    757.6,
+    636.2
+   ],
+   "o": "h",
+   "rooms": [
+    "Shipyard & Overhaul Docks (South)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    370.5,
+    745.1
+   ],
+   "o": "h",
+   "rooms": [
+    "Manufacturing & Workshops"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    643.5,
+    745.1
+   ],
+   "o": "h",
+   "rooms": [
+    "Workshops (East)"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    411.3,
+    751.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Life Support & Utilities"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    495.0,
+    850.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Life Support & Utilities"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    602.7,
+    751.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Security Control"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    519.0,
+    848.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Security Control"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    159.4,
+    227.5
+   ],
+   "o": "h",
+   "rooms": [
+    "Repair & Maintenance Complex (North)",
+    "Dock NW 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    177.6,
+    211.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Repair & Maintenance Complex (North)",
+    "Dock NW 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    195.7,
+    194.5
+   ],
+   "o": "h",
+   "rooms": [
+    "Repair & Maintenance Complex (North)",
+    "Dock NW 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    818.3,
+    194.5
+   ],
+   "o": "h",
+   "rooms": [
+    "Shipyard & Overhaul Docks (North)",
+    "Dock NE 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    836.4,
+    211.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Shipyard & Overhaul Docks (North)",
+    "Dock NE 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    854.6,
+    227.5
+   ],
+   "o": "h",
+   "rooms": [
+    "Shipyard & Overhaul Docks (North)",
+    "Dock NE 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    193.1,
+    707.2
+   ],
+   "o": "v",
+   "rooms": [
+    "Repair & Maintenance Complex (South)",
+    "Dock SW 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    176.8,
+    689.4
+   ],
+   "o": "v",
+   "rooms": [
+    "Repair & Maintenance Complex (South)",
+    "Dock SW 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    160.5,
+    671.6
+   ],
+   "o": "v",
+   "rooms": [
+    "Repair & Maintenance Complex (South)",
+    "Dock SW 3"
+   ],
+   "type": "pilot",
+   "key": 2
+  },
+  {
+   "at": [
+    853.5,
+    671.6
+   ],
+   "o": "v",
+   "rooms": [
+    "Shipyard & Overhaul Docks (South)",
+    "Dock SE 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    837.2,
+    689.4
+   ],
+   "o": "v",
+   "rooms": [
+    "Shipyard & Overhaul Docks (South)",
+    "Dock SE 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    820.9,
+    707.2
+   ],
+   "o": "v",
+   "rooms": [
+    "Shipyard & Overhaul Docks (South)",
+    "Dock SE 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  }
+ ],
+ "entry": "Cargo Terminal C (General)",
+ "mech_rooms_unreached": [],
+ "counts": {
+  "mech_rooms": 15,
+  "pilot_rooms": 37,
+  "mech_doors": 17,
+  "pilot_doors": 38,
+  "locked": {
+   "OPEN": 51,
+   "YELLOW": 1,
+   "ORANGE": 2,
+   "RED": 1
+  }
+ }
+}
