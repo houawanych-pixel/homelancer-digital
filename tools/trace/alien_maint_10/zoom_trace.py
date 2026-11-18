@@ -29,7 +29,23 @@ bar[oy0 * Z:oy1 * Z, ox0 * Z:ox1 * Z] |= cv2.morphologyEx(sub, cv2.MORPH_CLOSE, 
 ff = bar.copy(); mk = np.zeros((ff.shape[0] + 2, ff.shape[1] + 2), np.uint8); cv2.floodFill(ff, mk, (0, 0), 128)
 floor = (ff != 128).astype(np.uint8) * 255
 floor = cv2.morphologyEx(floor, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9 * Z, 9 * Z)))   # leader lines go
-floor = cv2.morphologyEx(floor, cv2.MORPH_CLOSE, k(5 * Z + 1))                  # pieces split by a hairline (a door line) join up
+# icons sitting ACROSS a hall (lock pads, lifts) are doors, not walls: an icon box touching two separate floor pieces becomes floor
+DOORS, HALLS = [], []
+nf, flab = cv2.connectedComponents(floor)
+ybox = ((a[..., 2] > 120) & (a[..., 1] > 110) & (a[..., 0] < 100)).astype(np.uint8) * 255      # yellow icon frames
+ni, ilab, ist, _ = cv2.connectedComponentsWithStats(cv2.dilate(ybox, np.ones((2 * Z, 2 * Z), np.uint8)))
+for i in range(1, ni):
+    x, y, w, h = ist[i, :4]
+    if w > 30 * Z or h > 30 * Z or w < 12 * Z or h < 12 * Z: continue   # not an icon box
+    R = 14 * Z; ya, xa = max(0, y - R), max(0, x - R)
+    ring = cv2.dilate((ilab[ya:y + h + R, xa:x + w + R] == i).astype(np.uint8), np.ones((R, R), np.uint8))
+    touch = set(np.unique(flab[ya:y + h + R, xa:x + w + R][ring > 0])) - {0}
+    if len(touch) >= 2:
+        floor[y - Z:y + h + Z, x - Z:x + w + Z] = 255; HALLS.append((x, y, w, h)); DOORS.append([round((x + w / 2) / Z, 1), round((y + h / 2) / Z, 1)])
+floor = cv2.morphologyEx(floor, cv2.MORPH_CLOSE, k(5 * Z + 1))
+for x, y, w, h in HALLS:
+    R = 16 * Z; ya, xa = max(0, y - R), max(0, x - R)
+    floor[ya:y + h + R, xa:x + w + R] = cv2.morphologyEx(floor[ya:y + h + R, xa:x + w + R], cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (13 * Z, 13 * Z)))                  # pieces split by a hairline (a door line) join up
 # inner walls: long thin line bars well inside a floor
 inner = line & cv2.erode(floor, np.ones((4 * Z, 4 * Z), np.uint8))
 inner = cv2.morphologyEx(inner, cv2.MORPH_CLOSE, k(2 * Z + 1))
@@ -87,5 +103,5 @@ for i in range(0, len(tiles), 3):
 cv2.imwrite(os.path.join(HERE, "zoom_sheet.jpg"), np.vstack(rows), [cv2.IMWRITE_JPEG_QUALITY, 86])
 cv2.imwrite(os.path.join(HERE, "zoom_trace.png"), cv2.resize(plan, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA))
 cv2.imwrite(os.path.join(HERE, "zoom_overlay.jpg"), cv2.resize(ov, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA), [cv2.IMWRITE_JPEG_QUALITY, 86])
-json.dump({"crop": [Y0, Y1, X0, X1], "units": "crop px of the map", "zoom": Z, "pieces": out}, open(os.path.join(HERE, "zoom_pieces.json"), "w"))
-print(len(out), "pieces;", sum(1 for o in out for q in o["rings"] if q["hole"]), "inner walls / holes")
+json.dump({"crop": [Y0, Y1, X0, X1], "units": "crop px of the map", "zoom": Z, "pieces": out, "icon_doors": DOORS}, open(os.path.join(HERE, "zoom_pieces.json"), "w"))
+print(len(DOORS), "icon doors opened;", len(out), "pieces;", sum(1 for o in out for q in o["rings"] if q["hole"]), "inner walls / holes")
