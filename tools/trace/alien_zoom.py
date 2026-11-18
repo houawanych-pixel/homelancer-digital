@@ -19,6 +19,7 @@ import cv2, numpy as np
 ap = argparse.ArgumentParser(); ap.add_argument("image"); ap.add_argument("out"); ap.add_argument("--close", type=int, default=13); ap.add_argument("--grid", action="store_true")
 A = ap.parse_args(); os.makedirs(os.path.join(A.out, "zoom"), exist_ok=True)
 Z = 4
+BLUE, BLUE2 = (255, 150, 30), (255, 190, 90)        # owner: trace lines in blue, not white (BGR)
 full = cv2.imread(A.image)
 if os.path.abspath(A.image) != os.path.abspath(os.path.join(A.out, "source.png")): cv2.imwrite(os.path.join(A.out, "source.png"), full)
 
@@ -130,7 +131,15 @@ def snap(p):
     return p
 
 nb, lab, st, _ = cv2.connectedComponentsWithStats(floor)
-order = sorted([i for i in range(1, nb) if st[i, 4] > 600 * Z * Z and min(st[i, 2], st[i, 3]) > 18 * Z], key=lambda i: (st[i, 1] // (200 * Z), st[i, 0]))
+# a real floor is tinted teal / green; a box closed around label text is plain background: keep pieces whose inside is tinted
+tint = (g.astype(np.int16) - r) > 6
+bgtint = np.median(tint[floor == 0])
+def is_floor(i):
+    x, y, w, h = st[i, :4]; m_ = lab[y:y + h, x:x + w] == i
+    inner_ = cv2.erode(m_.astype(np.uint8), np.ones((3 * Z, 3 * Z), np.uint8)) > 0
+    if inner_.any() and (line[y:y + h, x:x + w][inner_] > 0).mean() > 0.2: return False   # mostly letters: a box around label text
+    return tint[y:y + h, x:x + w][m_].mean() > bgtint + 0.25
+order = sorted([i for i in range(1, nb) if st[i, 4] > 600 * Z * Z and min(st[i, 2], st[i, 3]) > 18 * Z and is_floor(i)], key=lambda i: (st[i, 1] // (200 * Z), st[i, 0]))
 plan = np.zeros_like(big); ov = (big * 0.45).astype(np.uint8); out, tiles = [], []
 for f in os.listdir(os.path.join(A.out, "zoom")): os.remove(os.path.join(A.out, "zoom", f))
 for n, i in enumerate(order):
@@ -140,7 +149,7 @@ for n, i in enumerate(order):
         hole = hier[0][j][3] >= 0
         if hole and cv2.contourArea(c) < 40 * Z * Z: continue
         s = snap(cv2.approxPolyDP(c, 2.0, True)).astype(np.int32)
-        for im in (plan, ov): cv2.polylines(im, [s], True, (255, 255, 255), Z, cv2.LINE_AA)
+        for im in (plan, ov): cv2.polylines(im, [s], True, BLUE, Z, cv2.LINE_AA)
         rings.append({"hole": bool(hole), "pts": (s / Z).round(2).tolist()})
     rooms = []
     for c_i in ROOMS:
@@ -148,7 +157,7 @@ for n, i in enumerate(order):
         if not (m[clab == c_i] > 0).mean() > 0.8: continue
         cc, _ = cv2.findContours((clab == c_i).astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
         s2 = snap(cv2.approxPolyDP(max(cc, key=cv2.contourArea), 2.0, True)).astype(np.int32)
-        for im in (plan, ov): cv2.polylines(im, [s2], True, (200, 200, 200), max(1, Z // 2), cv2.LINE_AA)
+        for im in (plan, ov): cv2.polylines(im, [s2], True, BLUE2, max(2, Z * 3 // 4), cv2.LINE_AA)
         rooms.append((s2 / Z).round(2).tolist())
     out.append({"piece": n + 1, "bbox": [int(v / Z) for v in st[i, :4]], "rings": rings, "rooms": rooms})
 for n, i in enumerate(order):
