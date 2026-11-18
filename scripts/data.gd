@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.219"
+const VERSION := "v13.220"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_SHIP_DECK := {"st3d_veranthos_customs": "res://assets/holodeck/station_liberty_hub.json"}
@@ -2041,6 +2041,11 @@ const BOARD_BAY_REACH := 360.0   # v11.89: 4x with the battleship
 #         # m from the side hangar's opening: in you go (as a mech)
 const BOARD_MECHS := [3, 10]           # [most at once, in all]
 const BOARD_ESCAPE := 90.0             # s to get out after the core blows
+const ESCAPE_CLOCK_FONT := 72         # v13.220: the big escape countdown (top centre)
+const ESCAPE_CLOCK_RED := 10.0         # s: red, pulsing and beeping from here
+const ESCAPE_FILM_S := 8.0             # v13.220: the escape film: the ship goes up while yours flies clear (s)
+const ESCAPE_FILM_CAM := 30.0         # m: the camera riding ahead of your ship, looking back at it
+const ESCAPE_FILM_AWAY := 9000.0       # m from the station when there is no boarded ship out there (tests)
 const FLEET_ESCAPE := BOARD_ESCAPE + 300.0   # v13.136 (owner: "the time limit to escape needs 5 min more"): s to get out of a fleet ship
 const BOARD_PAY := 9000                # cr for the battleship (v11.70: paid once the wave outside is down)
 const BOARD_WAVE := 20                 # v11.70 (owner): the ships waiting outside when you get out

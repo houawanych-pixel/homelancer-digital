@@ -11413,9 +11413,71 @@ const LOOK_YAW := 0.5      # radians at full look left/right
 const LOOK_PITCH := 0.22   # radians at full look up/down (less: you shouldn't see past the canopy art)
 
 var cam_sway := Vector2.ZERO   # v10.4: (side, up) the chase camera trails the ship's sliding moves by (m, ship axes)
+## v13.220 (owner: "I blow up the generator and I leave, I want to see a cutscene of that ship blowing up, and my ship
+## flying out ... it's just going to be a camera because people are going to have different ships"): the escape film is
+## the game camera on the real scene: the ship you sabotaged going up in a chain of blasts and one big one, and your own
+## ship (whatever you fly) blasting clear of it.
+var esc_film := {}   # {t, ship, at, r, away, side}
+signal escape_film_done
+func start_escape_film(ship: Node3D) -> void:
+	var at: Vector3 = ship.global_position
+	var r := float(ship.get_meta("radius", 200.0))
+	var yaw := ship.rotation.y
+	var away := Vector3(sin(yaw + 1.2), 0.12, cos(yaw + 1.2)).normalized()
+	var side := away.cross(Vector3.UP).normalized()
+	esc_film = {"t": 0.0, "ship": ship, "at": at, "r": r, "away": away, "side": side, "boom": false}
+	player.global_position = at + away * r * 0.55
+	SpaceSystem.face(player, away)
+	yaw = player.rotation.y
+	pitch = player.rotation.x
+	vel = Vector3.ZERO
+	controls = false
+	for k in 14:   # the chain of blasts running across the hull, faster and bigger toward the end
+		var f := float(k) / 13.0
+		var o := Vector3(_rng.randf_range(-1, 1), _rng.randf_range(-0.3, 0.3), _rng.randf_range(-1, 1)) * r * 0.55
+		blast_pending.append({"t": 0.3 + 4.3 * f, "at": at + o, "size": r * lerpf(0.3, 0.7, f)})
+
+func _escape_film(dt: float) -> void:
+	var F := esc_film
+	F["t"] = float(F["t"]) + dt
+	var t := float(F["t"])
+	var at: Vector3 = F["at"]
+	var r := float(F["r"])
+	var away: Vector3 = F["away"]
+	# your ship: out of the hangar slowly, then the engines light and it's gone
+	var sp := lerpf(r * 0.08, r * 0.5, clampf((t - 0.6) / 3.0, 0.0, 1.0))
+	player.global_position += away * sp * dt
+	if t > 4.8 and not bool(F["boom"]):   # the reactor goes: the big one, then the ship is gone
+		F["boom"] = true
+		_blast(at, [r * 1.6, 30, 40, 6, 0.18])
+		_burst_fx(at, r * 1.5, 2.5)
+		hit_shake = 1.0
+		Sfx.play("explosion", 0.0, 0.6)
+		var sh: Node3D = F["ship"]
+		if is_instance_valid(sh): sh.visible = false
+	# the camera: first wide, off the ship's side, the chain of blasts running over it; then it rides out with your
+	# ship, ahead of it and looking back, so the ship goes up behind you
+	var side: Vector3 = F["side"]
+	var wide := at + side * r * 2.2 + Vector3.UP * r * 0.55 + away * r * 0.3
+	var D := Data.ESCAPE_FILM_CAM
+	var ride := player.global_position + away * D + side * D * 0.55 + Vector3.UP * D * 0.22
+	var k := 0.0 if t < 2.4 else 1.0   # (a cut, not a sweep through the hull)
+	var cam_at := wide.lerp(ride, k)
+	var look := at.lerp(player.global_position, k)
+	var rel := cam_at - player.global_position
+	if hit_shake > 0.0: rel += Vector3(_rng.randfn(0, 1), _rng.randfn(0, 1), 0) * hit_shake * r * 0.01
+	_set_cam(rel, look - player.global_position, Vector3.UP)
+	cam.fov = 60.0
+	if t >= Data.ESCAPE_FILM_S:
+		esc_film = {}
+		escape_film_done.emit()
+
 var cine_t := -1.0   # v12.52: the landing film (>= 0: the camera flies round your ship on its own)
 func _update_camera(dt: float, snap: bool) -> void:
 	if is_instance_valid(player): _cam_prev_ship = player.global_position
+	if not esc_film.is_empty() and is_instance_valid(player):   # v13.220
+		_escape_film(dt)
+		return
 	if cine_t >= 0.0 and is_instance_valid(player):
 		# v12.52 (owner: "a camera lock sequence ... going through clouds coming into the atmosphere ... then back to the
 		# chase view"): a slow sweep from in front of the ship round its side to behind it, a little above

@@ -96,6 +96,42 @@ func _ready() -> void:
 			_log("YOU: " + txt)
 			typed.emit(txt))
 
+## v13.220 (owner: "I need a bigger timer to show what's going on so you can see the suspense of it"): the escape
+## countdown, big at the top centre once the generator blows; red and pulsing (with a beep a second) in the last 10 s.
+var _esc_clock: Label
+var _esc_last := -1
+func _esc_clock_ui() -> void:
+	if _esc_clock == null:
+		_esc_clock = Label.new()
+		_esc_clock.name = "EscapeClock"
+		_esc_clock.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_esc_clock.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+		_esc_clock.offset_left = -300.0
+		_esc_clock.offset_right = 300.0
+		_esc_clock.offset_top = Data.ts(195)
+		_esc_clock.add_theme_font_size_override("font_size", Data.ts(Data.ESCAPE_CLOCK_FONT))
+		_esc_clock.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+		_esc_clock.add_theme_constant_override("outline_size", Data.ts(10))
+		_esc_clock.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(_esc_clock)
+	var b: Dictionary = space.board if is_instance_valid(space) and space.boarding else {}
+	var left := float(b.get("escape", -1.0))
+	var on: bool = str(b.get("phase", "")) == "escape" and left >= 0.0 and left < 1.0e6 and not bool(b.get("breakout", false))
+	_esc_clock.visible = on
+	if not on:
+		_esc_last = -1
+		return
+	var s := int(ceil(left))
+	_esc_clock.text = "%d:%02d" % [s / 60, s % 60]
+	var last: bool = left <= Data.ESCAPE_CLOCK_RED
+	var k := 0.5 + 0.5 * sin(t * TAU * 2.0) if last else 0.0
+	_esc_clock.add_theme_color_override("font_color", Color(1.0, 0.15 + 0.25 * k, 0.1) if last else Color(1.0, 0.82, 0.25))
+	_esc_clock.scale = Vector2.ONE * (1.0 + 0.12 * k)
+	_esc_clock.pivot_offset = _esc_clock.size / 2.0
+	if last and s != _esc_last:
+		Sfx.play("button", -3.0, 1.6)
+	_esc_last = s
+
 func _log(line: String) -> void:
 	history.push_front(line)
 	if history.size() > 30: history.pop_back()
@@ -1090,6 +1126,7 @@ func _process(dt: float) -> void:
 	if space == null: return
 	if map3d != null and not _fleet_map_open(): map3d.pause()
 	_keypad_ui()   # v13.144
+	_esc_clock_ui()   # v13.220
 	t += dt
 	if vid != null and vid.is_playing() and str(slots["r"].get("video", "")) == "" and str(slots["l"].get("video", "")) == "": vid.stop()   # v1.7r: hung up: the clip stops
 	_tick_scan(dt)

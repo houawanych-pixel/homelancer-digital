@@ -2644,6 +2644,7 @@ func board_fleet_ship(id: String, kind: String, job := {}) -> void:
 	hud.visible = true
 	state = "flight"
 
+var film_runs := 0   # v13.220 (tests): escape films played
 func _leave_fleet_ship(won: bool) -> void:
 	state = "boarding"
 	space.controls = false
@@ -2684,8 +2685,24 @@ func _leave_fleet_ship(won: bool) -> void:
 	elif done and bool(bf.get("job", false)) and not j.is_empty():   # (sabotage: the ship is gone; you're paid as you get out)
 		GS.add_credits(int(j["pay"]))
 		hub.board_job = {}
-		board_ship = null
 		GS.save_game()
+		board_ship = null
+	if done and str(bf.get("kind", "")) == "sabotage":   # v13.220 (owner): the film of the ship going up and you flying clear
+		var e := FleetCatalog.get_entry(str(bf.get("fleet_deck", "")))
+		if not e.is_empty():
+			var ship := SpaceSystem._fleet_standin(e)
+			space.add_child(ship)
+			var st_at: Vector3 = space.station.global_position if is_instance_valid(space.station) else Vector3.ZERO
+			ship.global_position = sat if sat != Vector3.ZERO else st_at + Vector3(1, 0.1, 0.6).normalized() * Data.ESCAPE_FILM_AWAY   # (no ship out here: well clear of the station)
+			ship.rotation.y = float(absi(hash(str(bf.get("fleet_deck", "")))) % 628) / 100.0
+			space.start_escape_film(ship)
+			film_runs += 1
+			fx.caption = ""
+			fx.sub = ""
+			var twf := create_tween()
+			twf.tween_property(fx, "fade", 0.0, 0.5)
+			await space.escape_film_done
+			if is_instance_valid(ship): ship.queue_free()
 	var tw2 := create_tween()
 	tw2.tween_property(fx, "fade", 0.0, 0.6)
 	await tw2.finished
