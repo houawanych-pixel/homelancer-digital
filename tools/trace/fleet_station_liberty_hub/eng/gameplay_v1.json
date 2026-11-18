@@ -1,0 +1,140 @@
+{
+ "entry": {
+  "room": "Docking Bay",
+  "at": [
+   512,
+   883
+  ]
+ },
+ "locks": [
+  {
+   "door": [
+    512,
+    928
+   ],
+   "key": 1,
+   "why": "aft of the bay"
+  },
+  {
+   "door": [
+    512,
+    634
+   ],
+   "key": 2,
+   "why": "the command section"
+  },
+  {
+   "door": [
+    512,
+    530
+   ],
+   "key": 3,
+   "why": "the bridge"
+  },
+  {
+   "door": [
+    512,
+    1022
+   ],
+   "key": 3,
+   "why": "the reactor core"
+  },
+  {
+   "door": [
+    502,
+    819
+   ],
+   "key": 3,
+   "why": "the detention"
+  }
+ ],
+ "guards": [
+  {
+   "key": 1,
+   "room": "Armory",
+   "at": [
+    626,
+    819
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Engineering",
+   "at": [
+    512,
+    1000
+   ]
+  },
+  {
+   "key": 3,
+   "room": "Main Hub",
+   "at": [
+    512,
+    601
+   ]
+  }
+ ],
+ "targets": {
+  "sabotage": {
+   "room": "Reactor Core",
+   "at": [
+    512,
+    1050
+   ],
+   "key": 3
+  },
+  "capture": {
+   "room": "Command Center",
+   "at": [
+    512,
+    512
+   ],
+   "key": 3
+  },
+  "rescue": {
+   "room": "Detention",
+   "at": [
+    398,
+    819
+   ],
+   "key": 3
+  }
+ },
+ "wreck": [],
+ "lifts": [
+  {
+   "room": "Lift (port)",
+   "at": [
+    488,
+    698
+   ]
+  },
+  {
+   "room": "Lift (starboard)",
+   "at": [
+    536,
+    698
+   ]
+  }
+ ],
+ "patrols": [],
+ "room_guards": {
+  "Command Center": 1,
+  "Station Security": 1,
+  "Comms": 1,
+  "Main Hub": 1,
+  "Mission Center": 2,
+  "Shipyard": 2,
+  "Supplies": 2,
+  "Medical Bay": 2,
+  "Pilots' Lounge": 2,
+  "Mech Dealer": 2,
+  "Detention": 1,
+  "Armory": 1,
+  "Cargo Hold A": 2,
+  "Cargo Hold B": 2,
+  "Engineering": 2,
+  "Reactor Core": 1,
+  "Power Plant": 1
+ }
+}

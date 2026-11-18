@@ -3518,7 +3518,7 @@ func _station_spots(root: Node3D) -> void:
 ## the service sign you're standing at ({} = none, or the station isn't calm)
 ## v13.174 (owner: "entering a hub room loads its 360"): on a station's own deck plan, a room that is a station service
 ## (its name) is a door into that 360 page: stand in it and ENTER comes up.
-const STATION_ROOM_SCREENS := [["Mission", "board", "MISSION BOARD"], ["Medical", "repair", "MEDICAL BAY"], ["Mech Dealer", "mechs", "MECH DEALER"],
+const STATION_ROOM_SCREENS := [["Main Hub", "hub", "MAIN HUB"], ["Mission", "board", "MISSION BOARD"], ["Medical", "repair", "MEDICAL BAY"], ["Mech Dealer", "mechs", "MECH DEALER"],
 	["Weapons", "equipment", "WEAPONS"], ["Supplies", "supplies", "SUPPLIES"], ["Market", "supplies", "MARKET"], ["Lounge", "lounge", "PILOTS' LOUNGE"],
 	["Shipyard", "ships", "SHIPYARD"], ["Command", "faction", "COMMAND"], ["Quarters", "ship", "MY QUARTERS"]]
 func spot_near() -> Dictionary:

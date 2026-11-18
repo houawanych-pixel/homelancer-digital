@@ -1,0 +1,176 @@
+{
+ "wreck": [],
+ "lifts": [
+  {
+   "room": "Lift (port)",
+   "at": [
+    488,
+    698
+   ]
+  },
+  {
+   "room": "Lift (starboard)",
+   "at": [
+    536,
+    698
+   ]
+  }
+ ],
+ "patrols": [],
+ "room_guards": {
+  "Command Center": 2,
+  "Station Security": 1,
+  "Comms": 1,
+  "Main Hub": 1,
+  "Mission Center": 2,
+  "Shipyard": 2,
+  "Supplies": 2,
+  "Medical Bay": 2,
+  "Pilots' Lounge": 2,
+  "Mech Dealer": 2,
+  "Detention": 1,
+  "Armory": 1,
+  "Cargo Hold A": 2,
+  "Cargo Hold B": 2,
+  "Engineering": 2,
+  "Reactor Core": 2,
+  "Power Plant": 1
+ },
+ "formula": {
+  "C": "Reactor Core",
+  "A_gate": "Shipyard",
+  "card_yellow": "Supplies",
+  "card_red": "Command Center",
+  "entry": "Docking Bay",
+  "way_out": "Mission Center",
+  "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
+ },
+ "entry": {
+  "room": "Docking Bay",
+  "at": [
+   512,
+   883
+  ]
+ },
+ "exit": {
+  "room": "Mission Center",
+  "at": [
+   398,
+   659
+  ]
+ },
+ "locks": [
+  {
+   "door": [
+    512,
+    1022
+   ],
+   "key": 3,
+   "why": "the objective (Reactor Core)"
+  },
+  {
+   "door": [
+    512,
+    1078
+   ],
+   "key": 3,
+   "why": "the objective (Reactor Core)"
+  },
+  {
+   "door": [
+    512,
+    530
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    502,
+    659
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    522,
+    659
+   ],
+   "key": 1,
+   "why": "the orange card's room (Shipyard)"
+  }
+ ],
+ "guards": [
+  {
+   "key": 1,
+   "room": "Supplies",
+   "at": [
+    398,
+    734
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Shipyard",
+   "at": [
+    626,
+    659
+   ]
+  },
+  {
+   "key": 3,
+   "room": "Command Center",
+   "at": [
+    512,
+    508
+   ]
+  }
+ ],
+ "targets": {
+  "sabotage": {
+   "room": "Reactor Core",
+   "at": [
+    511,
+    1049
+   ],
+   "key": 3
+  },
+  "capture": {
+   "room": "Reactor Core",
+   "at": [
+    511,
+    1049
+   ],
+   "key": 3
+  },
+  "rescue": {
+   "room": "Reactor Core",
+   "at": [
+    511,
+    1049
+   ],
+   "key": 3
+  }
+ },
+ "room_level": {
+  "Command Center": 2,
+  "Station Security": 1,
+  "Comms": 1,
+  "Main Hub": 1,
+  "Mission Center": 2,
+  "Shipyard": 1,
+  "Supplies": 0,
+  "Medical Bay": 0,
+  "Pilots' Lounge": 0,
+  "Mech Dealer": 0,
+  "Detention": 0,
+  "Armory": 0,
+  "Docking Bay": 0,
+  "Cargo Hold A": 0,
+  "Cargo Hold B": 0,
+  "Engineering": 0,
+  "Reactor Core": 3,
+  "Power Plant": 3
+ }
+}

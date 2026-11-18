@@ -51,7 +51,7 @@ def source(model, out):
 
 
 def main(model):
-    sid = "station_" + model.replace("st3d_", "")
+    sid = os.environ.get("STATION_ID") or "station_" + model.replace("st3d_", "")
     out = os.path.join(HERE, "fleet_" + sid)
     st = source(model, out)
     eng = os.path.join(out, "eng")

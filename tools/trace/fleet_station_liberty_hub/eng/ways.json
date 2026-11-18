@@ -1,0 +1,330 @@
+{
+ "ship": "station_liberty_hub",
+ "rooms": {
+  "Command Center": "pilot",
+  "Station Security": "pilot",
+  "Comms": "pilot",
+  "Main Hub": "pilot",
+  "Mission Center": "mech",
+  "Shipyard": "mech",
+  "Lift (port)": "lift",
+  "Lift (starboard)": "lift",
+  "Supplies": "pilot",
+  "Medical Bay": "pilot",
+  "Pilots' Lounge": "pilot",
+  "Mech Dealer": "pilot",
+  "Detention": "pilot",
+  "Armory": "pilot",
+  "Docking Bay": "mech",
+  "Cargo Hold A": "mech",
+  "Cargo Hold B": "mech",
+  "Engineering": "mech",
+  "Reactor Core": "mech",
+  "Power Plant": "pilot"
+ },
+ "rooms_base": {
+  "Command Center": "pilot",
+  "Station Security": "pilot",
+  "Comms": "pilot",
+  "Main Hub": "pilot",
+  "Mission Center": "mech",
+  "Shipyard": "mech",
+  "Lift (port)": "lift",
+  "Lift (starboard)": "lift",
+  "Supplies": "pilot",
+  "Medical Bay": "pilot",
+  "Pilots' Lounge": "pilot",
+  "Mech Dealer": "pilot",
+  "Detention": "pilot",
+  "Armory": "pilot",
+  "Docking Bay": "mech",
+  "Cargo Hold A": "mech",
+  "Cargo Hold B": "mech",
+  "Engineering": "mech",
+  "Reactor Core": "mech",
+  "Power Plant": "pilot"
+ },
+ "cut_off_red": [],
+ "doors": [
+  {
+   "at": [
+    502,
+    549
+   ],
+   "o": "v",
+   "rooms": [
+    "Station Security"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    522,
+    549
+   ],
+   "o": "v",
+   "rooms": [
+    "Comms"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    502,
+    659
+   ],
+   "o": "v",
+   "rooms": [
+    "Mission Center"
+   ],
+   "type": "mech",
+   "key": 2
+  },
+  {
+   "at": [
+    522,
+    659
+   ],
+   "o": "v",
+   "rooms": [
+    "Shipyard"
+   ],
+   "type": "mech",
+   "key": 1
+  },
+  {
+   "at": [
+    502,
+    698
+   ],
+   "o": "v",
+   "rooms": [
+    "Lift (port)"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    522,
+    698
+   ],
+   "o": "v",
+   "rooms": [
+    "Lift (starboard)"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    502,
+    734
+   ],
+   "o": "v",
+   "rooms": [
+    "Supplies"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    522,
+    734
+   ],
+   "o": "v",
+   "rooms": [
+    "Medical Bay"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    502,
+    778
+   ],
+   "o": "v",
+   "rooms": [
+    "Pilots' Lounge"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    522,
+    778
+   ],
+   "o": "v",
+   "rooms": [
+    "Mech Dealer"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    502,
+    819
+   ],
+   "o": "v",
+   "rooms": [
+    "Detention"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    522,
+    819
+   ],
+   "o": "v",
+   "rooms": [
+    "Armory"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    502,
+    953
+   ],
+   "o": "v",
+   "rooms": [
+    "Cargo Hold A"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    522,
+    953
+   ],
+   "o": "v",
+   "rooms": [
+    "Cargo Hold B"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    512,
+    530
+   ],
+   "o": "h",
+   "rooms": [
+    "Command Center"
+   ],
+   "type": "pilot",
+   "key": 2
+  },
+  {
+   "at": [
+    512,
+    838
+   ],
+   "o": "h",
+   "rooms": [
+    "Docking Bay"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    512,
+    928
+   ],
+   "o": "h",
+   "rooms": [
+    "Docking Bay"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    512,
+    978
+   ],
+   "o": "h",
+   "rooms": [
+    "Engineering"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    512,
+    1022
+   ],
+   "o": "h",
+   "rooms": [
+    "Engineering",
+    "Reactor Core"
+   ],
+   "type": "mech",
+   "key": 3
+  },
+  {
+   "at": [
+    512,
+    1078
+   ],
+   "o": "h",
+   "rooms": [
+    "Reactor Core",
+    "Power Plant"
+   ],
+   "type": "pilot",
+   "key": 3
+  },
+  {
+   "at": [
+    512,
+    568
+   ],
+   "o": "h",
+   "rooms": [
+    "Main Hub"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    512,
+    634
+   ],
+   "o": "h",
+   "rooms": [
+    "Main Hub"
+   ],
+   "type": "pilot",
+   "key": 0
+  }
+ ],
+ "entry": "Docking Bay",
+ "mech_rooms_unreached": [],
+ "counts": {
+  "mech_rooms": 7,
+  "pilot_rooms": 11,
+  "mech_doors": 10,
+  "pilot_doors": 12,
+  "locked": {
+   "OPEN": 17,
+   "YELLOW": 1,
+   "ORANGE": 2,
+   "RED": 2
+  }
+ }
+}

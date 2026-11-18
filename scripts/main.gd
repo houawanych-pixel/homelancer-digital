@@ -1540,6 +1540,8 @@ func _on_walk_requested(id: String) -> void:
 ## ship. "" = no plan for this station yet.
 static func station_board_path(sys_id: String) -> String:
 	var m := str((Data.RETOPO_STATIONS.get(sys_id, {}) as Dictionary).get("*", ""))
+	var sp := str(Data.STATION_SHIP_DECK.get(m, ""))   # v13.219: a station built with the ship tools (the same deck as a fleet ship)
+	if sp != "" and FileAccess.file_exists(sp): return sp
 	var p := "res://assets/stations_board/%s.json" % m
 	return p if m != "" and FileAccess.file_exists(p) else ""
 
