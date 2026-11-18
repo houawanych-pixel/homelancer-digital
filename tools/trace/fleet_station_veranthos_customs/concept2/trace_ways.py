@@ -52,6 +52,7 @@ for i_ in range(1, n_):
     if (band[m_] > 0).mean() > 0.25 or s_[i_, 4] < 150 * Z * Z: pilot[m_] = 0
 pilot = mirror(pilot)
 
+np.savez_compressed(os.path.join(HERE, "masks.npz"), floor=floor, mech=mech, pilot=pilot)
 def snap(c):
     p = cv2.approxPolyDP(c, 2.5 * Z, True).reshape(-1, 2).astype(float); m = len(p)
     if m < 3: return p
