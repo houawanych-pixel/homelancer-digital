@@ -37,15 +37,42 @@ hc = hub.centroid; LH = 33
 R = {"Lift (main)": _bx(hc.x - LH, hc.y - LH, hc.x + LH, hc.y + LH)}
 ways = ways.difference(R["Lift (main)"])
 used = set(); n = 0
+AX = 553 * K
+# ---- COMPACT ROOMS (owner, Nov 18: same construction as the ships): every district block is cut on one station grid
+# (G px, square to the mirror line and the hub) into ship-size rooms; the grid lines inside a block are its PILOT ways
+# (a hall PW wide between the rooms, running out to the red walkways). A piece that fills under FILL of its own box is
+# a sliver along a slanted wall: service space. Every room's box then sits in its own grid cell (no two overlap).
+G, PW, FILL = 132.0, 18.0, 0.55
+def gridlines(g):
+    x0, y0, x1, y1 = g.bounds; out = []
+    i0, i1 = int((x0 - AX) // G) - 1, int((x1 - AX) // G) + 2
+    j0, j1 = int((y0 - hc.y) // G) - 1, int((y1 - hc.y) // G) + 2
+    for i in range(i0, i1): out.append(_bx(AX + i * G - PW / 2, y0 - 10, AX + i * G + PW / 2, y1 + 10))
+    for j in range(j0, j1): out.append(_bx(x0 - 10, hc.y + j * G - PW / 2, x1 + 10, hc.y + j * G + PW / 2))
+    return unary_union(out)
+PH = []
 for b in sorted(B["blocks"], key=lambda g: (round(g.centroid.y / 60), g.centroid.x)):
-    g = sc(b).buffer(4 * K * 1.0, join_style=2).difference(ways).intersection(sc(B["floor"])).simplify(2.0)   # rooms meet the halls (as on the ships)
-    g = g.difference(unary_union(list(R.values())).buffer(T)) if R else g      # no room overlaps another
-    g = g.buffer(-24, join_style=2).buffer(24, join_style=2)                   # no thin necks: a block pinched round a lane end
-    for g in sorted([q_ for q_ in getattr(g, "geoms", [g]) if q_.geom_type == "Polygon" and q_.area >= 2500], key=lambda q_: -q_.area):   # is two rooms
-        nm = next((k for k, p in LAB.items() if k not in used and g.buffer(40).contains(p)), None)
-        if nm is None:
-            n += 1; nm = "%s %d" % ("Dock Bay" if g.centroid.distance(hub.centroid) > 330 * K else "Service Room", n)
-        used.add(nm); R[nm] = g
+    g = sc(b).buffer(4 * K * 1.0, join_style=2).difference(ways).intersection(sc(B["floor"])).simplify(2.0)
+    g = g.difference(unary_union(list(R.values())).buffer(T)) if R else g
+    if g.is_empty or g.area < 2500: continue
+    gl = gridlines(g)
+    pieces = g.difference(gl)
+    halls_here = g.intersection(gl)
+    base = next((k for k, p in LAB.items() if k not in used and g.buffer(40).contains(p)), None)
+    if base: used.add(base)
+    m_ = 0
+    for q_ in sorted([q for q in getattr(pieces, "geoms", [pieces]) if q.geom_type == "Polygon"], key=lambda q: -q.area):
+        x0, y0, x1, y1 = q_.bounds
+        if q_.area < 1800 or q_.area < FILL * (x1 - x0) * (y1 - y0): continue
+        q_ = q_.simplify(1.5)
+        m_ += 1
+        if base: nm = base if m_ == 1 else "%s %d" % (base, m_)
+        else:
+            n += 1; nm = "%s %d" % ("Dock Bay" if q_.centroid.distance(hub.centroid) > 330 * K else "Service Room", n)
+        R[nm] = q_
+    PH += [h for h in getattr(halls_here, "geoms", [halls_here]) if h.geom_type == "Polygon" and h.area > 200]
+ways = unary_union([ways] + PH).buffer(0)
+PILOT_WAYS = unary_union(PH) if PH else None
 # doors: one per room, at the middle of its longest contact with the halls (rooms sit a band off the halls: bridge it)
 DOORS, STUBS = [], []
 from shapely.ops import nearest_points

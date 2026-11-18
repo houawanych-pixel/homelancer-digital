@@ -3,116 +3,432 @@
  "rooms": {
   "Lift (main)": "lift",
   "Arrival Complex": "mech",
-  "Dock Bay 3": "pilot",
+  "Arrival Complex 2": "mech",
+  "Arrival Complex 3": "mech",
+  "Arrival Complex 5": "mech",
   "Customs & Security": "pilot",
+  "Customs & Security 2": "pilot",
+  "Customs & Security 3": "pilot",
+  "Customs & Security 4": "pilot",
+  "Customs & Security 6": "pilot",
+  "Customs & Security 7": "pilot",
+  "Customs & Security 8": "pilot",
   "Passenger Services": "pilot",
-  "Dock Bay 4": "pilot",
-  "Dock Bay 5": "pilot",
-  "Commerce District (North)": "mech",
-  "Service Room 6": "pilot",
+  "Passenger Services 2": "pilot",
+  "Passenger Services 4": "pilot",
+  "Passenger Services 6": "pilot",
+  "Passenger Services 7": "pilot",
+  "Passenger Services 8": "pilot",
+  "Commerce District (North)": "pilot",
+  "Service Room 3": "pilot",
   "Crew District A": "pilot",
+  "Crew District A 2": "pilot",
+  "Crew District A 4": "pilot",
+  "Crew District A 5": "pilot",
+  "Crew District A 6": "pilot",
+  "Crew District A 7": "pilot",
+  "Crew District A 8": "pilot",
+  "Crew District A 9": "pilot",
+  "Crew District A 10": "pilot",
+  "Crew District A 11": "pilot",
+  "Crew District A 12": "pilot",
+  "Crew District A 13": "pilot",
   "Crew District B": "pilot",
+  "Crew District B 2": "pilot",
+  "Crew District B 3": "pilot",
+  "Crew District B 4": "pilot",
+  "Crew District B 5": "pilot",
+  "Crew District B 6": "pilot",
+  "Crew District B 7": "pilot",
+  "Crew District B 8": "pilot",
+  "Crew District B 9": "pilot",
+  "Crew District B 10": "pilot",
+  "Crew District B 11": "pilot",
+  "Crew District B 12": "pilot",
+  "Crew District B 13": "pilot",
+  "Service Room 4": "pilot",
+  "Service Room 5": "pilot",
+  "Service Room 6": "pilot",
   "Service Room 7": "pilot",
-  "Service Room 8": "pilot",
   "Residential District": "pilot",
+  "Residential District 2": "pilot",
+  "Residential District 3": "pilot",
+  "Residential District 4": "pilot",
+  "Residential District 5": "pilot",
+  "Residential District 6": "pilot",
+  "Service Room 8": "pilot",
   "Service Room 9": "pilot",
   "Service Room 10": "pilot",
-  "Commerce District (East)": "pilot",
-  "Cargo Terminal A": "mech",
-  "Cargo Terminal C": "mech",
   "Service Room 11": "pilot",
+  "Commerce District (East)": "pilot",
+  "Commerce District (East) 2": "pilot",
+  "Commerce District (East) 3": "pilot",
+  "Commerce District (East) 4": "pilot",
+  "Commerce District (East) 5": "pilot",
+  "Commerce District (East) 6": "pilot",
+  "Cargo Terminal A": "mech",
+  "Cargo Terminal A 2": "mech",
+  "Cargo Terminal A 3": "mech",
+  "Cargo Terminal A 4": "mech",
+  "Cargo Terminal A 5": "mech",
+  "Cargo Terminal C": "mech",
+  "Cargo Terminal C 2": "mech",
+  "Cargo Terminal C 3": "mech",
+  "Cargo Terminal C 4": "mech",
+  "Cargo Terminal C 5": "mech",
   "Service Room 12": "pilot",
-  "Service Room 13": "mech",
-  "Service Room 14": "mech",
-  "Ship Dealer & Showroom": "pilot",
-  "Outfitting & Gear": "pilot",
-  "Service Room 15": "pilot",
+  "Service Room 14": "pilot",
+  "Service Room 15": "mech",
   "Service Room 16": "pilot",
   "Service Room 17": "pilot",
-  "Service Room 18": "pilot",
+  "Service Room 18": "mech",
   "Service Room 19": "pilot",
+  "Ship Dealer & Showroom": "pilot",
+  "Ship Dealer & Showroom 2": "pilot",
+  "Ship Dealer & Showroom 3": "pilot",
+  "Ship Dealer & Showroom 4": "pilot",
+  "Ship Dealer & Showroom 5": "pilot",
+  "Outfitting & Gear": "pilot",
+  "Outfitting & Gear 2": "pilot",
+  "Outfitting & Gear 3": "pilot",
+  "Outfitting & Gear 4": "pilot",
+  "Outfitting & Gear 5": "pilot",
   "Service Room 20": "pilot",
   "Service Room 21": "pilot",
   "Service Room 22": "pilot",
-  "Medical Complex": "pilot",
-  "Service Room 23": "mech",
-  "Service Room 24": "mech",
-  "Supplies & Administration": "pilot",
+  "Service Room 23": "pilot",
+  "Service Room 24": "pilot",
   "Service Room 25": "pilot",
   "Service Room 26": "pilot",
   "Service Room 27": "pilot",
   "Service Room 28": "pilot",
   "Service Room 29": "pilot",
+  "Medical Complex": "pilot",
+  "Medical Complex 2": "pilot",
+  "Medical Complex 3": "pilot",
+  "Medical Complex 4": "pilot",
   "Service Room 30": "pilot",
-  "Service Room 31": "pilot",
+  "Service Room 31": "mech",
   "Service Room 32": "pilot",
   "Service Room 33": "pilot",
-  "Service Room 34": "pilot",
-  "Commerce District (South)": "mech",
+  "Service Room 34": "mech",
   "Service Room 35": "pilot",
-  "Repair & Maintenance (South)": "mech",
-  "Shipyard & Overhaul (South)": "mech",
-  "Manufacturing & Workshops": "mech",
-  "Workshops (East)": "mech",
+  "Supplies & Administration": "pilot",
+  "Supplies & Administration 2": "pilot",
+  "Supplies & Administration 3": "pilot",
+  "Supplies & Administration 4": "pilot",
   "Service Room 36": "pilot",
-  "Service Room 37": "pilot"
+  "Service Room 37": "pilot",
+  "Service Room 38": "pilot",
+  "Service Room 39": "pilot",
+  "Service Room 40": "pilot",
+  "Service Room 41": "pilot",
+  "Dock Bay 42": "pilot",
+  "Service Room 43": "pilot",
+  "Service Room 44": "pilot",
+  "Dock Bay 45": "pilot",
+  "Dock Bay 46": "pilot",
+  "Service Room 47": "pilot",
+  "Service Room 48": "pilot",
+  "Service Room 49": "pilot",
+  "Service Room 50": "pilot",
+  "Service Room 51": "pilot",
+  "Service Room 52": "pilot",
+  "Service Room 53": "pilot",
+  "Service Room 54": "pilot",
+  "Service Room 55": "pilot",
+  "Service Room 56": "pilot",
+  "Service Room 57": "pilot",
+  "Service Room 58": "pilot",
+  "Service Room 59": "pilot",
+  "Service Room 60": "pilot",
+  "Service Room 61": "pilot",
+  "Service Room 62": "pilot",
+  "Dock Bay 63": "pilot",
+  "Service Room 64": "pilot",
+  "Service Room 65": "pilot",
+  "Dock Bay 66": "pilot",
+  "Dock Bay 67": "pilot",
+  "Service Room 68": "pilot",
+  "Service Room 69": "pilot",
+  "Commerce District (South)": "pilot",
+  "Commerce District (South) 2": "pilot",
+  "Commerce District (South) 3": "pilot",
+  "Commerce District (South) 4": "pilot",
+  "Commerce District (South) 5": "pilot",
+  "Commerce District (South) 6": "pilot",
+  "Commerce District (South) 7": "pilot",
+  "Service Room 70": "pilot",
+  "Service Room 71": "pilot",
+  "Service Room 72": "pilot",
+  "Service Room 73": "pilot",
+  "Service Room 74": "pilot",
+  "Service Room 75": "pilot",
+  "Service Room 76": "pilot",
+  "Repair & Maintenance (South)": "mech",
+  "Repair & Maintenance (South) 2": "mech",
+  "Repair & Maintenance (South) 3": "mech",
+  "Repair & Maintenance (South) 4": "mech",
+  "Repair & Maintenance (South) 5": "mech",
+  "Repair & Maintenance (South) 6": "mech",
+  "Shipyard & Overhaul (South)": "mech",
+  "Shipyard & Overhaul (South) 2": "mech",
+  "Shipyard & Overhaul (South) 4": "mech",
+  "Shipyard & Overhaul (South) 5": "mech",
+  "Shipyard & Overhaul (South) 6": "mech",
+  "Manufacturing & Workshops": "mech",
+  "Manufacturing & Workshops 2": "mech",
+  "Manufacturing & Workshops 3": "mech",
+  "Manufacturing & Workshops 4": "mech",
+  "Manufacturing & Workshops 5": "mech",
+  "Manufacturing & Workshops 6": "mech",
+  "Workshops (East)": "mech",
+  "Workshops (East) 2": "mech",
+  "Workshops (East) 3": "mech",
+  "Workshops (East) 4": "mech",
+  "Workshops (East) 5": "mech",
+  "Workshops (East) 6": "mech",
+  "Life Support & Utilities": "mech",
+  "Life Support & Utilities 2": "mech",
+  "Life Support & Utilities 3": "mech",
+  "Life Support & Utilities 4": "mech",
+  "Life Support & Utilities 5": "mech",
+  "Life Support & Utilities 6": "mech",
+  "Security Control": "pilot",
+  "Security Control 2": "pilot",
+  "Security Control 3": "pilot",
+  "Security Control 4": "pilot",
+  "Security Control 5": "pilot",
+  "Security Control 6": "pilot",
+  "Crew & Staff Services": "mech",
+  "Service Room 77": "pilot",
+  "Dock Bay 78": "pilot",
+  "Dock Bay 79": "pilot",
+  "Dock Bay 80": "pilot",
+  "Dock Bay 81": "pilot",
+  "Dock Bay 82": "pilot",
+  "Dock Bay 83": "pilot",
+  "Dock Bay 84": "pilot",
+  "Dock Bay 85": "pilot",
+  "Dock Bay 86": "pilot",
+  "Dock Bay 87": "pilot",
+  "Service Room 88": "pilot",
+  "Service Room 89": "pilot"
  },
  "rooms_base": {
   "Lift (main)": "lift",
   "Arrival Complex": "mech",
-  "Dock Bay 3": "pilot",
+  "Arrival Complex 2": "mech",
+  "Arrival Complex 3": "mech",
+  "Arrival Complex 5": "mech",
   "Customs & Security": "pilot",
+  "Customs & Security 2": "pilot",
+  "Customs & Security 3": "pilot",
+  "Customs & Security 4": "pilot",
+  "Customs & Security 6": "pilot",
+  "Customs & Security 7": "pilot",
+  "Customs & Security 8": "pilot",
   "Passenger Services": "pilot",
-  "Dock Bay 4": "pilot",
-  "Dock Bay 5": "pilot",
-  "Commerce District (North)": "mech",
-  "Service Room 6": "pilot",
+  "Passenger Services 2": "pilot",
+  "Passenger Services 4": "pilot",
+  "Passenger Services 6": "pilot",
+  "Passenger Services 7": "pilot",
+  "Passenger Services 8": "pilot",
+  "Commerce District (North)": "pilot",
+  "Service Room 3": "pilot",
   "Crew District A": "pilot",
+  "Crew District A 2": "pilot",
+  "Crew District A 4": "pilot",
+  "Crew District A 5": "pilot",
+  "Crew District A 6": "pilot",
+  "Crew District A 7": "pilot",
+  "Crew District A 8": "pilot",
+  "Crew District A 9": "pilot",
+  "Crew District A 10": "pilot",
+  "Crew District A 11": "pilot",
+  "Crew District A 12": "pilot",
+  "Crew District A 13": "pilot",
   "Crew District B": "pilot",
+  "Crew District B 2": "pilot",
+  "Crew District B 3": "pilot",
+  "Crew District B 4": "pilot",
+  "Crew District B 5": "pilot",
+  "Crew District B 6": "pilot",
+  "Crew District B 7": "pilot",
+  "Crew District B 8": "pilot",
+  "Crew District B 9": "pilot",
+  "Crew District B 10": "pilot",
+  "Crew District B 11": "pilot",
+  "Crew District B 12": "pilot",
+  "Crew District B 13": "pilot",
+  "Service Room 4": "pilot",
+  "Service Room 5": "pilot",
+  "Service Room 6": "pilot",
   "Service Room 7": "pilot",
-  "Service Room 8": "pilot",
   "Residential District": "pilot",
+  "Residential District 2": "pilot",
+  "Residential District 3": "pilot",
+  "Residential District 4": "pilot",
+  "Residential District 5": "pilot",
+  "Residential District 6": "pilot",
+  "Service Room 8": "pilot",
   "Service Room 9": "pilot",
   "Service Room 10": "pilot",
-  "Commerce District (East)": "pilot",
-  "Cargo Terminal A": "mech",
-  "Cargo Terminal C": "mech",
   "Service Room 11": "pilot",
+  "Commerce District (East)": "pilot",
+  "Commerce District (East) 2": "pilot",
+  "Commerce District (East) 3": "pilot",
+  "Commerce District (East) 4": "pilot",
+  "Commerce District (East) 5": "pilot",
+  "Commerce District (East) 6": "pilot",
+  "Cargo Terminal A": "mech",
+  "Cargo Terminal A 2": "mech",
+  "Cargo Terminal A 3": "mech",
+  "Cargo Terminal A 4": "mech",
+  "Cargo Terminal A 5": "mech",
+  "Cargo Terminal C": "mech",
+  "Cargo Terminal C 2": "mech",
+  "Cargo Terminal C 3": "mech",
+  "Cargo Terminal C 4": "mech",
+  "Cargo Terminal C 5": "mech",
   "Service Room 12": "pilot",
-  "Service Room 13": "mech",
-  "Service Room 14": "mech",
-  "Ship Dealer & Showroom": "pilot",
-  "Outfitting & Gear": "pilot",
-  "Service Room 15": "pilot",
+  "Service Room 14": "pilot",
+  "Service Room 15": "mech",
   "Service Room 16": "pilot",
   "Service Room 17": "pilot",
-  "Service Room 18": "pilot",
+  "Service Room 18": "mech",
   "Service Room 19": "pilot",
+  "Ship Dealer & Showroom": "pilot",
+  "Ship Dealer & Showroom 2": "pilot",
+  "Ship Dealer & Showroom 3": "pilot",
+  "Ship Dealer & Showroom 4": "pilot",
+  "Ship Dealer & Showroom 5": "pilot",
+  "Outfitting & Gear": "pilot",
+  "Outfitting & Gear 2": "pilot",
+  "Outfitting & Gear 3": "pilot",
+  "Outfitting & Gear 4": "pilot",
+  "Outfitting & Gear 5": "pilot",
   "Service Room 20": "pilot",
   "Service Room 21": "pilot",
   "Service Room 22": "pilot",
-  "Medical Complex": "pilot",
-  "Service Room 23": "mech",
-  "Service Room 24": "mech",
-  "Supplies & Administration": "pilot",
+  "Service Room 23": "pilot",
+  "Service Room 24": "pilot",
   "Service Room 25": "pilot",
   "Service Room 26": "pilot",
   "Service Room 27": "pilot",
   "Service Room 28": "pilot",
   "Service Room 29": "pilot",
+  "Medical Complex": "pilot",
+  "Medical Complex 2": "pilot",
+  "Medical Complex 3": "pilot",
+  "Medical Complex 4": "pilot",
   "Service Room 30": "pilot",
-  "Service Room 31": "pilot",
+  "Service Room 31": "mech",
   "Service Room 32": "pilot",
   "Service Room 33": "pilot",
-  "Service Room 34": "pilot",
-  "Commerce District (South)": "mech",
+  "Service Room 34": "mech",
   "Service Room 35": "pilot",
-  "Repair & Maintenance (South)": "mech",
-  "Shipyard & Overhaul (South)": "mech",
-  "Manufacturing & Workshops": "mech",
-  "Workshops (East)": "mech",
+  "Supplies & Administration": "pilot",
+  "Supplies & Administration 2": "pilot",
+  "Supplies & Administration 3": "pilot",
+  "Supplies & Administration 4": "pilot",
   "Service Room 36": "pilot",
-  "Service Room 37": "pilot"
+  "Service Room 37": "pilot",
+  "Service Room 38": "pilot",
+  "Service Room 39": "pilot",
+  "Service Room 40": "pilot",
+  "Service Room 41": "pilot",
+  "Dock Bay 42": "pilot",
+  "Service Room 43": "pilot",
+  "Service Room 44": "pilot",
+  "Dock Bay 45": "pilot",
+  "Dock Bay 46": "pilot",
+  "Service Room 47": "pilot",
+  "Service Room 48": "pilot",
+  "Service Room 49": "pilot",
+  "Service Room 50": "pilot",
+  "Service Room 51": "pilot",
+  "Service Room 52": "pilot",
+  "Service Room 53": "pilot",
+  "Service Room 54": "pilot",
+  "Service Room 55": "pilot",
+  "Service Room 56": "pilot",
+  "Service Room 57": "pilot",
+  "Service Room 58": "pilot",
+  "Service Room 59": "pilot",
+  "Service Room 60": "pilot",
+  "Service Room 61": "pilot",
+  "Service Room 62": "pilot",
+  "Dock Bay 63": "pilot",
+  "Service Room 64": "pilot",
+  "Service Room 65": "pilot",
+  "Dock Bay 66": "pilot",
+  "Dock Bay 67": "pilot",
+  "Service Room 68": "pilot",
+  "Service Room 69": "pilot",
+  "Commerce District (South)": "pilot",
+  "Commerce District (South) 2": "pilot",
+  "Commerce District (South) 3": "pilot",
+  "Commerce District (South) 4": "pilot",
+  "Commerce District (South) 5": "pilot",
+  "Commerce District (South) 6": "pilot",
+  "Commerce District (South) 7": "pilot",
+  "Service Room 70": "pilot",
+  "Service Room 71": "pilot",
+  "Service Room 72": "pilot",
+  "Service Room 73": "pilot",
+  "Service Room 74": "pilot",
+  "Service Room 75": "pilot",
+  "Service Room 76": "pilot",
+  "Repair & Maintenance (South)": "mech",
+  "Repair & Maintenance (South) 2": "mech",
+  "Repair & Maintenance (South) 3": "mech",
+  "Repair & Maintenance (South) 4": "mech",
+  "Repair & Maintenance (South) 5": "mech",
+  "Repair & Maintenance (South) 6": "mech",
+  "Shipyard & Overhaul (South)": "mech",
+  "Shipyard & Overhaul (South) 2": "mech",
+  "Shipyard & Overhaul (South) 4": "mech",
+  "Shipyard & Overhaul (South) 5": "mech",
+  "Shipyard & Overhaul (South) 6": "mech",
+  "Manufacturing & Workshops": "mech",
+  "Manufacturing & Workshops 2": "mech",
+  "Manufacturing & Workshops 3": "mech",
+  "Manufacturing & Workshops 4": "mech",
+  "Manufacturing & Workshops 5": "mech",
+  "Manufacturing & Workshops 6": "mech",
+  "Workshops (East)": "mech",
+  "Workshops (East) 2": "mech",
+  "Workshops (East) 3": "mech",
+  "Workshops (East) 4": "mech",
+  "Workshops (East) 5": "mech",
+  "Workshops (East) 6": "mech",
+  "Life Support & Utilities": "mech",
+  "Life Support & Utilities 2": "mech",
+  "Life Support & Utilities 3": "mech",
+  "Life Support & Utilities 4": "mech",
+  "Life Support & Utilities 5": "mech",
+  "Life Support & Utilities 6": "mech",
+  "Security Control": "pilot",
+  "Security Control 2": "pilot",
+  "Security Control 3": "pilot",
+  "Security Control 4": "pilot",
+  "Security Control 5": "pilot",
+  "Security Control 6": "pilot",
+  "Crew & Staff Services": "mech",
+  "Service Room 77": "pilot",
+  "Dock Bay 78": "pilot",
+  "Dock Bay 79": "pilot",
+  "Dock Bay 80": "pilot",
+  "Dock Bay 81": "pilot",
+  "Dock Bay 82": "pilot",
+  "Dock Bay 83": "pilot",
+  "Dock Bay 84": "pilot",
+  "Dock Bay 85": "pilot",
+  "Dock Bay 86": "pilot",
+  "Dock Bay 87": "pilot",
+  "Service Room 88": "pilot",
+  "Service Room 89": "pilot"
  },
  "cut_off_red": [],
  "doors": [
@@ -130,32 +446,56 @@
   },
   {
    "at": [
-    1680.4,
-    643.3
+    1668.0,
+    574.6
    ],
    "o": "v",
    "rooms": [
     "Arrival Complex"
    ],
    "type": "mech",
-   "key": 0
+   "key": 2
   },
   {
    "at": [
-    1594.6,
-    592.3
+    1557.6,
+    743.5
    ],
    "o": "v",
    "rooms": [
-    "Dock Bay 3"
+    "Arrival Complex 2"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
    "at": [
-    1007.3,
-    568.5
+    1760.9,
+    630.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Arrival Complex 3"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1633.9,
+    612.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Arrival Complex 5"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1468.8,
+    762.0
    ],
    "o": "h",
    "rooms": [
@@ -166,8 +506,80 @@
   },
   {
    "at": [
-    2237.5,
-    632.9
+    1334.5,
+    762.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Customs & Security 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    886.3,
+    462.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Customs & Security 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1029.5,
+    588.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Customs & Security 4"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1536.0,
+    845.3
+   ],
+   "o": "v",
+   "rooms": [
+    "Customs & Security 6"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1463.0,
+    744.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Customs & Security 7"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1342.9,
+    744.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Customs & Security 8"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1852.1,
+    762.0
    ],
    "o": "h",
    "rooms": [
@@ -178,44 +590,416 @@
   },
   {
    "at": [
-    347.1,
-    778.0
+    1983.5,
+    762.0
    ],
    "o": "h",
    "rooms": [
-    "Dock Bay 4"
+    "Passenger Services 2"
    ],
    "type": "pilot",
    "key": 0
   },
   {
    "at": [
-    2969.6,
-    776.7
+    2248.7,
+    612.0
    ],
    "o": "h",
    "rooms": [
-    "Dock Bay 5"
+    "Passenger Services 4"
    ],
    "type": "pilot",
    "key": 0
   },
   {
    "at": [
-    1528.5,
-    1010.7
+    1782.0,
+    845.3
    ],
    "o": "v",
    "rooms": [
-    "Commerce District (North)"
+    "Passenger Services 6"
    ],
-   "type": "mech",
+   "type": "pilot",
    "key": 0
   },
   {
    "at": [
-    1735.3,
-    1037.2
+    1859.0,
+    744.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Passenger Services 7"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1975.1,
+    744.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Passenger Services 8"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1536.0,
+    1008.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Commerce District (North)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1782.0,
+    894.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Service Room 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1140.0,
+    894.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Crew District A"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1122.0,
+    841.3
+   ],
+   "o": "v",
+   "rooms": [
+    "Crew District A 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1008.0,
+    1057.6
+   ],
+   "o": "v",
+   "rooms": [
+    "Crew District A 4"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1299.8,
+    1008.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Crew District A 5"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1122.0,
+    946.5
+   ],
+   "o": "v",
+   "rooms": [
+    "Crew District A 6"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1404.0,
+    906.3
+   ],
+   "o": "v",
+   "rooms": [
+    "Crew District A 7"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1208.5,
+    876.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Crew District A 8"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1088.0,
+    744.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Crew District A 9"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1378.1,
+    1026.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Crew District A 10"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1008.0,
+    1159.3
+   ],
+   "o": "v",
+   "rooms": [
+    "Crew District A 11"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    977.2,
+    630.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Crew District A 12"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1254.0,
+    1026.5
+   ],
+   "o": "v",
+   "rooms": [
+    "Crew District A 13"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2178.0,
+    1008.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Crew District B"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2196.0,
+    841.4
+   ],
+   "o": "v",
+   "rooms": [
+    "Crew District B 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2349.1,
+    1272.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Crew District B 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2218.3,
+    1118.2
+   ],
+   "o": "h",
+   "rooms": [
+    "Crew District B 4"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1967.6,
+    1008.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Crew District B 5"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2196.0,
+    946.5
+   ],
+   "o": "v",
+   "rooms": [
+    "Crew District B 6"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1914.0,
+    1007.1
+   ],
+   "o": "v",
+   "rooms": [
+    "Crew District B 7"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2178.0,
+    817.7
+   ],
+   "o": "v",
+   "rooms": [
+    "Crew District B 8"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2310.0,
+    675.9
+   ],
+   "o": "v",
+   "rooms": [
+    "Crew District B 9"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2003.3,
+    1026.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Crew District B 10"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2310.0,
+    1159.3
+   ],
+   "o": "v",
+   "rooms": [
+    "Crew District B 11"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2340.7,
+    630.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Crew District B 12"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2064.0,
+    1026.5
+   ],
+   "o": "v",
+   "rooms": [
+    "Crew District B 13"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1536.0,
+    1130.8
+   ],
+   "o": "v",
+   "rooms": [
+    "Service Room 4"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1474.6,
+    1140.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Service Room 5"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1779.2,
+    1140.0
    ],
    "o": "h",
    "rooms": [
@@ -226,32 +1010,8 @@
   },
   {
    "at": [
-    1077.4,
-    1174.8
-   ],
-   "o": "v",
-   "rooms": [
-    "Crew District A"
-   ],
-   "type": "pilot",
-   "key": 0
-  },
-  {
-   "at": [
-    2240.6,
-    1174.8
-   ],
-   "o": "v",
-   "rooms": [
-    "Crew District B"
-   ],
-   "type": "pilot",
-   "key": 0
-  },
-  {
-   "at": [
-    1430.6,
-    1185.2
+    1843.4,
+    1140.0
    ],
    "o": "h",
    "rooms": [
@@ -262,22 +1022,10 @@
   },
   {
    "at": [
-    1887.4,
-    1185.2
+    1254.0,
+    1272.0
    ],
    "o": "h",
-   "rooms": [
-    "Service Room 8"
-   ],
-   "type": "pilot",
-   "key": 0
-  },
-  {
-   "at": [
-    1107.3,
-    1221.0
-   ],
-   "o": "v",
    "rooms": [
     "Residential District"
    ],
@@ -286,10 +1034,82 @@
   },
   {
    "at": [
-    1540.1,
-    1191.1
+    1272.0,
+    1169.8
+   ],
+   "o": "v",
+   "rooms": [
+    "Residential District 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1208.0,
+    1290.0
    ],
    "o": "h",
+   "rooms": [
+    "Residential District 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1227.6,
+    1140.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Residential District 4"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1287.7,
+    1290.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Residential District 5"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1274.8,
+    1140.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Residential District 6"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1536.0,
+    1205.2
+   ],
+   "o": "v",
+   "rooms": [
+    "Service Room 8"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1518.0,
+    1227.1
+   ],
+   "o": "v",
    "rooms": [
     "Service Room 9"
    ],
@@ -298,10 +1118,10 @@
   },
   {
    "at": [
-    1833.5,
-    1268.3
+    1782.0,
+    1205.2
    ],
-   "o": "h",
+   "o": "v",
    "rooms": [
     "Service Room 10"
    ],
@@ -310,44 +1130,8 @@
   },
   {
    "at": [
-    2210.7,
-    1223.0
-   ],
-   "o": "v",
-   "rooms": [
-    "Commerce District (East)"
-   ],
-   "type": "pilot",
-   "key": 0
-  },
-  {
-   "at": [
-    663.9,
-    1142.1
-   ],
-   "o": "v",
-   "rooms": [
-    "Cargo Terminal A"
-   ],
-   "type": "mech",
-   "key": 0
-  },
-  {
-   "at": [
-    2782.4,
-    1006.9
-   ],
-   "o": "v",
-   "rooms": [
-    "Cargo Terminal C"
-   ],
-   "type": "mech",
-   "key": 0
-  },
-  {
-   "at": [
-    1474.1,
-    1300.3
+    1800.0,
+    1227.1
    ],
    "o": "v",
    "rooms": [
@@ -358,8 +1142,200 @@
   },
   {
    "at": [
-    1913.6,
-    1370.0
+    2178.0,
+    1272.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Commerce District (East)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2046.0,
+    1249.7
+   ],
+   "o": "v",
+   "rooms": [
+    "Commerce District (East) 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2064.0,
+    1336.6
+   ],
+   "o": "v",
+   "rooms": [
+    "Commerce District (East) 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2090.4,
+    1140.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Commerce District (East) 4"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2035.2,
+    1290.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Commerce District (East) 5"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2043.2,
+    1140.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Commerce District (East) 6"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    779.7,
+    1404.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Cargo Terminal A"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    707.2,
+    1187.7
+   ],
+   "o": "v",
+   "rooms": [
+    "Cargo Terminal A 2"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    816.8,
+    1422.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Cargo Terminal A 3"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    594.0,
+    1068.7
+   ],
+   "o": "v",
+   "rooms": [
+    "Cargo Terminal A 4"
+   ],
+   "type": "mech",
+   "key": 1
+  },
+  {
+   "at": [
+    594.0,
+    1170.7
+   ],
+   "o": "v",
+   "rooms": [
+    "Cargo Terminal A 5"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2574.0,
+    1368.3
+   ],
+   "o": "v",
+   "rooms": [
+    "Cargo Terminal C"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2610.8,
+    1187.7
+   ],
+   "o": "v",
+   "rooms": [
+    "Cargo Terminal C 2"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2533.5,
+    1422.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Cargo Terminal C 3"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2724.0,
+    1068.8
+   ],
+   "o": "v",
+   "rooms": [
+    "Cargo Terminal C 4"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2724.0,
+    1170.7
+   ],
+   "o": "v",
+   "rooms": [
+    "Cargo Terminal C 5"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1451.1,
+    1290.0
    ],
    "o": "h",
    "rooms": [
@@ -370,70 +1346,34 @@
   },
   {
    "at": [
-    1561.6,
-    1379.8
-   ],
-   "o": "h",
-   "rooms": [
-    "Service Room 13"
-   ],
-   "type": "mech",
-   "key": 0
-  },
-  {
-   "at": [
-    1769.1,
-    1388.2
+    1463.4,
+    1422.0
    ],
    "o": "h",
    "rooms": [
     "Service Room 14"
    ],
-   "type": "mech",
-   "key": 0
-  },
-  {
-   "at": [
-    1056.7,
-    1302.4
-   ],
-   "o": "h",
-   "rooms": [
-    "Ship Dealer & Showroom"
-   ],
    "type": "pilot",
    "key": 0
   },
   {
    "at": [
-    2203.0,
-    1326.0
-   ],
-   "o": "h",
-   "rooms": [
-    "Outfitting & Gear"
-   ],
-   "type": "pilot",
-   "key": 0
-  },
-  {
-   "at": [
-    1269.4,
-    1444.2
+    1633.4,
+    1349.4
    ],
    "o": "v",
    "rooms": [
     "Service Room 15"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
    "at": [
-    1299.4,
-    1466.1
+    1444.6,
+    1404.0
    ],
-   "o": "v",
+   "o": "h",
    "rooms": [
     "Service Room 16"
    ],
@@ -442,8 +1382,8 @@
   },
   {
    "at": [
-    2018.6,
-    1468.0
+    1902.2,
+    1428.7
    ],
    "o": "v",
    "rooms": [
@@ -454,20 +1394,20 @@
   },
   {
    "at": [
-    2081.2,
-    1406.2
+    1729.1,
+    1367.8
    ],
    "o": "h",
    "rooms": [
     "Service Room 18"
    ],
-   "type": "pilot",
+   "type": "mech",
    "key": 0
   },
   {
    "at": [
-    1367.7,
-    1602.7
+    1800.0,
+    1348.6
    ],
    "o": "v",
    "rooms": [
@@ -478,8 +1418,128 @@
   },
   {
    "at": [
-    2000.3,
-    1685.1
+    1062.8,
+    1422.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Ship Dealer & Showroom"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1030.0,
+    1404.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Ship Dealer & Showroom 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    948.7,
+    1422.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Ship Dealer & Showroom 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    990.0,
+    1351.2
+   ],
+   "o": "v",
+   "rooms": [
+    "Ship Dealer & Showroom 4"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1157.1,
+    1422.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Ship Dealer & Showroom 5"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2251.2,
+    1422.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Outfitting & Gear"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2288.0,
+    1404.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Outfitting & Gear 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2363.4,
+    1422.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Outfitting & Gear 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2380.8,
+    1404.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Outfitting & Gear 4"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2160.9,
+    1422.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Outfitting & Gear 5"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1254.0,
+    1422.0
    ],
    "o": "h",
    "rooms": [
@@ -490,8 +1550,8 @@
   },
   {
    "at": [
-    913.1,
-    1595.8
+    1299.4,
+    1497.0
    ],
    "o": "v",
    "rooms": [
@@ -502,8 +1562,8 @@
   },
   {
    "at": [
-    2404.9,
-    1595.8
+    2018.6,
+    1440.8
    ],
    "o": "v",
    "rooms": [
@@ -514,56 +1574,32 @@
   },
   {
    "at": [
-    1049.3,
-    1625.9
-   ],
-   "o": "h",
-   "rooms": [
-    "Medical Complex"
-   ],
-   "type": "pilot",
-   "key": 0
-  },
-  {
-   "at": [
-    1577.3,
-    1717.2
+    2109.0,
+    1422.0
    ],
    "o": "h",
    "rooms": [
     "Service Room 23"
    ],
-   "type": "mech",
-   "key": 3
-  },
-  {
-   "at": [
-    1769.3,
-    1701.6
-   ],
-   "o": "h",
-   "rooms": [
-    "Service Room 24"
-   ],
-   "type": "mech",
+   "type": "pilot",
    "key": 0
   },
   {
    "at": [
-    2270.3,
-    1625.9
+    1326.2,
+    1668.0
    ],
    "o": "h",
    "rooms": [
-    "Supplies & Administration"
+    "Service Room 24"
    ],
    "type": "pilot",
    "key": 0
   },
   {
    "at": [
-    1465.9,
-    1773.0
+    1994.4,
+    1668.0
    ],
    "o": "h",
    "rooms": [
@@ -574,8 +1610,8 @@
   },
   {
    "at": [
-    1852.6,
-    1773.3
+    989.9,
+    1668.0
    ],
    "o": "h",
    "rooms": [
@@ -586,10 +1622,10 @@
   },
   {
    "at": [
-    1487.5,
-    1871.8
+    990.0,
+    1688.8
    ],
-   "o": "h",
+   "o": "v",
    "rooms": [
     "Service Room 27"
    ],
@@ -598,8 +1634,8 @@
   },
   {
    "at": [
-    1830.5,
-    1871.8
+    2328.1,
+    1668.0
    ],
    "o": "h",
    "rooms": [
@@ -610,22 +1646,70 @@
   },
   {
    "at": [
-    696.4,
-    2110.9
+    2330.8,
+    1686.0
    ],
-   "o": "v",
+   "o": "h",
    "rooms": [
     "Service Room 29"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
-    994.5,
-    1907.0
+    1140.0,
+    1716.4
    ],
    "o": "v",
+   "rooms": [
+    "Medical Complex"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1048.9,
+    1686.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Medical Complex 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1191.5,
+    1668.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Medical Complex 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1122.0,
+    1667.5
+   ],
+   "o": "v",
+   "rooms": [
+    "Medical Complex 4"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1573.9,
+    1715.9
+   ],
+   "o": "h",
    "rooms": [
     "Service Room 30"
    ],
@@ -634,22 +1718,22 @@
   },
   {
    "at": [
-    1338.3,
-    1956.2
+    1450.9,
+    1668.0
    ],
    "o": "h",
    "rooms": [
     "Service Room 31"
    ],
-   "type": "pilot",
-   "key": 0
+   "type": "mech",
+   "key": 3
   },
   {
    "at": [
-    2036.8,
-    2003.6
+    1518.0,
+    1687.2
    ],
-   "o": "h",
+   "o": "v",
    "rooms": [
     "Service Room 32"
    ],
@@ -658,8 +1742,8 @@
   },
   {
    "at": [
-    2323.5,
-    1890.4
+    1683.0,
+    1745.3
    ],
    "o": "v",
    "rooms": [
@@ -670,32 +1754,20 @@
   },
   {
    "at": [
-    2621.6,
-    2110.9
+    1815.3,
+    1668.0
    ],
-   "o": "v",
+   "o": "h",
    "rooms": [
     "Service Room 34"
-   ],
-   "type": "pilot",
-   "key": 0
-  },
-  {
-   "at": [
-    1635.4,
-    2126.1
-   ],
-   "o": "v",
-   "rooms": [
-    "Commerce District (South)"
    ],
    "type": "mech",
    "key": 0
   },
   {
    "at": [
-    1682.6,
-    2121.4
+    1800.0,
+    1686.2
    ],
    "o": "v",
    "rooms": [
@@ -706,56 +1778,56 @@
   },
   {
    "at": [
-    779.2,
-    2082.9
-   ],
-   "o": "v",
-   "rooms": [
-    "Repair & Maintenance (South)"
-   ],
-   "type": "mech",
-   "key": 2
-  },
-  {
-   "at": [
-    2614.4,
-    2169.2
-   ],
-   "o": "v",
-   "rooms": [
-    "Shipyard & Overhaul (South)"
-   ],
-   "type": "mech",
-   "key": 1
-  },
-  {
-   "at": [
-    1195.2,
-    2034.8
+    2147.6,
+    1686.0
    ],
    "o": "h",
    "rooms": [
-    "Manufacturing & Workshops"
+    "Supplies & Administration"
    ],
-   "type": "mech",
+   "type": "pilot",
    "key": 0
   },
   {
    "at": [
-    2185.0,
-    2104.1
+    2251.1,
+    1686.0
    ],
    "o": "h",
    "rooms": [
-    "Workshops (East)"
+    "Supplies & Administration 2"
    ],
-   "type": "mech",
+   "type": "pilot",
    "key": 0
   },
   {
    "at": [
-    1629.4,
-    2554.8
+    2126.5,
+    1668.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Supplies & Administration 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2196.0,
+    1667.5
+   ],
+   "o": "v",
+   "rooms": [
+    "Supplies & Administration 4"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1536.0,
+    1831.5
    ],
    "o": "v",
    "rooms": [
@@ -766,12 +1838,1152 @@
   },
   {
    "at": [
-    1751.2,
-    2555.6
+    1518.0,
+    1845.5
+   ],
+   "o": "v",
+   "rooms": [
+    "Service Room 37"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1782.0,
+    1859.5
+   ],
+   "o": "v",
+   "rooms": [
+    "Service Room 38"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1800.0,
+    1845.5
+   ],
+   "o": "v",
+   "rooms": [
+    "Service Room 39"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    858.0,
+    1699.6
+   ],
+   "o": "v",
+   "rooms": [
+    "Service Room 40"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    850.8,
+    1925.3
+   ],
+   "o": "v",
+   "rooms": [
+    "Service Room 41"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    726.0,
+    2041.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Dock Bay 42"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    833.9,
+    1668.0
    ],
    "o": "h",
    "rooms": [
-    "Service Room 37"
+    "Service Room 43"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    876.0,
+    1835.3
+   ],
+   "o": "v",
+   "rooms": [
+    "Service Room 44"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    726.0,
+    1914.9
+   ],
+   "o": "v",
+   "rooms": [
+    "Dock Bay 45"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    594.0,
+    2165.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Dock Bay 46"
+   ],
+   "type": "pilot",
+   "key": 2
+  },
+  {
+   "at": [
+    726.0,
+    1650.6
+   ],
+   "o": "v",
+   "rooms": [
+    "Service Room 47"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    713.3,
+    1686.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Service Room 48"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1008.0,
+    1898.7
+   ],
+   "o": "v",
+   "rooms": [
+    "Service Room 49"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1272.0,
+    1913.3
+   ],
+   "o": "v",
+   "rooms": [
+    "Service Room 50"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1217.4,
+    1932.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Service Room 51"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1230.5,
+    1950.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Service Room 52"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1309.9,
+    1950.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Service Room 53"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1304.8,
+    1800.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Service Room 54"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2040.6,
+    1932.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Service Room 55"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2152.9,
+    1932.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Service Room 56"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2087.5,
+    1950.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Service Room 57"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2008.1,
+    1950.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Service Room 58"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2008.7,
+    1800.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Service Room 59"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2310.0,
+    1902.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Service Room 60"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2460.0,
+    1699.6
+   ],
+   "o": "v",
+   "rooms": [
+    "Service Room 61"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2563.0,
+    1932.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Service Room 62"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2592.0,
+    2045.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Dock Bay 63"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2484.1,
+    1668.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Service Room 64"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2442.0,
+    1835.8
+   ],
+   "o": "v",
+   "rooms": [
+    "Service Room 65"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2592.0,
+    1914.9
+   ],
+   "o": "v",
+   "rooms": [
+    "Dock Bay 66"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2724.0,
+    2169.3
+   ],
+   "o": "v",
+   "rooms": [
+    "Dock Bay 67"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2592.0,
+    1650.6
+   ],
+   "o": "v",
+   "rooms": [
+    "Service Room 68"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2600.7,
+    1686.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Service Room 69"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1404.0,
+    1979.7
+   ],
+   "o": "v",
+   "rooms": [
+    "Commerce District (South)"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1404.0,
+    2135.3
+   ],
+   "o": "v",
+   "rooms": [
+    "Commerce District (South) 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1631.9,
+    1950.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Commerce District (South) 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1635.4,
+    2137.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Commerce District (South) 4"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1323.3,
+    2082.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Commerce District (South) 5"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1635.4,
+    2288.9
+   ],
+   "o": "v",
+   "rooms": [
+    "Commerce District (South) 6"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1381.7,
+    2064.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Commerce District (South) 7"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1902.9,
+    1950.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Service Room 70"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1914.0,
+    2135.3
+   ],
+   "o": "v",
+   "rooms": [
+    "Service Room 71"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1725.0,
+    1950.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Service Room 72"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1682.6,
+    2100.2
+   ],
+   "o": "v",
+   "rooms": [
+    "Service Room 73"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1932.5,
+    2082.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Service Room 74"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1682.6,
+    2219.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Service Room 75"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1936.3,
+    2064.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Service Room 76"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1039.7,
+    2064.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Repair & Maintenance (South)"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    903.2,
+    2064.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Repair & Maintenance (South) 2"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    772.4,
+    2090.7
+   ],
+   "o": "v",
+   "rooms": [
+    "Repair & Maintenance (South) 3"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    636.4,
+    2245.8
+   ],
+   "o": "v",
+   "rooms": [
+    "Repair & Maintenance (South) 4"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    915.3,
+    2082.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Repair & Maintenance (South) 5"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    462.0,
+    2458.8
+   ],
+   "o": "v",
+   "rooms": [
+    "Repair & Maintenance (South) 6"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2310.0,
+    2032.3
+   ],
+   "o": "v",
+   "rooms": [
+    "Shipyard & Overhaul (South)"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2328.0,
+    2038.3
+   ],
+   "o": "v",
+   "rooms": [
+    "Shipyard & Overhaul (South) 2"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2706.0,
+    2287.9
+   ],
+   "o": "v",
+   "rooms": [
+    "Shipyard & Overhaul (South) 4"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2404.8,
+    2082.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Shipyard & Overhaul (South) 5"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2856.0,
+    2458.8
+   ],
+   "o": "v",
+   "rooms": [
+    "Shipyard & Overhaul (South) 6"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1254.0,
+    2189.6
+   ],
+   "o": "v",
+   "rooms": [
+    "Manufacturing & Workshops"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1122.0,
+    2196.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Manufacturing & Workshops 2"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1171.8,
+    2214.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Manufacturing & Workshops 3"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1028.5,
+    2214.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Manufacturing & Workshops 4"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1253.7,
+    2064.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Manufacturing & Workshops 5"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1272.0,
+    2093.1
+   ],
+   "o": "v",
+   "rooms": [
+    "Manufacturing & Workshops 6"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2064.0,
+    2189.6
+   ],
+   "o": "v",
+   "rooms": [
+    "Workshops (East)"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2310.0,
+    2196.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Workshops (East) 2"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2146.2,
+    2214.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Workshops (East) 3"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2240.2,
+    2214.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Workshops (East) 4"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2064.1,
+    2064.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Workshops (East) 5"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2046.0,
+    2093.1
+   ],
+   "o": "v",
+   "rooms": [
+    "Workshops (East) 6"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1517.9,
+    2328.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Life Support & Utilities"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1366.0,
+    2328.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Life Support & Utilities 2"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1404.0,
+    2346.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Life Support & Utilities 3"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1140.0,
+    2399.7
+   ],
+   "o": "v",
+   "rooms": [
+    "Life Support & Utilities 4"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1122.0,
+    2409.6
+   ],
+   "o": "v",
+   "rooms": [
+    "Life Support & Utilities 5"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1170.7,
+    2328.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Life Support & Utilities 6"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1914.0,
+    2327.9
+   ],
+   "o": "v",
+   "rooms": [
+    "Security Control"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1952.0,
+    2328.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Security Control 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1800.0,
+    2346.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Security Control 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2108.0,
+    2346.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Security Control 4"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2196.0,
+    2409.6
+   ],
+   "o": "v",
+   "rooms": [
+    "Security Control 5"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2147.3,
+    2328.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Security Control 6"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1558.3,
+    2482.5
+   ],
+   "o": "h",
+   "rooms": [
+    "Crew & Staff Services"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1688.6,
+    2478.2
+   ],
+   "o": "v",
+   "rooms": [
+    "Service Room 77"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1809.6,
+    2478.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Dock Bay 78"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1508.4,
+    2478.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Dock Bay 79"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1992.6,
+    2478.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Dock Bay 80"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1325.4,
+    2478.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Dock Bay 81"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1254.0,
+    2556.6
+   ],
+   "o": "v",
+   "rooms": [
+    "Dock Bay 82"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2110.2,
+    2592.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Dock Bay 83"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1091.6,
+    2610.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Dock Bay 84"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2271.8,
+    2610.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Dock Bay 85"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1617.7,
+    2613.2
+   ],
+   "o": "h",
+   "rooms": [
+    "Dock Bay 86"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1698.1,
+    2616.6
+   ],
+   "o": "h",
+   "rooms": [
+    "Dock Bay 87"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1347.8,
+    2444.8
+   ],
+   "o": "v",
+   "rooms": [
+    "Service Room 88"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1997.2,
+    2460.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Service Room 89"
    ],
    "type": "pilot",
    "key": 0
@@ -780,12 +2992,12 @@
  "entry": "Cargo Terminal C",
  "mech_rooms_unreached": [],
  "counts": {
-  "mech_rooms": 13,
-  "pilot_rooms": 41,
-  "mech_doors": 14,
-  "pilot_doors": 41,
+  "mech_rooms": 48,
+  "pilot_rooms": 164,
+  "mech_doors": 49,
+  "pilot_doors": 164,
   "locked": {
-   "OPEN": 51,
+   "OPEN": 209,
    "YELLOW": 1,
    "ORANGE": 2,
    "RED": 1
