@@ -1693,6 +1693,7 @@ func setup_boarding(info: Dictionary) -> void:
 	life.name = "StationLife"
 	root.add_child(life)
 	life.setup(self, fac, bool(info.get("escape", false)), tint)
+	if Boarding.STACKED and not _deck_nodes.is_empty(): _fleet_show_deck()   # v13.188
 	_update_camera(1.0, true)
 
 func _build_board_env(tint: Color) -> void:
@@ -2139,7 +2140,9 @@ func _fleet_setup(root: Node3D, info: Dictionary, fac: String) -> void:
 var _elev: Array = []
 var _deck_nodes := {}
 const ELEV_SPEED := 70.0   # u/s: a car runs a deck (80 u) in about a second
+var _deck_root: Node3D
 func _fleet_decks(root: Node3D) -> void:
+	_deck_root = root
 	var F: Dictionary = Boarding.INFO["fleet"]
 	_deck_nodes = {}
 	for dn in Boarding.deck_names():   # (v13.175: a station's five)
@@ -2194,6 +2197,21 @@ func _fleet_decks(root: Node3D) -> void:
 func _fleet_show_deck(both := false) -> void:
 	var here := Boarding.deck_name(Boarding.deck_y(player.global_position))
 	for dn in _deck_nodes: (_deck_nodes[dn] as Node3D).visible = both or dn == here
+	# v13.188 (owner: Liberty Hub black on the phone: the web build draws nothing past ~1000 pieces): the pieces made after
+	# the decks were sorted (doors' pads and posts, the crew and props) are hidden off your deck too
+	var cands: Array = []
+	if is_instance_valid(_deck_root): cands += _deck_root.get_children()
+	if is_instance_valid(life): cands += life.get_children()
+	for c in cands:
+		if not (c is Node3D) or c in _deck_nodes.values() or str(c.name) in ["Waypoint", "Hostage", "ExitPath"]: continue
+		var n3 := c as Node3D
+		var on: bool = both or Boarding.deck_of_piece(n3.global_position.y) == here
+		if not on and n3.visible:
+			n3.visible = false
+			n3.set_meta("deck_hid", true)
+		elif on and bool(n3.get_meta("deck_hid", false)):
+			n3.visible = true
+			n3.remove_meta("deck_hid")
 
 ## The lift cars: stand in the middle of a car for half a second and it runs to its other deck (the platform comes to
 ## your deck first if it is away). Returns true while you ride (the deck floor / roof don't hold you then).
@@ -11165,6 +11183,8 @@ func _merge_static(root: Node3D, built: Dictionary) -> int:
 		var mi := c as MeshInstance3D
 		if mi.mesh == null or not mi.visible or mi.material_override == null: continue
 		var key = mi.material_override
+		if Boarding.STACKED:   # v13.188: one merged mesh per material PER DECK (a ship / station with floors draws only your deck)
+			key = [mi.material_override, Boarding.deck_of_piece((mi.global_transform * mi.get_aabb()).get_center().y if mi.is_inside_tree() else mi.position.y)]
 		if not groups.has(key): groups[key] = []
 		groups[key].append(mi)
 	var gone := 0
@@ -11178,7 +11198,7 @@ func _merge_static(root: Node3D, built: Dictionary) -> int:
 		var one := MeshInstance3D.new()
 		one.name = "Merged"
 		one.mesh = st.commit()
-		one.material_override = mat
+		one.material_override = mat[0] if mat is Array else mat
 		one.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		root.add_child(one)
 		for mi: MeshInstance3D in list:

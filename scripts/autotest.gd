@@ -1858,6 +1858,22 @@ func _run() -> void:
 		var shown := 0
 		for dn in s._deck_nodes: if (s._deck_nodes[dn] as Node3D).visible: shown += 1
 		_check("v13.187: EXPLORE STATION: on the deck, one deck drawn (%d), few lamps (%d)" % [shown, lamps], s.boarding and shown == 1 and lamps < 40, "")
+		var vis := 0
+		var tot := 0
+		var near := 0
+		for mi in s.find_children("*", "MeshInstance3D", true, false):
+			tot += 1
+			if (mi as Node3D).is_visible_in_tree():
+				vis += 1
+				if (mi as Node3D).global_position.distance_to(s.player.global_position) < 300.0: near += 1
+		var kinds := {}
+		for mi in s.find_children("*", "MeshInstance3D", true, false):
+			if (mi as Node3D).is_visible_in_tree():
+				var nm := str(mi.get_parent().name) + "/" + str(mi.name).left(8)
+				kinds[nm] = int(kinds.get(nm, 0)) + 1
+		var kl := kinds.keys()
+		kl.sort_custom(func(a, b): return kinds[a] > kinds[b])
+		_check("v13.188: the web build draws it: under 900 pieces on screen (%d of %d; %s)" % [vis, tot, str(kl.slice(0, 3).map(func(k): return "%s=%d" % [k, kinds[k]]))], vis < 900, "")
 		await _shot("dockbay_explore")
 		_finish_group()
 		return
