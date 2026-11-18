@@ -1,0 +1,406 @@
+{
+ "wreck": [],
+ "patrols": [],
+ "lifts": [
+  {
+   "room": "Lift (north)",
+   "at": [
+    1698,
+    1367
+   ]
+  },
+  {
+   "room": "Lift (south)",
+   "at": [
+    1698,
+    2011
+   ]
+  },
+  {
+   "room": "Lift (East)",
+   "at": [
+    1933,
+    1602
+   ]
+  },
+  {
+   "room": "Lift (West)",
+   "at": [
+    1367,
+    1602
+   ]
+  }
+ ],
+ "room_guards": {
+  "Main Hub (Central Customs)": 2,
+  "Dock Pad 32": 2,
+  "Dock Pad 54": 2,
+  "Dock Pad 126": 2,
+  "Dock Pad 148": 2,
+  "Dock Pad 216": 2,
+  "Dock Pad 234": 2,
+  "Dock Pad 306": 2,
+  "Dock Pad 324": 2,
+  "Dock Pad N": 2,
+  "Dock Pad S": 2,
+  "Crew Services Quarters 1": 0,
+  "Pilot Services Quarters 1": 0,
+  "Transit Concourse Store 1": 0,
+  "Logistics & Supply Store 1": 0,
+  "Cargo Inspection East Canteen 1": 0,
+  "Cargo Inspection West Canteen 1": 0,
+  "Cargo Inspection East Cabin 1": 0,
+  "Cargo Inspection West Cabin 1": 0,
+  "Cargo Inspection East Clinic 1": 0,
+  "Cargo Inspection West Clinic 1": 0,
+  "Cargo Inspection East Lobby 1": 0,
+  "Cargo Inspection West Lobby 1": 0,
+  "Crew Services Clinic 1": 0,
+  "Pilot Services Clinic 1": 0,
+  "Crew Services Quarters 2": 0,
+  "Pilot Services Quarters 2": 2,
+  "Transit Concourse Control 1": 0,
+  "Logistics & Supply Control 1": 0,
+  "Transit Concourse Store 2": 0,
+  "Logistics & Supply Store 2": 0,
+  "Cargo Inspection East Lounge 1": 0,
+  "Cargo Inspection West Lounge 1": 0,
+  "Cargo Inspection East Control 1": 0,
+  "Cargo Inspection West Control 1": 0,
+  "Cargo Inspection East Control 2": 0,
+  "Cargo Inspection West Control 2": 0,
+  "Cargo Inspection East Office 1": 0,
+  "Cargo Inspection West Office 1": 0,
+  "Cargo Inspection East Quarters 1": 0,
+  "Cargo Inspection West Quarters 1": 0,
+  "Cargo Inspection East Clinic 2": 0,
+  "Cargo Inspection West Clinic 2": 0,
+  "Crew Services Plant 1": 2,
+  "Pilot Services Plant 1": 2,
+  "Transit Concourse Bay 1": 2,
+  "Logistics & Supply Bay 1": 2,
+  "Transit Concourse Cargo Bay 1": 2,
+  "Logistics & Supply Cargo Bay 1": 2,
+  "Transit Concourse Plant 1": 2,
+  "Logistics & Supply Plant 1": 2,
+  "Transit Concourse Cargo Bay 2": 2,
+  "Logistics & Supply Cargo Bay 2": 2,
+  "Cargo Inspection East Armoury 1": 2,
+  "Cargo Inspection West Armoury 1": 2,
+  "Cargo Inspection East Loading Bay 1": 2,
+  "Cargo Inspection West Loading Bay 1": 2,
+  "Crew Services Lounge 1": 0,
+  "Pilot Services Lounge 1": 0,
+  "Crew Services Lobby 1": 0,
+  "Pilot Services Lobby 1": 0,
+  "Pilot Services Cabin 2": 0,
+  "Logistics & Supply Store 3": 0,
+  "Transit Concourse Quarters 1": 0,
+  "Logistics & Supply Quarters 1": 0,
+  "Transit Concourse Cabin 1": 0,
+  "Logistics & Supply Cabin 1": 0,
+  "Cargo Inspection East Control 3": 0,
+  "Cargo Inspection West Control 3": 0,
+  "Cargo Inspection East Lounge 2": 0,
+  "Cargo Inspection West Lounge 2": 0,
+  "Cargo Inspection East Quarters 2": 0,
+  "Cargo Inspection West Quarters 2": 0,
+  "Cargo Inspection East Clinic 3": 0,
+  "Cargo Inspection West Clinic 3": 0,
+  "Crew Services Clinic 2": 0,
+  "Pilot Services Clinic 2": 0,
+  "Customs Processing NE Lounge 1": 0,
+  "Customs Processing NW Lounge 1": 0,
+  "Cargo Inspection East Quarters 3": 0,
+  "Cargo Inspection West Quarters 3": 0,
+  "Mech Servicing East Canteen 1": 0,
+  "Mech Servicing West Canteen 1": 0,
+  "Transit Concourse Lounge 1": 0,
+  "Logistics & Supply Lounge 1": 0,
+  "Mech Servicing East Quarters 1": 0,
+  "Mech Servicing West Quarters 1": 0,
+  "Cargo Inspection East Cabin 2": 0,
+  "Cargo Inspection West Cabin 2": 0,
+  "Crew Services Cabin 3": 0,
+  "Pilot Services Cabin 3": 0,
+  "Customs Processing NE Clinic 2": 0,
+  "Customs Processing NW Clinic 2": 0,
+  "Customs Processing NE Cabin 1": 0,
+  "Customs Processing NW Cabin 1": 0,
+  "Cargo Inspection East Canteen 3": 0,
+  "Cargo Inspection West Canteen 3": 0,
+  "Mech Servicing East Store 1": 0,
+  "Mech Servicing West Store 1": 0,
+  "Transit Concourse Lounge 2": 0,
+  "Logistics & Supply Lounge 2": 0,
+  "Mech Servicing East Store 2": 0,
+  "Mech Servicing West Store 2": 0,
+  "Customs Processing NE Armoury 1": 2,
+  "Customs Processing NW Armoury 1": 2,
+  "Customs Processing NE Armoury 2": 2,
+  "Customs Processing NW Armoury 2": 2,
+  "Mech Servicing East Machine Shop 1": 2,
+  "Mech Servicing West Machine Shop 1": 2,
+  "Mech Servicing East Armoury 1": 2,
+  "Mech Servicing West Armoury 1": 2,
+  "Mission Center": 0,
+  "Pilots' Lounge": 0,
+  "Shipyard": 2,
+  "Mech Dealer": 2,
+  "Supplies": 2,
+  "Weapons": 2,
+  "Medical Bay": 0,
+  "Command": 0
+ },
+ "note": "Liberty Hub MAIN HUB deck v2",
+ "formula": {
+  "C": "Main Hub (Central Customs)",
+  "A_gate": "Dock Pad 148",
+  "card_yellow": "Crew Services Quarters 2",
+  "card_red": "Pilot Services Quarters 2",
+  "entry": "Dock Pad S",
+  "way_out": "Dock Pad 32",
+  "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
+ },
+ "entry": {
+  "room": "Dock Pad S",
+  "at": [
+   1650,
+   2698
+  ]
+ },
+ "exit": {
+  "room": "Dock Pad 32",
+  "at": [
+   2721,
+   981
+  ]
+ },
+ "locks": [
+  {
+   "door": [
+    1650.0,
+    1500.0
+   ],
+   "key": 3,
+   "why": "the objective (Main Hub (Central Customs))"
+  },
+  {
+   "door": [
+    1650.0,
+    1800.0
+   ],
+   "key": 3,
+   "why": "the objective (Main Hub (Central Customs))"
+  },
+  {
+   "door": [
+    1800.0,
+    1650.0
+   ],
+   "key": 3,
+   "why": "the objective (Main Hub (Central Customs))"
+  },
+  {
+   "door": [
+    1500.0,
+    1650.0
+   ],
+   "key": 3,
+   "why": "the objective (Main Hub (Central Customs))"
+  },
+  {
+   "door": [
+    1454.1,
+    993.0
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    2721.9,
+    1026.3
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    576.4,
+    1025.2
+   ],
+   "key": 1,
+   "why": "the orange card's room (Dock Pad 148)"
+  }
+ ],
+ "guards": [
+  {
+   "key": 1,
+   "room": "Crew Services Quarters 2",
+   "at": [
+    1851,
+    959
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Dock Pad 148",
+   "at": [
+    576,
+    980
+   ]
+  },
+  {
+   "key": 3,
+   "room": "Pilot Services Quarters 2",
+   "at": [
+    1448,
+    959
+   ]
+  }
+ ],
+ "targets": {
+  "sabotage": {
+   "room": "Main Hub (Central Customs)",
+   "at": [
+    1650,
+    1650
+   ],
+   "key": 3
+  },
+  "capture": {
+   "room": "Main Hub (Central Customs)",
+   "at": [
+    1650,
+    1650
+   ],
+   "key": 3
+  },
+  "rescue": {
+   "room": "Main Hub (Central Customs)",
+   "at": [
+    1650,
+    1650
+   ],
+   "key": 3
+  }
+ },
+ "room_level": {
+  "Main Hub (Central Customs)": 3,
+  "Dock Pad 32": 2,
+  "Dock Pad 54": 0,
+  "Dock Pad 126": 0,
+  "Dock Pad 148": 1,
+  "Dock Pad 216": 0,
+  "Dock Pad 234": 0,
+  "Dock Pad 306": 0,
+  "Dock Pad 324": 0,
+  "Dock Pad N": 0,
+  "Dock Pad S": 0,
+  "Crew Services Quarters 1": 0,
+  "Pilot Services Quarters 1": 0,
+  "Transit Concourse Store 1": 0,
+  "Logistics & Supply Store 1": 0,
+  "Cargo Inspection East Canteen 1": 0,
+  "Cargo Inspection West Canteen 1": 0,
+  "Cargo Inspection East Cabin 1": 0,
+  "Cargo Inspection West Cabin 1": 0,
+  "Cargo Inspection East Clinic 1": 0,
+  "Cargo Inspection West Clinic 1": 0,
+  "Cargo Inspection East Lobby 1": 0,
+  "Cargo Inspection West Lobby 1": 0,
+  "Crew Services Clinic 1": 0,
+  "Pilot Services Clinic 1": 0,
+  "Crew Services Quarters 2": 0,
+  "Pilot Services Quarters 2": 2,
+  "Transit Concourse Control 1": 0,
+  "Logistics & Supply Control 1": 0,
+  "Transit Concourse Store 2": 0,
+  "Logistics & Supply Store 2": 0,
+  "Cargo Inspection East Lounge 1": 0,
+  "Cargo Inspection West Lounge 1": 0,
+  "Cargo Inspection East Control 1": 0,
+  "Cargo Inspection West Control 1": 0,
+  "Cargo Inspection East Office 1": 0,
+  "Cargo Inspection West Office 1": 0,
+  "Cargo Inspection East Quarters 1": 0,
+  "Cargo Inspection West Quarters 1": 0,
+  "Cargo Inspection East Clinic 2": 0,
+  "Cargo Inspection West Clinic 2": 0,
+  "Crew Services Plant 1": 0,
+  "Pilot Services Plant 1": 0,
+  "Transit Concourse Bay 1": 0,
+  "Logistics & Supply Bay 1": 0,
+  "Transit Concourse Cargo Bay 1": 0,
+  "Logistics & Supply Cargo Bay 1": 0,
+  "Transit Concourse Plant 1": 0,
+  "Logistics & Supply Plant 1": 0,
+  "Transit Concourse Cargo Bay 2": 0,
+  "Logistics & Supply Cargo Bay 2": 0,
+  "Cargo Inspection East Armoury 1": 0,
+  "Cargo Inspection West Armoury 1": 0,
+  "Cargo Inspection East Loading Bay 1": 0,
+  "Cargo Inspection West Loading Bay 1": 0,
+  "Crew Services Lounge 1": 0,
+  "Pilot Services Lounge 1": 0,
+  "Crew Services Lobby 1": 0,
+  "Pilot Services Lobby 1": 0,
+  "Pilot Services Cabin 2": 0,
+  "Logistics & Supply Store 3": 0,
+  "Transit Concourse Quarters 1": 0,
+  "Logistics & Supply Quarters 1": 0,
+  "Transit Concourse Cabin 1": 0,
+  "Logistics & Supply Cabin 1": 0,
+  "Cargo Inspection East Control 2": 0,
+  "Cargo Inspection West Control 2": 0,
+  "Cargo Inspection East Lounge 2": 0,
+  "Cargo Inspection West Lounge 2": 0,
+  "Cargo Inspection East Quarters 2": 0,
+  "Cargo Inspection West Quarters 2": 0,
+  "Cargo Inspection East Clinic 3": 0,
+  "Cargo Inspection West Clinic 3": 0,
+  "Crew Services Clinic 2": 0,
+  "Pilot Services Clinic 2": 0,
+  "Customs Processing NE Lounge 1": 0,
+  "Customs Processing NW Lounge 1": 0,
+  "Mech Servicing East Canteen 1": 0,
+  "Mech Servicing West Canteen 1": 0,
+  "Transit Concourse Lounge 1": 0,
+  "Logistics & Supply Lounge 1": 0,
+  "Mech Servicing East Quarters 1": 0,
+  "Mech Servicing West Quarters 1": 0,
+  "Crew Services Cabin 3": 0,
+  "Pilot Services Cabin 3": 0,
+  "Customs Processing NE Clinic 2": 0,
+  "Customs Processing NW Clinic 2": 0,
+  "Customs Processing NE Cabin 1": 0,
+  "Customs Processing NW Cabin 1": 0,
+  "Cargo Inspection East Canteen 3": 0,
+  "Cargo Inspection West Canteen 3": 0,
+  "Mech Servicing East Store 1": 0,
+  "Mech Servicing West Store 1": 0,
+  "Transit Concourse Lounge 2": 0,
+  "Logistics & Supply Lounge 2": 0,
+  "Mech Servicing East Store 2": 0,
+  "Mech Servicing West Store 2": 0,
+  "Cargo Inspection East Quarters 3": 0,
+  "Cargo Inspection West Quarters 3": 0,
+  "Customs Processing NE Armoury 1": 0,
+  "Customs Processing NW Armoury 1": 0,
+  "Customs Processing NE Armoury 2": 0,
+  "Customs Processing NW Armoury 2": 0,
+  "Mech Servicing East Machine Shop 1": 0,
+  "Mech Servicing West Machine Shop 1": 0,
+  "Mech Servicing East Armoury 1": 0,
+  "Mech Servicing West Armoury 1": 0,
+  "Mission Center": 0,
+  "Pilots' Lounge": 0,
+  "Shipyard": 0,
+  "Mech Dealer": 0,
+  "Supplies": 0,
+  "Weapons": 0,
+  "Medical Bay": 0,
+  "Command": 0
+ }
+}

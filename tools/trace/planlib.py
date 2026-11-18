@@ -13,6 +13,30 @@ T, DOOR, CW = 4.0, 16.0, 20.0
 
 def hall(*pts, w=CW):
     return LineString(pts).buffer(w / 2, cap_style=2, join_style=2)
+DIAG = []   # v13.222: angled hallway pieces (dhall), each one boarding room of its own (to_deck_json.py)
+def dhall(a, b, w=CW, step=None, axis=None):
+    """v13.222 (owner: "upgrade the engine" - walkways at any angle, as his station maps): a straight hallway at any
+    angle from a to b. It is cut into short pieces across its run (by vertical lines when it runs more across than up,
+    else by horizontal lines), so each piece's box is small and the boxes follow the hallway like steps; next pieces
+    share a box edge (a flat joint), the walls follow the true angled sides. Both ends are cut square to the plan axis
+    at a and b: meet it there with a straight hallway or a node square (hall()). Every piece goes in DIAG."""
+    import math
+    (ax, ay), (bx, by) = a, b
+    L = math.hypot(bx - ax, by - ay); ux, uy = (bx - ax) / L, (by - ay) / L
+    e = 2.0 * w
+    band = LineString([(ax - ux * e, ay - uy * e), (bx + ux * e, by + uy * e)]).buffer(w / 2, cap_style=2, join_style=2)
+    across = abs(bx - ax) >= abs(by - ay) if axis is None else axis == "x"
+    lo, hi = (min(ax, bx), max(ax, bx)) if across else (min(ay, by), max(ay, by))
+    step = step or 1.5 * w
+    n = max(1, int(round((hi - lo) / step)))
+    big = 1.0e5; out = []
+    for i in range(n):
+        u0, u1 = lo + (hi - lo) * i / n, lo + (hi - lo) * (i + 1) / n
+        cut = box(u0, -big, u1, big) if across else box(-big, u0, big, u1)
+        g = band.intersection(cut)
+        if g.is_empty: continue
+        DIAG.append(g); out.append(g)
+    return unary_union(out)
 def ellipse(cx, cy, rx, ry):
     return affinity.scale(Point(cx, cy).buffer(1.0, 64), rx, ry)
 def circle(cx, cy, r):
@@ -93,6 +117,6 @@ def run(S):
     draw(S, floor, walls, os.path.join(S.here, "plan.png"), os.path.join(S.here, "plan_on_map.jpg"))
     json.dump({"ship": S.sid, "units": "source px", "px_per_m": PX_PER_M, "thickness": T, "door": DOOR, "mirror_x": S.AX,
                "start": S.START, "rooms": {k: mapping(g) for k, g in S.R.items()}, "halls": [mapping(h) for h in S.HALLS],
-               "center_y": S.center_y, "doors": S.DOORS, "proposed_doors": S.PROPOSED_DOORS, "floor": mapping(floor), "walls": mapping(walls)},
+               "center_y": S.center_y, "diag": [mapping(g) for g in DIAG], "doors": S.DOORS, "proposed_doors": S.PROPOSED_DOORS, "floor": mapping(floor), "walls": mapping(walls)},
               open(os.path.join(S.here, "plan.json"), "w"))
     return bad

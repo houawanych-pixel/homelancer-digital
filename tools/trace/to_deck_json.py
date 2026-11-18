@@ -71,6 +71,18 @@ def board_layout(plan, play, src_w, src_h, pre="", y0=0.0, ways=None):
     # the engine's rooms are their boxes: hallways stop short of every room's box (a round room's corners are wall)
     halls = halls.difference(unary_union([sbox(*v[1]).buffer(2 * g, join_style=2) for v in shapes.values()]))
     halls = unary_union([p for p in getattr(halls, "geoms", [halls]) if p.area > 30])
+    # v13.222: angled hallway pieces (planlib.dhall): each is one room, its box its own; the straight hallways are cut
+    # off at that box, so they meet it with a flat joint
+    diag = []
+    for gj in plan.get("diag", []):
+        dg = shape(gj).buffer(-g, join_style=2)
+        if dg.is_empty: continue
+        bx_ = sbox(*shape(gj).bounds)
+        piece = halls.intersection(bx_)
+        piece = max(getattr(piece, "geoms", [piece]), key=lambda q: q.area) if not piece.is_empty else dg
+        diag.append((bx_, piece))
+    if diag: halls = halls.difference(unary_union([b for b, _ in diag]))
+    halls = unary_union([p for p in getattr(halls, "geoms", [halls]) if p.area > 30])
     xs, ys = set(), set()
     for p in getattr(halls, "geoms", [halls]):
         for ring in [p.exterior] + list(p.interiors):
@@ -95,10 +107,21 @@ def board_layout(plan, play, src_w, src_h, pre="", y0=0.0, ways=None):
                 runs.append([xs[i], xs[k + 1], ys[j], ys[j + 1]]); i = k + 1
             else: i += 1
     merged = []
+    diag_keys = []
     for r in runs:
         for m in merged:
             if m[0] == r[0] and m[1] == r[1] and abs(m[3] - r[2]) < 1e-6 and r[2] not in cut_y: m[3] = r[3]; break
         else: merged.append(list(r))
+    for n, (bx_, piece) in enumerate(diag, 1):
+        x0, y0, x1, y1 = bx_.bounds
+        key = pre + "ag%d" % n   # (v13.222: "d" is the door connectors')
+        shapes[key] = [piece, [x0, y0, x1, y1], "corridor"]
+        span = max(x1 - x0, y1 - y0)
+        wid = max(4.0, 2.0 * piece.area / max(1.0, piece.length))   # (the band's width, roughly)
+        rooms[key] = {"r": [W(x0), W(x1), Z(y0), Z(y1)], "y": [DY, DY], "axis": "x" if x1 - x0 >= y1 - y0 else "z", "h": H_HALL,
+                      "label": "CORRIDOR", "guards": 0, "hex": False, "shape": "poly", "flow": True, "diag": True, "kind": "mech",
+                      "grid": int(max(12, min(64, span / (wid / 3.0))))}
+        diag_keys.append(key)
     for n, (x0, x1, y0, y1) in enumerate(merged, 1):
         key = pre + "h%d" % n
         shapes[key] = [sbox(x0, y0, x1, y1), [x0, y0, x1, y1], "corridor"]
@@ -198,7 +221,7 @@ def board_layout(plan, play, src_w, src_h, pre="", y0=0.0, ways=None):
         if (x, y) in locks: lock_list.append({"rooms": [key, door_to], "key": locks[(x, y)]})
     # shaped rooms: their outline in -1..1 of their rect (scripts/boarding.gd 'poly')
     for k, (poly, r, nm) in shapes.items():
-        if rooms[k].get("flow"): continue
+        if rooms[k].get("flow") and not rooms[k].get("diag"): continue
         rect = sbox(*r)
         if poly.area > rect.area * 0.985: continue
         poly = poly.simplify(0.6)

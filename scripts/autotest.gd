@@ -1948,6 +1948,21 @@ func _run() -> void:
 			await _shot("stboard_map")
 			main.open_map()
 			_check("v13.174: you can stand in %s" % str(Boarding.ROOMS[room_k]["label"]), Boarding.room_at(s.player.global_position) == room_k, Boarding.room_at(s.player.global_position))
+		# v13.222: an angled walkway (the station's rings and arms): you can stand in it and walk along it
+		var ag := ""
+		for k in Boarding.ROOMS:
+			if bool(Boarding.ROOMS[k].get("diag", false)) and str(k).begins_with("ag"): ag = k; break
+		if ag != "":
+			var ol: PackedVector2Array = Boarding.outline(ag)
+			var cen := Vector2.ZERO
+			for q in ol: cen += q
+			cen /= maxf(1.0, float(ol.size()))
+			for i in 10:
+				s.player.global_position = Vector3(cen.x, 6, cen.y)
+				await get_tree().process_frame
+			await _wait(0.5)
+			_check("v13.222: you can stand in an angled walkway (%s)" % ag, Boarding.room_at(s.player.global_position) == ag, Boarding.room_at(s.player.global_position))
+			await _shot("stboard_angled")
 		# a service room is the door into its 360 page (v13.174)
 		var mc := ""
 		for k in Boarding.ROOMS: if str(Boarding.ROOMS[k].get("label", "")) == "MISSION CENTER": mc = k

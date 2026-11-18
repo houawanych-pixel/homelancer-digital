@@ -85,6 +85,8 @@ func setup(rooms: Dictionary, doors: Array, plan_tex: Texture2D = null, pm: Dict
 		bm.size = Vector3(sx if flat or str(R.get("axis", "x")) != "x" else sqrt(sx * sx + (y1 - y0) * (y1 - y0)), SLAB,
 			sz if flat or str(R.get("axis", "x")) == "x" else sqrt(sz * sz + (y1 - y0) * (y1 - y0)))
 		mi.mesh = bm
+		if bool(R.get("diag", false)) and R.has("poly"):   # v13.222: an angled hallway: its own shape, not its box
+			mi.mesh = _poly_slab(R["poly"], sx * 0.5, sz * 0.5)
 		mi.position = Vector3((float(r[0]) + float(r[1])) * 0.5, (y0 + y1) * 0.5, (float(r[2]) + float(r[3])) * 0.5)
 		if not flat:
 			if str(R.get("axis", "x")) == "x": mi.rotation.z = slope
@@ -327,3 +329,17 @@ func set_route(from: Vector3, steps: Array) -> void:
 
 func pause() -> void:
 	render_target_update_mode = SubViewport.UPDATE_DISABLED
+
+## v13.222: a flat slab in a room's outline (poly in -1..1 of its box, half sizes hx, hz)
+static func _poly_slab(poly, hx: float, hz: float) -> ArrayMesh:
+	var pts := PackedVector2Array()
+	for q in poly: pts.append(Vector2(float(q.x) * hx, float(q.y) * hz))
+	var tri := Geometry2D.triangulate_polygon(pts)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for yy in [SLAB * 0.5, -SLAB * 0.5]:
+		for i in range(0, tri.size(), 3):
+			for j in ([0, 1, 2] if yy > 0 else [0, 2, 1]):
+				var v: Vector2 = pts[tri[i + j]]
+				st.add_vertex(Vector3(v.x, yy, v.y))
+	return st.commit()

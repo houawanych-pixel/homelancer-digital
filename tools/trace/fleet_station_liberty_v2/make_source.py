@@ -8,7 +8,7 @@ import cv2, numpy as np
 from shapely.geometry import Polygon, mapping
 HERE = os.path.dirname(os.path.abspath(__file__))
 C2 = os.path.join(HERE, "..", "fleet_station_veranthos_customs", "concept2")
-HUB = (553.0, 523.0); K = 3.0; N = 3300; ROT = 45.0
+HUB = (553.0, 523.0); K = 3.0; N = 3300; ROT = 0.0
 src = cv2.imread(os.path.join(C2, "source.png"))
 A = cv2.getRotationMatrix2D(HUB, ROT, K); A[0, 2] += N / 2 - HUB[0]; A[1, 2] += N / 2 - HUB[1]
 art = cv2.warpAffine(src, A, (N, N), flags=cv2.INTER_CUBIC, borderValue=(25, 12, 6))

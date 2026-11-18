@@ -1354,7 +1354,7 @@ static func _poly_walls(root: Node3D, boxes: Array, R: Dictionary, m: Material, 
 		tr.position = Vector3(mid.x, y + h * 0.62, mid.y)
 		tr.rotation.y = mi.rotation.y
 		root.add_child(tr)
-	var G := 12   # the solid part: a grid, each row's blocked run one box
+	var G := int(R.get("grid", 12))   # the solid part: a grid, each row's blocked run one box (v13.222: finer for an angled hallway)
 	for gz in G:
 		var run := -1
 		for gx in G + 1:
