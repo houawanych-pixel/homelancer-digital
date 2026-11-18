@@ -402,5 +402,55 @@
   "Weapons": 0,
   "Medical Bay": 0,
   "Command": 0
+ },
+ "elevators": [
+  {
+   "decks": [
+    "lower2",
+    "main"
+   ],
+   "at": [
+    1698,
+    1367
+   ],
+   "label": "LIFT"
+  },
+  {
+   "decks": [
+    "lower2",
+    "main"
+   ],
+   "at": [
+    1698,
+    2011
+   ],
+   "label": "LIFT"
+  },
+  {
+   "decks": [
+    "lower2",
+    "main"
+   ],
+   "at": [
+    1933,
+    1602
+   ],
+   "label": "LIFT"
+  },
+  {
+   "decks": [
+    "lower2",
+    "main"
+   ],
+   "at": [
+    1367,
+    1602
+   ],
+   "label": "LIFT"
+  }
+ ],
+ "deck_names": {
+  "main": "MAIN HUB DECK",
+  "lower2": "HANGAR DECK"
  }
 }

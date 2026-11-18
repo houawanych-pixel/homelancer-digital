@@ -1984,6 +1984,32 @@ func _run() -> void:
 			main.back_to_deck()
 			await _wait(0.6)
 			_check("v13.174: BACK TO DECK: you are in the station again", not main.deck_overlay and main.space.boarding and main.state == "flight", main.state)
+		# v13.223: down a lift to the hangar deck (the station's decks built one at a time)
+		if Boarding.ROOMS.has("r_lift__north") and Boarding.ROOMS.has("l2_r_lift__north"):
+			var lr2: Array = Boarding.ROOMS["r_lift__north"]["r"]
+			var lc2 := Vector3((float(lr2[0]) + float(lr2[1])) * 0.5, 6, (float(lr2[2]) + float(lr2[3])) * 0.5)
+			if s.fleet_mech(): s.eject()
+			for i in 30:
+				s.player.global_position = lc2
+				await get_tree().process_frame
+			await _wait(1.5)
+			s.lift_go(-1)   # (a two-stop lift goes by itself when you stand on it)
+			await _until(func(): return Boarding.deck_name(Boarding.deck_y(s.player.global_position)) == "HANGAR DECK", 15.0)
+			await _wait(1.0)
+			_check("v13.223: DOWN the north lift: the HANGAR deck", Boarding.deck_name(Boarding.deck_y(s.player.global_position)) == "HANGAR DECK", Boarding.deck_name(Boarding.deck_y(s.player.global_position)))
+			await _shot("stboard_hangar_arrive")
+			main.open_map()
+			await _wait(0.8)
+			await _shot("stboard_hangar_map")
+			main.open_map()
+			var lb: Array = Boarding.ROOMS.get("l2_r_launch_bay_a", {}).get("r", [])
+			if not lb.is_empty():
+				for i in 10:
+					s.player.global_position = Vector3((float(lb[0]) + float(lb[1])) * 0.5, -334, (float(lb[2]) + float(lb[3])) * 0.5)
+					await get_tree().process_frame
+				await _wait(0.6)
+				_check("v13.223: you can stand in LAUNCH BAY A on the hangar deck", Boarding.room_at(s.player.global_position) == "l2_r_launch_bay_a", Boarding.room_at(s.player.global_position))
+				await _shot("stboard_launch_bay")
 		# v13.175: the five decks and the main lift
 		_check("v13.175: Liberty Hub has five decks", Boarding.deck_names().size() == 5, str(Boarding.deck_names()))
 		if Boarding.ROOMS.has("lift_main"):
