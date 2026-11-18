@@ -52,6 +52,16 @@ def snap45(poly, eps):
     return out if out.area > 0.6 * poly.area else p
 
 
+def mirror_poly(p, ax):
+    """exactly symmetric: the left half and its mirror"""
+    from shapely.geometry import box
+    from shapely import affinity
+    left = p.intersection(box(-1e4, -1e4, ax, 1e4))
+    whole = left.union(affinity.scale(left, -1, 1, origin=(ax, 0))).buffer(0.5, join_style=2).buffer(-0.5, join_style=2)
+    if isinstance(whole, MultiPolygon): whole = max(whole.geoms, key=lambda g: g.area)
+    return whole
+
+
 def build(model):
     S = json.load(open(os.path.join(SP.OUT, "stations.json")))
     st = next(s for s in S if s["model"] == model)
@@ -67,11 +77,23 @@ def build(model):
     lo_i, hi_i = int(body.min()), int(body.max())
     idx = [int(round(lo_i + (hi_i - lo_i) * k / 4)) for k in range(5)]
     floors = []
+    # v13.194 (owner: "center it, then mirror it, fix the choppiness"): the station's middle line is the centre of its
+    # MAIN HUB slice (not the picture's middle); every floor is shifted onto it, mirrored, smoothed, then straightened
+    hub = SP.clean(masks[idx[2]])
+    ys, xs = np.nonzero(hub)
+    cx = float((xs.min() + xs.max()) / 2.0); cy = float((ys.min() + ys.max()) / 2.0)
+    shift = np.float32([[1, 0, ax - cx], [0, 1, N / 2.0 - cy]])
     for k, i in enumerate(idx):
-        m = mirror_mask(SP.clean(masks[i]), ax)
-        m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (21, 21)))
+        m0 = cv2.warpAffine(SP.clean(masks[i]), shift, (N, N), flags=cv2.INTER_NEAREST)
+        m = mirror_mask(m0, ax)
+        m = cv2.GaussianBlur(m, (0, 0), 3.5)
+        m = np.where(m > 110, 255, 0).astype(np.uint8)
+        m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (31, 31)))
+        m = cv2.morphologyEx(m, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (11, 11)))
+        m = mirror_mask(m, ax)
         poly = SP.outline(m)
-        clean = snap45(poly, 6.0)
+        clean = snap45(poly, 7.0)
+        clean = snap45(mirror_poly(clean, ax), 4.0)
         floors.append({"name": NAMES[k], "slice": i, "row": hrow(i), "outline": mapping(clean), "area_px": round(clean.area)})
     out = os.path.join(SP.OUT, model)
     os.makedirs(out, exist_ok=True)
@@ -97,7 +119,7 @@ def build(model):
     from shapely.geometry import shape
     for k, f in enumerate(floors):
         t = np.zeros((N, N, 3), np.uint8); t[:] = (40, 18, 6)
-        raw = SP.outline(SP.clean(masks[f["slice"]]))
+        raw = SP.outline(cv2.warpAffine(SP.clean(masks[f["slice"]]), shift, (N, N), flags=cv2.INTER_NEAREST))
         if raw is not None: cv2.polylines(t, [np.round(np.array(raw.exterior.coords)).astype(np.int32)], True, (90, 70, 60), 1, cv2.LINE_AA)
         g = shape(f["outline"])
         cv2.fillPoly(t, [np.round(np.array(g.exterior.coords)).astype(np.int32)], (110, 70, 30))
