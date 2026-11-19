@@ -64,13 +64,27 @@ def ways(sid):
     walls = unary_union(rings).difference(unary_union([dbox(d) for d in doors]))
     walk = planlib.raster(floor, (H, W)).astype(bool) & ~planlib.raster(walls, (H, W)).astype(bool)
     hallm = planlib.raster(halls, (H, W)).astype(bool)
-    roomm = {k: planlib.raster(g, (H, W)).astype(bool) for k, g in R.items()}
+    # v13.231: each room's mask kept as its own bounding crop (a full-size mask per room ran out of memory on the big
+    # stations: 300 rooms x 11 MB); the same pixels as before
+    def crop_mask(g):
+        x0, y0, x1, y1 = [int(v) for v in g.bounds]; x0, y0 = max(0, x0 - 2), max(0, y0 - 2); x1, y1 = min(W, x1 + 3), min(H, y1 + 3)
+        m = np.zeros((y1 - y0, x1 - x0), np.uint8)
+        for p_ in getattr(g, "geoms", [g]):
+            m1 = np.zeros_like(m)
+            cv2.fillPoly(m1, [np.array(p_.exterior.coords, np.int32) - (x0, y0)], 1)
+            for r_ in p_.interiors: cv2.fillPoly(m1, [np.array(r_.coords, np.int32) - (x0, y0)], 0)
+            m |= m1
+        return (y0, x0, m.astype(bool))
+    roomc = {k: crop_mask(g) for k, g in R.items()}
+    def orm(dst, c):
+        y0, x0, m = c; dst[y0:y0 + m.shape[0], x0:x0 + m.shape[1]] |= m
     mechm = np.zeros((H, W), bool)
-    for k, m in roomm.items():
-        if K[k] in ("mech", "lift"): mechm |= m
+    for k, c in roomc.items():
+        if K[k] in ("mech", "lift"): orm(mechm, c)
     # the mech may move through halls, mech rooms and the doorways between them
     s = 4   # (a 4 px grid is fine for routes)
-    anyroom = np.logical_or.reduce([m for m in roomm.values()])
+    anyroom = np.zeros((H, W), bool)
+    for c in roomc.values(): orm(anyroom, c)
     def grid():
         al = walk & (hallm | mechm | ~anyroom)
         return cv2.resize(al.astype(np.uint8), (W // s, H // s), interpolation=cv2.INTER_NEAREST).astype(bool)
@@ -91,12 +105,12 @@ def ways(sid):
         if lab_[int(p_.y) // s, int(p_.x) // s] != main or main == 0: K[k] = "pilot"; cut.append(k)
     if cut:
         mechm = np.zeros((H, W), bool)
-        for k, m in roomm.items():
-            if K[k] in ("mech", "lift"): mechm |= m
+        for k, c in roomc.items():
+            if K[k] in ("mech", "lift"): orm(mechm, c)
         A = grid()
     K_base = dict(K)
     if entry in K and K[entry] != "mech":
-        K[entry] = "mech"; mechm |= roomm[entry]; A = grid()
+        K[entry] = "mech"; orm(mechm, roomc[entry]); A = grid()
     st = R[entry].representative_point(); start = (int(st.y) // s, int(st.x) // s)
     par = {start: None}; q = deque([start])
     while q:
@@ -139,8 +153,8 @@ def ways(sid):
     pic = im.copy()
     over = pic.copy()
     mech_area = mech_hall.copy(); pilot_area = pilot_hall.copy(); lift_area = np.zeros((H, W), bool)
-    for k, m in roomm.items():
-        {"mech": mech_area, "pilot": pilot_area, "lift": lift_area}[K[k]][m] = True
+    for k, c in roomc.items():
+        orm({"mech": mech_area, "pilot": pilot_area, "lift": lift_area}[K[k]], c)
     over[mech_area] = RED; over[pilot_area] = BLUE; over[lift_area] = YELLOW
     pic = cv2.addWeighted(over, 0.5, pic, 0.5, 0)   # (the art's own room names show through)
     pic[planlib.raster(walls, (H, W)) > 0] = (255, 255, 255)

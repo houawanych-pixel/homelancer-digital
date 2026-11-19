@@ -706,7 +706,7 @@ def build_deck(HULL0, role, sid, name, here, src):
                     seed = int(hashlib.md5(("%s%d%d%d" % (sid, si, side, k)).encode()).hexdigest(), 16) % 9973
                     nm = place(bx, door, depth >= 88, seed)
                     if not bx.equals(mb) and not blocked(mb):
-                        nm2 = place(mb, (2 * C - door[0], door[1], door[2]), depth >= 88, seed, affinity.scale(R[nm], -1, 1, origin=(C, C)))
+                        nm2 = place(mb, (2 * C - door[0], door[1], door[2]), depth >= 88, (seed * 31 + 7) % 9973)   # (its own shape)
                         TWIN[nm], TWIN[nm2] = nm2, nm
                     u += length + 8; k += 1; done = True; break
                 if not done: u += 10
@@ -732,42 +732,64 @@ def build_deck(HULL0, role, sid, name, here, src):
         R[nm] = Polygon(g.exterior)
     def rnd(*k):
         return int(hashlib.md5(("%s|" % sid + "|".join(str(x) for x in k)).encode()).hexdigest(), 16)
-    queue = [(k, 0) for k in list(KIND) if k in TWIN and BXS[k].centroid.x > C + 2]
+    # (owner, Nov 19: "it doesn't need to be mirrored ... rooms uniquely different on both sides"): every room on
+    # either side gets its own back rooms, up to two off a walkway room and three deep, each the biggest clean box
+    # that fits there
+    queue = [(k, 0) for k in sorted(KIND, key=lambda k_: rnd(k_, "order"))]
     n_back = 0
     while queue:
         nm, lvl = queue.pop(0)
-        if rnd(nm, "go") % 100 >= (78 if lvl == 0 else 40): continue
+        if rnd(nm, "go") % 100 >= (92, 70, 45, 25)[lvl]: continue
+        want = 2 if lvl == 0 and rnd(nm, "two") % 100 < 55 else 1
         x0, y0, x1, y1 = BXS[nm].bounds; dr = DOOR_AT[nm]
         dside = ("N" if abs(dr[1] - y0) < 1 else "S") if dr[2] == "h" else ("W" if abs(dr[0] - x0) < 1 else "E")
-        sides = [q for q in "NSEW" if q != dside]
-        sides = sorted(sides, key=lambda q: rnd(nm, q) % 97)
+        sides = sorted([q for q in "NSEW" if q != dside], key=lambda q: rnd(nm, q) % 97)
         mechp = KIND[nm] == "mech"
-        made = None
         for sd in sides:
-            for depth in ([88, 62, 50] if mechp else [62, 50]):
-                L = (x1 - x0) if sd in "NS" else (y1 - y0)
-                for shrink in (0.0, 0.2):
+            if want <= 0: break
+            made = None
+            L = (x1 - x0) if sd in "NS" else (y1 - y0)
+            for depth in ([88, 70, 62, 50] if mechp else [62, 50, 44]):
+                for shrink, shift in ((0.0, 0), (0.2, 0), (0.2, -1), (0.2, 1), (0.4, 0), (0.4, -1), (0.4, 1)):
                     a_, b_ = ((x0, x1) if sd in "NS" else (y0, y1))
-                    a_, b_ = a_ + L * shrink / 2, b_ - L * shrink / 2
+                    a_, b_ = a_ + L * shrink / 2 + shift * L * shrink / 2, b_ - L * shrink / 2 + shift * L * shrink / 2
                     if b_ - a_ < DOOR + 24: continue
                     nb = {"N": box(a_, y0 - depth, b_, y0), "S": box(a_, y1, b_, y1 + depth), "W": box(x0 - depth, a_, x0, b_), "E": box(x1, a_, x1 + depth, b_)}[sd]
-                    if nb.bounds[0] < C + 2: continue
-                    tw = TWIN[nm]; mb = mbox(nb)
-                    if not clear_of(nb, {OCC_I[nm]}) or not clear_of(mb, {OCC_I[tw]}) or mb.intersects(nb.buffer(2)): continue
+                    if not clear_of(nb, {OCC_I[nm]}): continue
                     door = ((a_ + b_) / 2, y0 if sd == "N" else y1, "h") if sd in "NS" else (x0 if sd == "W" else x1, (a_ + b_) / 2, "v")
-                    made = (nb, mb, door, depth); break
+                    made = (nb, door, depth); break
                 if made: break
-            if made: break
-        if not made: continue
-        nb, mb, door, depth = made
-        seed = rnd(nm, "shape") % 9973
-        mech = mechp and depth >= 88
-        k1 = place(nb, door, mech, seed)
-        k2 = place(mb, (2 * C - door[0], door[1], door[2]), mech, seed, affinity.scale(R[k1], -1, 1, origin=(C, C)))
-        TWIN[k1], TWIN[k2] = k2, k1
-        strip_in(nm, door); R[TWIN[nm]] = affinity.scale(R[nm], -1, 1, origin=(C, C))
-        n_back += 1
-        if lvl < 2: queue.append((k1, lvl + 1))
+            if not made: continue
+            nb, door, depth = made
+            k1 = place(nb, door, mechp and depth >= 70, rnd(nm, sd, "shape") % 9973)
+            strip_in(nm, door)
+            n_back += 1; want -= 1
+            if lvl < 3: queue.append((k1, lvl + 1))
+    # ---- more doors: rooms that sit wall to wall get a door between them now and then (loops, other ways round)
+    n_link = 0
+    ks = list(KIND)
+    for i1, ka in enumerate(ks):
+        for kb in ks[i1 + 1:]:
+            A, B = BXS[ka].bounds, BXS[kb].bounds
+            door = None
+            for (e1, e2, hz) in ((A[3], B[1], True), (A[1], B[3], True), (A[2], B[0], False), (A[0], B[2], False)):
+                gap = abs(e2 - e1)
+                if gap > 14 or (gap > 0.5 and ((e2 < e1) if (e1 in (A[3], A[2])) else (e2 > e1))): continue
+                lo, hi = (max(A[0], B[0]), min(A[2], B[2])) if hz else (max(A[1], B[1]), min(A[3], B[3]))
+                if hi - lo >= DOOR + 28: door = ((lo + hi) / 2, e2, "h") if hz else (e2, (lo + hi) / 2, "v"); span = (e1, e2, hz); break
+            if not door or rnd(ka, kb, "door") % 100 >= 50: continue
+            if any(abs(d[0] - door[0]) < DOOR + 8 and abs(d[1] - door[1]) < DOOR + 8 for d in DOORS): continue
+            e1, e2, hz = span
+            if abs(e2 - e1) > 0.5:   # (a short doorway across the gap between them: room A reaches over to B's wall)
+                dw = DOOR + 12
+                con = box(door[0] - dw / 2, min(e1, e2), door[0] + dw / 2, max(e1, e2)) if hz else box(min(e1, e2), door[1] - dw / 2, max(e1, e2), door[1] + dw / 2)
+                nbx = box(*unary_union([BXS[ka], con]).bounds)
+                if not clear_of(nbx, {OCC_I[ka], OCC_I[kb]}): continue
+                R[ka] = Polygon(unary_union([R[ka], con.buffer(0.01)]).buffer(0).exterior) if unary_union([R[ka], con]).geom_type == "Polygon" else R[ka]
+                BXS[ka] = nbx; occ[OCC_I[ka]] = nbx.buffer(4)
+            strip_in(ka, door); strip_in(kb, door)
+            if R[ka].distance(Point(door[0], door[1])) > 1.5 or R[kb].distance(Point(door[0], door[1])) > 1.5: continue
+            DOORS.append((round(door[0], 1), round(door[1], 1), door[2])); n_link += 1
     # ---- the main deck's 360 service rooms: the rooms nearest the hub, by kind
     if role == "MAIN HUB":
         near = lambda k: R[k].centroid.distance(Point(C, C))
@@ -784,7 +806,7 @@ def build_deck(HULL0, role, sid, name, here, src):
         else: kinds[k] = "pilot"
     START = (C, C + A_A)
     S = Ship(sid, here, src, C, R, HALLS, DOORS, start=START, center_y=C)
-    info = {"rings": [[round(a), round(b)] for a, b in RINGS], "pads": PADS, "rooms": len(R), "kit_shapes": len(used), "back": n_back,
+    info = {"rings": [[round(a), round(b)] for a, b in RINGS], "pads": PADS, "rooms": len(R), "kit_shapes": len(used), "back": n_back, "links": n_link,
             "diag": len(planlib.DIAG)}
     return S, kinds, hubname, info
 
@@ -849,8 +871,8 @@ def main():
             P["kinds"] = kinds
             json.dump(P, open(os.path.join(eng, "deck_%s.json" % dname), "w"))
         shutil.rmtree(tmp, ignore_errors=True)
-        print("%-7s %-12s rings %s pads %d rooms %d (back rooms %d pairs, kit shapes %d) angled pieces %d unreachable %s" % (
-            dname, role, info["rings"], len(info["pads"]), info["rooms"], info["back"], info["kit_shapes"], info["diag"], bad))
+        print("%-7s %-12s rings %s pads %d rooms %d (back rooms %d, room-room doors %d, kit shapes %d) angled pieces %d unreachable %s" % (
+            dname, role, info["rings"], len(info["pads"]), info["rooms"], info["back"], info["links"], info["kit_shapes"], info["diag"], bad))
     sys.exit(1 if any(bad_all.values()) else 0)
 
 if __name__ == "__main__":
