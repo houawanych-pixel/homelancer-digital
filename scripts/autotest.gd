@@ -1993,6 +1993,17 @@ func _run() -> void:
 				s.player.global_position = lc2
 				await get_tree().process_frame
 			await _wait(1.5)
+			if Boarding.ROOMS.has("l_r_lift__north"):   # v13.224: the engineering deck first
+				s.lift_go(-1)
+				await _until(func(): return Boarding.deck_name(Boarding.deck_y(s.player.global_position)) == "ENGINEERING DECK" and not bool(s._elev[0]["ride"]), 15.0)
+				await _wait(1.0)
+				_check("v13.224: DOWN the north lift: the ENGINEERING deck", Boarding.deck_name(Boarding.deck_y(s.player.global_position)) == "ENGINEERING DECK", Boarding.deck_name(Boarding.deck_y(s.player.global_position)))
+				await _shot("stboard_engineering_arrive")
+				main.open_map()
+				await _wait(0.8)
+				await _shot("stboard_engineering_map")
+				main.open_map()
+				await _wait(0.5)
 			s.lift_go(-1)   # (a two-stop lift goes by itself when you stand on it)
 			await _until(func(): return Boarding.deck_name(Boarding.deck_y(s.player.global_position)) == "HANGAR DECK", 15.0)
 			await _wait(1.0)
