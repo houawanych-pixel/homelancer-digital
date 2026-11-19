@@ -408,7 +408,8 @@
    "decks": [
     "lower2",
     "lower",
-    "main"
+    "main",
+    "upper"
    ],
    "at": [
     1698,
@@ -420,7 +421,8 @@
    "decks": [
     "lower2",
     "lower",
-    "main"
+    "main",
+    "upper"
    ],
    "at": [
     1698,
@@ -432,7 +434,8 @@
    "decks": [
     "lower2",
     "lower",
-    "main"
+    "main",
+    "upper"
    ],
    "at": [
     1933,
@@ -444,7 +447,8 @@
    "decks": [
     "lower2",
     "lower",
-    "main"
+    "main",
+    "upper"
    ],
    "at": [
     1367,
@@ -456,6 +460,7 @@
  "deck_names": {
   "main": "MAIN HUB DECK",
   "lower": "ENGINEERING DECK",
-  "lower2": "HANGAR DECK"
+  "lower2": "HANGAR DECK",
+  "upper": "HABITAT DECK"
  }
 }

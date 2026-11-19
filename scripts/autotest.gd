@@ -1993,6 +1993,34 @@ func _run() -> void:
 				s.player.global_position = lc2
 				await get_tree().process_frame
 			await _wait(1.5)
+			if Boarding.ROOMS.has("u_r_lift__north"):   # v13.225: UP to the habitat deck, and back
+				var cs0: Array = s.board["fleet"]["cards"]
+				for i in cs0.size(): cs0[i] = true   # (the upper decks' lifts need the yellow card, as on the ships)
+				s.lift_go(1)
+				await _until(func(): return Boarding.deck_name(Boarding.deck_y(s.player.global_position)) == "HABITAT DECK" and not bool(s._elev[0]["ride"]), 15.0)
+				await _wait(1.0)
+				_check("v13.225: UP the north lift: the HABITAT deck", Boarding.deck_name(Boarding.deck_y(s.player.global_position)) == "HABITAT DECK", Boarding.deck_name(Boarding.deck_y(s.player.global_position)))
+				main.open_map()
+				await _wait(0.8)
+				await _shot("stboard_habitat_map")
+				main.open_map()
+				await _wait(0.4)
+				var cq: Array = Boarding.ROOMS.get("u_r_crew_quarters_a", {}).get("r", [])
+				if not cq.is_empty():
+					var back := s.player.global_position
+					for i in 10:
+						s.player.global_position = Vector3((float(cq[0]) + float(cq[1])) * 0.5, 176, (float(cq[2]) + float(cq[3])) * 0.5)
+						await get_tree().process_frame
+					await _wait(0.6)
+					_check("v13.225: you can stand in CREW QUARTERS A at the end of the north wing", Boarding.room_at(s.player.global_position) == "u_r_crew_quarters_a", Boarding.room_at(s.player.global_position))
+					await _shot("stboard_crew_quarters")
+					for i in 20:
+						s.player.global_position = back
+						await get_tree().process_frame
+					await _wait(1.0)
+				s.lift_go(-1)
+				await _until(func(): return Boarding.deck_name(Boarding.deck_y(s.player.global_position)) == "MAIN HUB DECK" and not bool(s._elev[0]["ride"]), 15.0)
+				await _wait(1.0)
 			if Boarding.ROOMS.has("l_r_lift__north"):   # v13.224: the engineering deck first
 				s.lift_go(-1)
 				await _until(func(): return Boarding.deck_name(Boarding.deck_y(s.player.global_position)) == "ENGINEERING DECK" and not bool(s._elev[0]["ride"]), 15.0)
