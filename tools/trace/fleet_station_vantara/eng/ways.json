@@ -1,0 +1,5025 @@
+{
+ "ship": "station_vantara",
+ "rooms": {
+  "Main Hub (Resistance Headquarters)": "mech",
+  "Dock Pad N": "mech",
+  "Dock Pad S": "mech",
+  "Dock Pad E": "mech",
+  "Dock Pad W": "mech",
+  "Dock Pad 9": "mech",
+  "Dock Pad 171": "mech",
+  "Dock Pad 17": "mech",
+  "Dock Pad 163": "mech",
+  "Dock Pad 316": "mech",
+  "Dock Pad 224": "mech",
+  "Dock Pad 288": "mech",
+  "Dock Pad 252": "mech",
+  "Dock Pad 28": "mech",
+  "Dock Pad 152": "mech",
+  "Lift (north)": "lift",
+  "Lift (south)": "lift",
+  "Lift (East)": "lift",
+  "Lift (West)": "lift",
+  "Concourse North Cabin 1": "pilot",
+  "Concourse North Clinic 1": "pilot",
+  "Concourse North Loading Bay 1": "mech",
+  "Concourse North Machine Shop 1": "mech",
+  "Concourse North Cargo Bay 1": "mech",
+  "Concourse North Armoury 1": "mech",
+  "Concourse North Armoury 2": "mech",
+  "Concourse North Bay 1": "mech",
+  "Concourse North Cargo Bay 2": "mech",
+  "Concourse North Machine Shop 2": "mech",
+  "Concourse North Loading Bay 2": "mech",
+  "Concourse North Plant 1": "mech",
+  "Concourse North Bay 2": "mech",
+  "Concourse North Loading Bay 3": "mech",
+  "Concourse North Plant 2": "mech",
+  "Concourse North Bay 3": "mech",
+  "Concourse South Control 1": "pilot",
+  "Concourse South Store 1": "pilot",
+  "Concourse South Plant 1": "mech",
+  "Concourse South Bay 1": "mech",
+  "Concourse South Plant 2": "mech",
+  "Concourse South Bay 2": "mech",
+  "Concourse South Machine Shop 1": "mech",
+  "Concourse South Armoury 1": "mech",
+  "Concourse South Loading Bay 1": "mech",
+  "Concourse South Machine Shop 2": "mech",
+  "Concourse South Loading Bay 2": "mech",
+  "Concourse South Loading Bay 3": "mech",
+  "Concourse South Cabin 1": "pilot",
+  "Concourse South Lounge 1": "pilot",
+  "Concourse East Lounge 1": "pilot",
+  "Concourse West Quarters 1": "pilot",
+  "Concourse East Quarters 1": "pilot",
+  "Concourse West Clinic 1": "pilot",
+  "Concourse East Store 2": "pilot",
+  "Concourse West Office 1": "pilot",
+  "Concourse East Canteen 1": "pilot",
+  "Concourse West Clinic 2": "pilot",
+  "Concourse East Cabin 1": "pilot",
+  "Concourse West Cabin 1": "pilot",
+  "Concourse East Cabin 2": "pilot",
+  "Concourse West Store 2": "pilot",
+  "Concourse East Store 3": "pilot",
+  "Concourse West Control 1": "pilot",
+  "Concourse East Lounge 2": "pilot",
+  "Concourse West Control 2": "pilot",
+  "Concourse East Control 1": "pilot",
+  "Concourse West Cabin 2": "pilot",
+  "Concourse East Canteen 2": "pilot",
+  "Concourse West Canteen 1": "pilot",
+  "Concourse East Canteen 3": "pilot",
+  "Concourse West Office 2": "pilot",
+  "Concourse East Lobby 1": "pilot",
+  "Concourse West Cabin 3": "pilot",
+  "Concourse East Quarters 3": "pilot",
+  "Concourse West Canteen 2": "pilot",
+  "Concourse East Canteen 4": "pilot",
+  "Concourse West Lobby 1": "pilot",
+  "Concourse East Control 2": "pilot",
+  "Concourse West Quarters 2": "pilot",
+  "Concourse East Bay 1": "mech",
+  "Concourse West Machine Shop 1": "mech",
+  "Concourse East Bay 2": "mech",
+  "Concourse West Plant 1": "mech",
+  "Concourse East Office 1": "pilot",
+  "Concourse West Clinic 3": "pilot",
+  "Concourse East Bay 3": "mech",
+  "Concourse West Cargo Bay 1": "mech",
+  "Concourse East Loading Bay 1": "mech",
+  "Concourse West Armoury 1": "mech",
+  "Concourse East Cabin 3": "pilot",
+  "Concourse West Clinic 4": "pilot",
+  "Concourse North Cargo Bay 3": "mech",
+  "Concourse North Cargo Bay 4": "mech",
+  "Concourse North Plant 3": "mech",
+  "Concourse North Bay 4": "mech",
+  "Concourse North Bay 5": "mech",
+  "Concourse North Cargo Bay 5": "mech",
+  "Concourse East Cabin 4": "pilot",
+  "Concourse West Office 3": "pilot",
+  "Concourse East Office 2": "pilot",
+  "Concourse West Quarters 3": "pilot",
+  "Concourse East Canteen 5": "pilot",
+  "Concourse West Control 3": "pilot",
+  "Concourse North Machine Shop 3": "mech",
+  "Concourse North Armoury 3": "mech",
+  "Concourse North Cargo Bay 6": "mech",
+  "Concourse North Plant 4": "mech",
+  "Concourse East Machine Shop 1": "mech",
+  "Concourse West Plant 2": "mech",
+  "Concourse East Bay 4": "mech",
+  "Concourse West Bay 1": "mech",
+  "Concourse East Plant 1": "mech",
+  "Concourse West Plant 3": "mech",
+  "Concourse East Lounge 3": "pilot",
+  "Concourse West Canteen 3": "pilot",
+  "Concourse South Cargo Bay 1": "mech",
+  "Concourse South Bay 3": "mech",
+  "Concourse South Bay 4": "mech",
+  "Concourse South Plant 3": "mech",
+  "Concourse East Armoury 1": "mech",
+  "Concourse West Cargo Bay 2": "mech",
+  "Concourse East Plant 2": "mech",
+  "Concourse West Loading Bay 1": "mech",
+  "Concourse East Plant 3": "mech",
+  "Concourse West Machine Shop 2": "mech",
+  "Concourse East Lobby 2": "pilot",
+  "Concourse West Control 4": "pilot",
+  "Concourse South Office 1": "pilot",
+  "Concourse South Control 2": "pilot",
+  "Concourse South Bay 5": "mech",
+  "Concourse South Bay 6": "mech",
+  "Concourse South Cargo Bay 2": "mech",
+  "Concourse South Machine Shop 3": "mech",
+  "Concourse East Cargo Bay 1": "mech",
+  "Concourse West Loading Bay 2": "mech",
+  "Concourse East Cargo Bay 2": "mech",
+  "Concourse West Cargo Bay 3": "mech",
+  "Concourse East Cabin 5": "pilot",
+  "Concourse West Cabin 4": "pilot",
+  "Concourse East Office 3": "pilot",
+  "Concourse West Control 5": "pilot",
+  "Concourse East Control 3": "pilot",
+  "Concourse West Lobby 2": "pilot",
+  "Concourse East Cabin 6": "pilot",
+  "Concourse West Lobby 3": "pilot",
+  "Concourse East Control 4": "pilot",
+  "Concourse West Office 4": "pilot",
+  "Concourse East Machine Shop 2": "mech",
+  "Concourse West Bay 2": "mech",
+  "Concourse East Loading Bay 2": "mech",
+  "Concourse West Machine Shop 3": "mech",
+  "Concourse East Machine Shop 3": "mech",
+  "Concourse West Loading Bay 3": "mech",
+  "Concourse East Loading Bay 3": "mech",
+  "Concourse West Armoury 2": "mech",
+  "Concourse East Cabin 7": "pilot",
+  "Concourse West Clinic 5": "pilot",
+  "Concourse East Bay 5": "mech",
+  "Concourse West Cargo Bay 4": "mech",
+  "Concourse East Armoury 2": "mech",
+  "Concourse West Bay 3": "mech",
+  "Concourse East Plant 4": "mech",
+  "Concourse West Bay 4": "mech",
+  "Concourse East Clinic 1": "pilot",
+  "Concourse West Store 3": "pilot",
+  "Concourse East Canteen 6": "pilot",
+  "Concourse West Lobby 4": "pilot",
+  "Concourse South Loading Bay 4": "mech",
+  "Concourse South Bay 7": "mech",
+  "Concourse South Cabin 2": "pilot",
+  "Concourse South Lounge 2": "pilot",
+  "Concourse South Armoury 2": "mech",
+  "Concourse South Loading Bay 5": "mech",
+  "Concourse East Loading Bay 4": "mech",
+  "Concourse West Plant 4": "mech",
+  "Concourse East Plant 5": "mech",
+  "Concourse West Bay 5": "mech",
+  "Concourse East Store 4": "pilot",
+  "Concourse West Clinic 6": "pilot",
+  "Concourse East Machine Shop 4": "mech",
+  "Concourse West Plant 5": "mech",
+  "Concourse East Clinic 2": "pilot",
+  "Concourse West Quarters 4": "pilot",
+  "Concourse East Loading Bay 6": "mech",
+  "Concourse West Plant 7": "mech",
+  "Concourse East Plant 6": "mech",
+  "Concourse West Bay 6": "mech",
+  "Concourse East Cargo Bay 3": "mech",
+  "Concourse West Bay 7": "mech",
+  "Concourse East Loading Bay 7": "mech",
+  "Concourse West Cargo Bay 5": "mech",
+  "Concourse East Quarters 4": "pilot",
+  "Concourse West Lobby 5": "pilot",
+  "Concourse East Machine Shop 5": "mech",
+  "Concourse West Machine Shop 4": "mech",
+  "Concourse East Cargo Bay 5": "mech",
+  "Concourse West Cargo Bay 6": "mech",
+  "Concourse East Loading Bay 8": "mech",
+  "Concourse West Bay 8": "mech",
+  "Concourse East Loading Bay 9": "mech",
+  "Concourse West Machine Shop 5": "mech",
+  "Concourse East Clinic 3": "pilot",
+  "Concourse West Control 6": "pilot",
+  "Concourse East Store 5": "pilot",
+  "Concourse East Office 4": "pilot",
+  "Concourse North Quarters 1": "pilot",
+  "Concourse East Cabin 8": "pilot",
+  "Concourse East Quarters 5": "pilot",
+  "Concourse North Armoury 4": "mech",
+  "Concourse East Control 5": "pilot",
+  "Concourse East Armoury 3": "mech",
+  "Concourse South Loading Bay 6": "mech",
+  "Concourse South Machine Shop 4": "mech",
+  "Concourse South Loading Bay 7": "mech",
+  "Concourse West Machine Shop 6": "mech",
+  "Concourse West Quarters 5": "pilot",
+  "Concourse East Machine Shop 6": "mech",
+  "Concourse East Store 6": "pilot",
+  "Concourse South Armoury 3": "mech",
+  "Concourse West Clinic 7": "pilot",
+  "Concourse East Control 6": "pilot",
+  "Concourse East Lobby 3": "pilot",
+  "Concourse West Control 7": "pilot",
+  "Concourse East Store 7": "pilot",
+  "Concourse South Cargo Bay 3": "mech",
+  "Concourse West Office 5": "pilot",
+  "Concourse East Quarters 6": "pilot",
+  "Concourse East Office 5": "pilot",
+  "Concourse East Cabin 9": "pilot",
+  "Concourse East Cabin 10": "pilot",
+  "Concourse East Control 7": "pilot",
+  "Concourse South Machine Shop 5": "mech",
+  "Concourse West Office 6": "pilot",
+  "Concourse West Quarters 6": "pilot",
+  "Concourse North Cargo Bay 7": "mech",
+  "Concourse West Quarters 7": "pilot",
+  "Concourse West Store 4": "pilot",
+  "Concourse West Cabin 5": "pilot",
+  "Concourse West Control 8": "pilot",
+  "Concourse East Office 6": "pilot",
+  "Concourse East Cabin 11": "pilot",
+  "Concourse East Office 7": "pilot",
+  "Concourse East Control 8": "pilot",
+  "Concourse East Canteen 7": "pilot",
+  "Concourse West Machine Shop 7": "mech",
+  "Concourse West Office 7": "pilot",
+  "Concourse West Office 8": "pilot",
+  "Concourse West Loading Bay 4": "mech",
+  "Concourse East Control 9": "pilot",
+  "Concourse South Plant 4": "mech",
+  "Concourse North Bay 6": "mech",
+  "Concourse West Office 9": "pilot",
+  "Concourse West Plant 8": "mech",
+  "Concourse West Control 9": "pilot",
+  "Concourse West Cabin 6": "pilot",
+  "Concourse North Office 1": "pilot",
+  "Concourse South Machine Shop 6": "mech",
+  "Concourse West Clinic 8": "pilot",
+  "Concourse North Plant 5": "mech",
+  "Concourse East Office 8": "pilot",
+  "Concourse West Store 5": "pilot",
+  "Concourse South Loading Bay 8": "mech",
+  "Concourse North Armoury 5": "mech",
+  "Concourse North Canteen 1": "pilot",
+  "Concourse South Loading Bay 9": "mech",
+  "Concourse East Canteen 8": "pilot",
+  "Concourse East Cabin 12": "pilot",
+  "Concourse North Control 1": "pilot",
+  "Concourse East Bay 6": "mech",
+  "Concourse South Machine Shop 7": "mech",
+  "Concourse North Canteen 2": "pilot",
+  "Concourse North Canteen 3": "pilot",
+  "Concourse North Cargo Bay 8": "mech",
+  "Concourse North Canteen 4": "pilot",
+  "Concourse West Store 6": "pilot",
+  "Concourse East Control 10": "pilot",
+  "Concourse East Loading Bay 10": "mech",
+  "Concourse South Cargo Bay 4": "mech",
+  "Concourse West Cabin 7": "pilot",
+  "Concourse West Lobby 6": "pilot",
+  "Concourse North Store 1": "pilot",
+  "Concourse West Office 10": "pilot",
+  "Concourse East Cabin 13": "pilot",
+  "Concourse East Clinic 4": "pilot",
+  "Concourse East Armoury 4": "mech",
+  "Concourse South Plant 5": "mech",
+  "Concourse South Control 3": "pilot",
+  "Concourse East Plant 7": "mech",
+  "Concourse South Loading Bay 10": "mech",
+  "Concourse South Clinic 1": "pilot",
+  "Concourse East Lobby 4": "pilot",
+  "Concourse East Clinic 5": "pilot",
+  "Concourse South Loading Bay 11": "mech",
+  "Concourse North Canteen 5": "pilot",
+  "Concourse North Lobby 1": "pilot",
+  "Concourse South Plant 6": "mech",
+  "Concourse North Quarters 2": "pilot",
+  "Concourse South Armoury 4": "mech",
+  "Concourse East Cabin 14": "pilot",
+  "Concourse South Machine Shop 8": "mech",
+  "Concourse West Canteen 4": "pilot",
+  "Concourse East Quarters 7": "pilot",
+  "Concourse West Lounge 2": "pilot",
+  "Concourse East Quarters 8": "pilot",
+  "Concourse East Canteen 9": "pilot",
+  "Shipyard": "mech",
+  "Mech Dealer": "mech",
+  "Supplies": "mech",
+  "Weapons": "mech",
+  "Mission Center": "pilot",
+  "Pilots' Lounge": "pilot",
+  "Medical Bay": "pilot",
+  "Command": "pilot"
+ },
+ "rooms_base": {
+  "Main Hub (Resistance Headquarters)": "mech",
+  "Dock Pad N": "mech",
+  "Dock Pad S": "mech",
+  "Dock Pad E": "mech",
+  "Dock Pad W": "mech",
+  "Dock Pad 9": "mech",
+  "Dock Pad 171": "mech",
+  "Dock Pad 17": "mech",
+  "Dock Pad 163": "mech",
+  "Dock Pad 316": "mech",
+  "Dock Pad 224": "mech",
+  "Dock Pad 288": "mech",
+  "Dock Pad 252": "mech",
+  "Dock Pad 28": "mech",
+  "Dock Pad 152": "mech",
+  "Lift (north)": "lift",
+  "Lift (south)": "lift",
+  "Lift (East)": "lift",
+  "Lift (West)": "lift",
+  "Concourse North Cabin 1": "pilot",
+  "Concourse North Clinic 1": "pilot",
+  "Concourse North Loading Bay 1": "mech",
+  "Concourse North Machine Shop 1": "mech",
+  "Concourse North Cargo Bay 1": "mech",
+  "Concourse North Armoury 1": "mech",
+  "Concourse North Armoury 2": "mech",
+  "Concourse North Bay 1": "mech",
+  "Concourse North Cargo Bay 2": "mech",
+  "Concourse North Machine Shop 2": "mech",
+  "Concourse North Loading Bay 2": "mech",
+  "Concourse North Plant 1": "mech",
+  "Concourse North Bay 2": "mech",
+  "Concourse North Loading Bay 3": "mech",
+  "Concourse North Plant 2": "mech",
+  "Concourse North Bay 3": "mech",
+  "Concourse South Control 1": "pilot",
+  "Concourse South Store 1": "pilot",
+  "Concourse South Plant 1": "mech",
+  "Concourse South Bay 1": "mech",
+  "Concourse South Plant 2": "mech",
+  "Concourse South Bay 2": "mech",
+  "Concourse South Machine Shop 1": "mech",
+  "Concourse South Armoury 1": "mech",
+  "Concourse South Loading Bay 1": "mech",
+  "Concourse South Machine Shop 2": "mech",
+  "Concourse South Loading Bay 2": "mech",
+  "Concourse South Loading Bay 3": "mech",
+  "Concourse South Cabin 1": "pilot",
+  "Concourse South Lounge 1": "pilot",
+  "Concourse East Lounge 1": "pilot",
+  "Concourse West Quarters 1": "pilot",
+  "Concourse East Quarters 1": "pilot",
+  "Concourse West Clinic 1": "pilot",
+  "Concourse East Store 2": "pilot",
+  "Concourse West Office 1": "pilot",
+  "Concourse East Canteen 1": "pilot",
+  "Concourse West Clinic 2": "pilot",
+  "Concourse East Cabin 1": "pilot",
+  "Concourse West Cabin 1": "pilot",
+  "Concourse East Cabin 2": "pilot",
+  "Concourse West Store 2": "pilot",
+  "Concourse East Store 3": "pilot",
+  "Concourse West Control 1": "pilot",
+  "Concourse East Lounge 2": "pilot",
+  "Concourse West Control 2": "pilot",
+  "Concourse East Control 1": "pilot",
+  "Concourse West Cabin 2": "pilot",
+  "Concourse East Canteen 2": "pilot",
+  "Concourse West Canteen 1": "pilot",
+  "Concourse East Canteen 3": "pilot",
+  "Concourse West Office 2": "pilot",
+  "Concourse East Lobby 1": "pilot",
+  "Concourse West Cabin 3": "pilot",
+  "Concourse East Quarters 3": "pilot",
+  "Concourse West Canteen 2": "pilot",
+  "Concourse East Canteen 4": "pilot",
+  "Concourse West Lobby 1": "pilot",
+  "Concourse East Control 2": "pilot",
+  "Concourse West Quarters 2": "pilot",
+  "Concourse East Bay 1": "mech",
+  "Concourse West Machine Shop 1": "mech",
+  "Concourse East Bay 2": "mech",
+  "Concourse West Plant 1": "mech",
+  "Concourse East Office 1": "pilot",
+  "Concourse West Clinic 3": "pilot",
+  "Concourse East Bay 3": "mech",
+  "Concourse West Cargo Bay 1": "mech",
+  "Concourse East Loading Bay 1": "mech",
+  "Concourse West Armoury 1": "mech",
+  "Concourse East Cabin 3": "pilot",
+  "Concourse West Clinic 4": "pilot",
+  "Concourse North Cargo Bay 3": "mech",
+  "Concourse North Cargo Bay 4": "mech",
+  "Concourse North Plant 3": "mech",
+  "Concourse North Bay 4": "mech",
+  "Concourse North Bay 5": "mech",
+  "Concourse North Cargo Bay 5": "mech",
+  "Concourse East Cabin 4": "pilot",
+  "Concourse West Office 3": "pilot",
+  "Concourse East Office 2": "pilot",
+  "Concourse West Quarters 3": "pilot",
+  "Concourse East Canteen 5": "pilot",
+  "Concourse West Control 3": "pilot",
+  "Concourse North Machine Shop 3": "mech",
+  "Concourse North Armoury 3": "mech",
+  "Concourse North Cargo Bay 6": "mech",
+  "Concourse North Plant 4": "mech",
+  "Concourse East Machine Shop 1": "mech",
+  "Concourse West Plant 2": "mech",
+  "Concourse East Bay 4": "mech",
+  "Concourse West Bay 1": "mech",
+  "Concourse East Plant 1": "mech",
+  "Concourse West Plant 3": "mech",
+  "Concourse East Lounge 3": "pilot",
+  "Concourse West Canteen 3": "pilot",
+  "Concourse South Cargo Bay 1": "mech",
+  "Concourse South Bay 3": "mech",
+  "Concourse South Bay 4": "mech",
+  "Concourse South Plant 3": "mech",
+  "Concourse East Armoury 1": "mech",
+  "Concourse West Cargo Bay 2": "mech",
+  "Concourse East Plant 2": "mech",
+  "Concourse West Loading Bay 1": "mech",
+  "Concourse East Plant 3": "mech",
+  "Concourse West Machine Shop 2": "mech",
+  "Concourse East Lobby 2": "pilot",
+  "Concourse West Control 4": "pilot",
+  "Concourse South Office 1": "pilot",
+  "Concourse South Control 2": "pilot",
+  "Concourse South Bay 5": "mech",
+  "Concourse South Bay 6": "mech",
+  "Concourse South Cargo Bay 2": "mech",
+  "Concourse South Machine Shop 3": "mech",
+  "Concourse East Cargo Bay 1": "mech",
+  "Concourse West Loading Bay 2": "mech",
+  "Concourse East Cargo Bay 2": "mech",
+  "Concourse West Cargo Bay 3": "mech",
+  "Concourse East Cabin 5": "pilot",
+  "Concourse West Cabin 4": "pilot",
+  "Concourse East Office 3": "pilot",
+  "Concourse West Control 5": "pilot",
+  "Concourse East Control 3": "pilot",
+  "Concourse West Lobby 2": "pilot",
+  "Concourse East Cabin 6": "pilot",
+  "Concourse West Lobby 3": "pilot",
+  "Concourse East Control 4": "pilot",
+  "Concourse West Office 4": "pilot",
+  "Concourse East Machine Shop 2": "mech",
+  "Concourse West Bay 2": "mech",
+  "Concourse East Loading Bay 2": "mech",
+  "Concourse West Machine Shop 3": "mech",
+  "Concourse East Machine Shop 3": "mech",
+  "Concourse West Loading Bay 3": "mech",
+  "Concourse East Loading Bay 3": "mech",
+  "Concourse West Armoury 2": "mech",
+  "Concourse East Cabin 7": "pilot",
+  "Concourse West Clinic 5": "pilot",
+  "Concourse East Bay 5": "mech",
+  "Concourse West Cargo Bay 4": "mech",
+  "Concourse East Armoury 2": "mech",
+  "Concourse West Bay 3": "mech",
+  "Concourse East Plant 4": "mech",
+  "Concourse West Bay 4": "mech",
+  "Concourse East Clinic 1": "pilot",
+  "Concourse West Store 3": "pilot",
+  "Concourse East Canteen 6": "pilot",
+  "Concourse West Lobby 4": "pilot",
+  "Concourse South Loading Bay 4": "mech",
+  "Concourse South Bay 7": "mech",
+  "Concourse South Cabin 2": "pilot",
+  "Concourse South Lounge 2": "pilot",
+  "Concourse South Armoury 2": "mech",
+  "Concourse South Loading Bay 5": "mech",
+  "Concourse East Loading Bay 4": "mech",
+  "Concourse West Plant 4": "mech",
+  "Concourse East Plant 5": "mech",
+  "Concourse West Bay 5": "mech",
+  "Concourse East Store 4": "pilot",
+  "Concourse West Clinic 6": "pilot",
+  "Concourse East Machine Shop 4": "mech",
+  "Concourse West Plant 5": "mech",
+  "Concourse East Clinic 2": "pilot",
+  "Concourse West Quarters 4": "pilot",
+  "Concourse East Loading Bay 6": "mech",
+  "Concourse West Plant 7": "mech",
+  "Concourse East Plant 6": "mech",
+  "Concourse West Bay 6": "mech",
+  "Concourse East Cargo Bay 3": "mech",
+  "Concourse West Bay 7": "mech",
+  "Concourse East Loading Bay 7": "mech",
+  "Concourse West Cargo Bay 5": "mech",
+  "Concourse East Quarters 4": "pilot",
+  "Concourse West Lobby 5": "pilot",
+  "Concourse East Machine Shop 5": "mech",
+  "Concourse West Machine Shop 4": "mech",
+  "Concourse East Cargo Bay 5": "mech",
+  "Concourse West Cargo Bay 6": "mech",
+  "Concourse East Loading Bay 8": "mech",
+  "Concourse West Bay 8": "mech",
+  "Concourse East Loading Bay 9": "mech",
+  "Concourse West Machine Shop 5": "mech",
+  "Concourse East Clinic 3": "pilot",
+  "Concourse West Control 6": "pilot",
+  "Concourse East Store 5": "pilot",
+  "Concourse East Office 4": "pilot",
+  "Concourse North Quarters 1": "pilot",
+  "Concourse East Cabin 8": "pilot",
+  "Concourse East Quarters 5": "pilot",
+  "Concourse North Armoury 4": "mech",
+  "Concourse East Control 5": "pilot",
+  "Concourse East Armoury 3": "mech",
+  "Concourse South Loading Bay 6": "mech",
+  "Concourse South Machine Shop 4": "mech",
+  "Concourse South Loading Bay 7": "mech",
+  "Concourse West Machine Shop 6": "mech",
+  "Concourse West Quarters 5": "pilot",
+  "Concourse East Machine Shop 6": "mech",
+  "Concourse East Store 6": "pilot",
+  "Concourse South Armoury 3": "mech",
+  "Concourse West Clinic 7": "pilot",
+  "Concourse East Control 6": "pilot",
+  "Concourse East Lobby 3": "pilot",
+  "Concourse West Control 7": "pilot",
+  "Concourse East Store 7": "pilot",
+  "Concourse South Cargo Bay 3": "mech",
+  "Concourse West Office 5": "pilot",
+  "Concourse East Quarters 6": "pilot",
+  "Concourse East Office 5": "pilot",
+  "Concourse East Cabin 9": "pilot",
+  "Concourse East Cabin 10": "pilot",
+  "Concourse East Control 7": "pilot",
+  "Concourse South Machine Shop 5": "mech",
+  "Concourse West Office 6": "pilot",
+  "Concourse West Quarters 6": "pilot",
+  "Concourse North Cargo Bay 7": "mech",
+  "Concourse West Quarters 7": "pilot",
+  "Concourse West Store 4": "pilot",
+  "Concourse West Cabin 5": "pilot",
+  "Concourse West Control 8": "pilot",
+  "Concourse East Office 6": "pilot",
+  "Concourse East Cabin 11": "pilot",
+  "Concourse East Office 7": "pilot",
+  "Concourse East Control 8": "pilot",
+  "Concourse East Canteen 7": "pilot",
+  "Concourse West Machine Shop 7": "mech",
+  "Concourse West Office 7": "pilot",
+  "Concourse West Office 8": "pilot",
+  "Concourse West Loading Bay 4": "mech",
+  "Concourse East Control 9": "pilot",
+  "Concourse South Plant 4": "mech",
+  "Concourse North Bay 6": "mech",
+  "Concourse West Office 9": "pilot",
+  "Concourse West Plant 8": "mech",
+  "Concourse West Control 9": "pilot",
+  "Concourse West Cabin 6": "pilot",
+  "Concourse North Office 1": "pilot",
+  "Concourse South Machine Shop 6": "mech",
+  "Concourse West Clinic 8": "pilot",
+  "Concourse North Plant 5": "mech",
+  "Concourse East Office 8": "pilot",
+  "Concourse West Store 5": "pilot",
+  "Concourse South Loading Bay 8": "mech",
+  "Concourse North Armoury 5": "mech",
+  "Concourse North Canteen 1": "pilot",
+  "Concourse South Loading Bay 9": "mech",
+  "Concourse East Canteen 8": "pilot",
+  "Concourse East Cabin 12": "pilot",
+  "Concourse North Control 1": "pilot",
+  "Concourse East Bay 6": "mech",
+  "Concourse South Machine Shop 7": "mech",
+  "Concourse North Canteen 2": "pilot",
+  "Concourse North Canteen 3": "pilot",
+  "Concourse North Cargo Bay 8": "mech",
+  "Concourse North Canteen 4": "pilot",
+  "Concourse West Store 6": "pilot",
+  "Concourse East Control 10": "pilot",
+  "Concourse East Loading Bay 10": "mech",
+  "Concourse South Cargo Bay 4": "mech",
+  "Concourse West Cabin 7": "pilot",
+  "Concourse West Lobby 6": "pilot",
+  "Concourse North Store 1": "pilot",
+  "Concourse West Office 10": "pilot",
+  "Concourse East Cabin 13": "pilot",
+  "Concourse East Clinic 4": "pilot",
+  "Concourse East Armoury 4": "mech",
+  "Concourse South Plant 5": "mech",
+  "Concourse South Control 3": "pilot",
+  "Concourse East Plant 7": "mech",
+  "Concourse South Loading Bay 10": "mech",
+  "Concourse South Clinic 1": "pilot",
+  "Concourse East Lobby 4": "pilot",
+  "Concourse East Clinic 5": "pilot",
+  "Concourse South Loading Bay 11": "mech",
+  "Concourse North Canteen 5": "pilot",
+  "Concourse North Lobby 1": "pilot",
+  "Concourse South Plant 6": "mech",
+  "Concourse North Quarters 2": "pilot",
+  "Concourse South Armoury 4": "mech",
+  "Concourse East Cabin 14": "pilot",
+  "Concourse South Machine Shop 8": "mech",
+  "Concourse West Canteen 4": "pilot",
+  "Concourse East Quarters 7": "pilot",
+  "Concourse West Lounge 2": "pilot",
+  "Concourse East Quarters 8": "pilot",
+  "Concourse East Canteen 9": "pilot",
+  "Shipyard": "mech",
+  "Mech Dealer": "mech",
+  "Supplies": "mech",
+  "Weapons": "mech",
+  "Mission Center": "pilot",
+  "Pilots' Lounge": "pilot",
+  "Medical Bay": "pilot",
+  "Command": "pilot"
+ },
+ "cut_off_red": [],
+ "doors": [
+  {
+   "at": [
+    1650.0,
+    1522.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Main Hub (Resistance Headquarters)"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1650.0,
+    516.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Dock Pad N"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1650.0,
+    1778.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Main Hub (Resistance Headquarters)"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1650.0,
+    2654.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Dock Pad S"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1778.0,
+    1650.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Main Hub (Resistance Headquarters)"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2866.4,
+    1650.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Dock Pad E"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1522.0,
+    1650.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Main Hub (Resistance Headquarters)"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    433.6,
+    1650.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Dock Pad W"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    3060.1,
+    1408.8
+   ],
+   "o": "v",
+   "rooms": [
+    "Dock Pad 9"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    239.9,
+    1408.8
+   ],
+   "o": "v",
+   "rooms": [
+    "Dock Pad 171"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2988.1,
+    1285.8
+   ],
+   "o": "h",
+   "rooms": [
+    "Dock Pad 17"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    311.9,
+    1285.8
+   ],
+   "o": "h",
+   "rooms": [
+    "Dock Pad 163"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2222.0,
+    2166.3
+   ],
+   "o": "h",
+   "rooms": [
+    "Dock Pad 316"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1078.0,
+    2166.3
+   ],
+   "o": "h",
+   "rooms": [
+    "Dock Pad 224"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1869.0,
+    2280.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Dock Pad 288"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1431.0,
+    2280.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Dock Pad 252"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2856.1,
+    1071.8
+   ],
+   "o": "h",
+   "rooms": [
+    "Dock Pad 28"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    443.9,
+    1071.8
+   ],
+   "o": "h",
+   "rooms": [
+    "Dock Pad 152"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1667.0,
+    1367.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Lift (north)"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1667.0,
+    1933.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Lift (south)"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1933.0,
+    1633.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Lift (East)"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1367.0,
+    1633.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Lift (West)"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1667.0,
+    1471.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse North Cabin 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1633.0,
+    1471.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse North Clinic 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1667.0,
+    572.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse North Loading Bay 1"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1633.0,
+    572.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse North Machine Shop 1"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1667.0,
+    676.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse North Cargo Bay 1"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1633.0,
+    676.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse North Armoury 1"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1667.0,
+    780.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse North Armoury 2"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1633.0,
+    780.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse North Bay 1"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1667.0,
+    884.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse North Cargo Bay 2"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1633.0,
+    884.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse North Machine Shop 2"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1667.0,
+    988.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse North Loading Bay 2"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1633.0,
+    988.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse North Plant 1"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1667.0,
+    1092.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse North Bay 2"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1633.0,
+    1092.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse North Loading Bay 3"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1667.0,
+    1196.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse North Plant 2"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1633.0,
+    1196.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse North Bay 3"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1667.0,
+    1821.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse South Control 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1633.0,
+    1821.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse South Store 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1667.0,
+    2078.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse South Plant 1"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1633.0,
+    2078.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse South Bay 1"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1667.0,
+    2182.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse South Plant 2"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1633.0,
+    2182.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse South Bay 2"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1667.0,
+    2286.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse South Machine Shop 1"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1633.0,
+    2286.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse South Armoury 1"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1667.0,
+    2390.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse South Loading Bay 1"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1633.0,
+    2390.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse South Machine Shop 2"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1667.0,
+    2494.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse South Loading Bay 2"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1633.0,
+    2494.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse South Loading Bay 3"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1667.0,
+    2585.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse South Cabin 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1633.0,
+    2585.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse South Lounge 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1821.0,
+    1633.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Pilots' Lounge"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1479.0,
+    1633.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Command"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2009.0,
+    1633.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Lounge 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1291.0,
+    1633.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Quarters 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2087.0,
+    1633.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Quarters 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1213.0,
+    1633.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Clinic 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2165.0,
+    1633.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Store 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1135.0,
+    1633.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Office 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2243.0,
+    1633.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Canteen 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1057.0,
+    1633.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Clinic 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2321.0,
+    1633.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Cabin 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    979.0,
+    1633.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Cabin 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2399.0,
+    1633.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Cabin 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    901.0,
+    1633.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Store 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2477.0,
+    1633.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Store 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    823.0,
+    1633.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Control 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1821.0,
+    1667.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Mission Center"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1479.0,
+    1667.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Medical Bay"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1939.0,
+    1667.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Lounge 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1361.0,
+    1667.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Control 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2017.0,
+    1667.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Control 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1283.0,
+    1667.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Cabin 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2095.0,
+    1667.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Canteen 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1205.0,
+    1667.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Canteen 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2173.0,
+    1667.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Canteen 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1127.0,
+    1667.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Office 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2251.0,
+    1667.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Lobby 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1049.0,
+    1667.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Cabin 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2329.0,
+    1667.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Quarters 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    971.0,
+    1667.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Canteen 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2407.0,
+    1667.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Canteen 4"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    893.0,
+    1667.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Lobby 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2485.0,
+    1667.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Control 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    815.0,
+    1667.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Quarters 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2630.4,
+    1633.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Bay 1"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    669.6,
+    1633.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Machine Shop 1"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2734.4,
+    1633.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Bay 2"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    565.6,
+    1633.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Plant 1"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2825.4,
+    1633.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Office 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    474.6,
+    1633.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Clinic 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2630.4,
+    1667.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Bay 3"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    669.6,
+    1667.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Cargo Bay 1"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2734.4,
+    1667.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Loading Bay 1"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    565.6,
+    1667.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Armoury 1"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2825.4,
+    1667.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Cabin 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    474.6,
+    1667.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Clinic 4"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1813.7,
+    1271.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse North Cargo Bay 3"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1486.3,
+    1271.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse North Cargo Bay 4"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1917.7,
+    1271.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse North Plant 3"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1382.3,
+    1271.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse North Bay 4"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2021.7,
+    1271.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse North Bay 5"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1278.3,
+    1271.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse North Cargo Bay 5"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2112.7,
+    1271.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Cabin 4"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1187.3,
+    1271.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Office 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2190.7,
+    1271.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Office 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1109.3,
+    1271.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Quarters 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2268.7,
+    1271.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Canteen 5"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1031.3,
+    1271.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Control 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1813.7,
+    1305.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse North Machine Shop 3"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1486.3,
+    1305.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse North Armoury 3"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1917.7,
+    1305.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse North Cargo Bay 6"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1382.3,
+    1305.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse North Plant 4"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2021.7,
+    1305.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Machine Shop 1"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1278.3,
+    1305.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Plant 2"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2125.7,
+    1305.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Bay 4"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1174.3,
+    1305.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Bay 1"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2229.7,
+    1305.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Plant 1"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1070.3,
+    1305.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Plant 3"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2314.7,
+    1305.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Lounge 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    985.3,
+    1305.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Canteen 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1813.7,
+    1995.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse South Cargo Bay 1"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1486.3,
+    1995.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse South Bay 3"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1917.7,
+    1995.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse South Bay 4"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1382.3,
+    1995.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse South Plant 3"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2021.7,
+    1995.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Armoury 1"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1278.3,
+    1995.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Cargo Bay 2"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2125.7,
+    1995.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Plant 2"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1174.3,
+    1995.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Loading Bay 1"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2229.7,
+    1995.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Plant 3"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1070.3,
+    1995.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Machine Shop 2"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2314.7,
+    1995.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Lobby 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    985.3,
+    1995.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Control 4"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1800.7,
+    2029.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse South Office 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1499.3,
+    2029.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse South Control 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1941.7,
+    2029.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse South Bay 5"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1358.3,
+    2029.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse South Bay 6"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2045.7,
+    2029.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse South Cargo Bay 2"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1254.3,
+    2029.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse South Machine Shop 3"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2149.7,
+    2029.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Cargo Bay 1"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1150.3,
+    2029.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Loading Bay 2"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2293.7,
+    2029.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Cargo Bay 2"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1006.3,
+    2029.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Cargo Bay 3"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2835.5,
+    1877.4
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Cabin 5"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    464.5,
+    1877.4
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Cabin 4"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2835.5,
+    1911.4
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Office 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    464.5,
+    1911.4
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Control 5"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2835.5,
+    2082.6
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Control 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    464.5,
+    2082.6
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Lobby 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2835.5,
+    2116.6
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Cabin 6"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    464.5,
+    2116.6
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Lobby 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2954.6,
+    1997.5
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse East Control 4"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    345.4,
+    1997.5
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse West Office 4"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2529.1,
+    1391.8
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Machine Shop 2"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    770.9,
+    1391.8
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Bay 2"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2633.1,
+    1391.8
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Loading Bay 2"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    666.9,
+    1391.8
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Machine Shop 3"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2737.1,
+    1391.8
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Machine Shop 3"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    562.9,
+    1391.8
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Loading Bay 3"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2921.1,
+    1391.8
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Loading Bay 3"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    378.9,
+    1391.8
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Armoury 2"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2580.1,
+    1425.8
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Cabin 7"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    719.9,
+    1425.8
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Clinic 5"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2665.1,
+    1425.8
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Bay 5"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    634.9,
+    1425.8
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Cargo Bay 4"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2769.1,
+    1425.8
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Armoury 2"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    530.9,
+    1425.8
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Bay 3"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2873.1,
+    1425.8
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Plant 4"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    426.9,
+    1425.8
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Bay 4"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2964.1,
+    1425.8
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Clinic 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    335.9,
+    1425.8
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Store 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    3005.1,
+    1328.8
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse East Canteen 6"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    294.9,
+    1328.8
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse West Lobby 4"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1852.0,
+    2148.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse South Loading Bay 4"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1448.0,
+    2148.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse South Bay 7"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1852.0,
+    2239.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse South Cabin 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1448.0,
+    2239.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse South Lounge 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1886.0,
+    2168.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse South Armoury 2"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1414.0,
+    2168.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse South Loading Bay 5"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2839.1,
+    1127.8
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse East Loading Bay 4"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    460.9,
+    1127.8
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse West Plant 4"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2839.1,
+    1231.8
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse East Plant 5"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    460.9,
+    1231.8
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse West Bay 5"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2839.1,
+    1316.8
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse East Store 4"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    460.9,
+    1316.8
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse West Clinic 6"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2873.1,
+    1127.8
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse East Machine Shop 4"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    426.9,
+    1127.8
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse West Plant 5"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2873.1,
+    1212.8
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse East Clinic 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    426.9,
+    1212.8
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse West Quarters 4"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1938.0,
+    1536.9
+   ],
+   "o": "h",
+   "rooms": [
+    "Supplies"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1362.0,
+    1536.9
+   ],
+   "o": "h",
+   "rooms": [
+    "Shipyard"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2042.0,
+    1536.9
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Loading Bay 6"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1258.0,
+    1536.9
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Plant 7"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2146.0,
+    1536.9
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Plant 6"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1154.0,
+    1536.9
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Bay 6"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2250.0,
+    1536.9
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Cargo Bay 3"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1050.0,
+    1536.9
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Bay 7"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2354.0,
+    1536.9
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Loading Bay 7"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    946.0,
+    1536.9
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Cargo Bay 5"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2445.0,
+    1536.9
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Quarters 4"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    855.0,
+    1536.9
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Lobby 5"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1938.0,
+    1763.1
+   ],
+   "o": "h",
+   "rooms": [
+    "Mech Dealer"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1362.0,
+    1763.1
+   ],
+   "o": "h",
+   "rooms": [
+    "Weapons"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2042.0,
+    1763.1
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Machine Shop 5"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1258.0,
+    1763.1
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Machine Shop 4"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2146.0,
+    1763.1
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Cargo Bay 5"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1154.0,
+    1763.1
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Cargo Bay 6"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2250.0,
+    1763.1
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Loading Bay 8"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1050.0,
+    1763.1
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Bay 8"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2354.0,
+    1763.1
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Loading Bay 9"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    946.0,
+    1763.1
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Machine Shop 5"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2445.0,
+    1763.1
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Clinic 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    855.0,
+    1763.1
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Control 6"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2950.1,
+    1487.8
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Clinic 1",
+    "Concourse East Store 5"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2999.1,
+    1456.8
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse East Clinic 1",
+    "Concourse East Office 4"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1755.0,
+    884.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse North Cargo Bay 2",
+    "Concourse North Quarters 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2835.5,
+    1815.4
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Cabin 5",
+    "Concourse East Cabin 8"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2870.5,
+    1846.4
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse East Cabin 5",
+    "Concourse East Quarters 5"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1755.0,
+    1092.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse North Bay 2",
+    "Concourse North Armoury 4"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2250.0,
+    1448.9
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Cargo Bay 3",
+    "Concourse East Control 5"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2341.7,
+    2073.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse East Cargo Bay 2",
+    "Concourse East Armoury 3"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1755.0,
+    2305.2
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse South Machine Shop 1",
+    "Concourse South Loading Bay 6"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1947.6,
+    2216.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse South Armoury 2",
+    "Concourse South Machine Shop 4"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1974.0,
+    2168.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse South Armoury 2",
+    "Concourse South Loading Bay 7"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    958.3,
+    2073.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse West Cargo Bay 3",
+    "Concourse West Machine Shop 6"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1382.3,
+    1907.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse South Plant 3",
+    "Concourse West Quarters 5"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2734.4,
+    1755.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Loading Bay 1",
+    "Concourse East Machine Shop 6"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2314.7,
+    1945.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Lobby 2",
+    "Concourse East Store 6"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1254.3,
+    2117.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse South Machine Shop 3",
+    "Concourse South Armoury 3"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1154.0,
+    1851.1
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Cargo Bay 6",
+    "Concourse West Clinic 7"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2021.7,
+    1907.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Armoury 1",
+    "Concourse East Control 6"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    3067.1,
+    1328.8
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse East Canteen 6",
+    "Concourse East Lobby 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    869.0,
+    1825.1
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Control 6",
+    "Concourse West Control 7"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2125.7,
+    1907.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Plant 2",
+    "Concourse East Store 7"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1545.0,
+    2474.8
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse South Loading Bay 3",
+    "Concourse South Cargo Bay 3"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    485.9,
+    1345.8
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Clinic 6",
+    "Concourse West Office 5"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2240.4,
+    1851.1
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Loading Bay 8",
+    "Concourse East Quarters 6"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1917.7,
+    1907.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse South Bay 4",
+    "Concourse East Office 5"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2870.5,
+    2147.6
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse East Cabin 6",
+    "Concourse East Cabin 9"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2835.5,
+    2178.6
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Cabin 6",
+    "Concourse East Cabin 10"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2835.5,
+    1973.4
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Office 3",
+    "Concourse East Control 7"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1545.0,
+    2409.2
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse South Machine Shop 2",
+    "Concourse South Machine Shop 5"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    464.5,
+    2020.6
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Lobby 2",
+    "Concourse West Office 6"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1362.0,
+    1448.9
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Quarters 6",
+    "Shipyard"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1545.0,
+    988.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse North Plant 1",
+    "Concourse North Cargo Bay 7"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1060.7,
+    1907.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Machine Shop 2",
+    "Concourse West Quarters 7"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    996.3,
+    1240.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse West Control 3",
+    "Concourse West Store 4"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    855.0,
+    1474.9
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Lobby 5",
+    "Concourse West Cabin 5"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    474.6,
+    1571.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Clinic 3",
+    "Concourse West Control 8"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2445.0,
+    1474.9
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Quarters 4",
+    "Concourse East Office 6"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2898.1,
+    1241.8
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Clinic 2",
+    "Concourse East Cabin 11"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2814.1,
+    1345.8
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Store 4",
+    "Concourse East Office 7"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2021.7,
+    1393.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Machine Shop 1",
+    "Concourse East Control 8"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2825.4,
+    1571.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Office 1",
+    "Concourse East Canteen 7"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    965.2,
+    1851.1
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Machine Shop 5",
+    "Concourse West Machine Shop 7"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    985.3,
+    1355.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Canteen 3",
+    "Concourse West Office 7"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1258.0,
+    1448.9
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Plant 7",
+    "Concourse West Office 8"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    407.7,
+    1513.8
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Bay 4",
+    "Concourse West Loading Bay 4"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1928.4,
+    1448.9
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Control 9",
+    "Supplies"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1159.9,
+    2117.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Loading Bay 2",
+    "Concourse South Plant 4"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1917.7,
+    1183.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse North Plant 3",
+    "Concourse North Bay 6"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1258.0,
+    1851.1
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Machine Shop 4",
+    "Concourse West Office 9"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    565.6,
+    1755.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Armoury 1",
+    "Concourse West Plant 8"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1164.7,
+    1393.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Bay 1",
+    "Concourse West Control 9"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    474.6,
+    1729.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Clinic 4",
+    "Concourse West Cabin 6"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1545.0,
+    676.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse North Armoury 1",
+    "Concourse North Office 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1352.4,
+    2216.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse South Loading Bay 5",
+    "Concourse South Machine Shop 6"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1070.3,
+    1393.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Plant 3",
+    "Concourse West Clinic 8"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1486.3,
+    1183.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse North Cargo Bay 4",
+    "Concourse North Plant 5"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2125.7,
+    1393.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Bay 4",
+    "Concourse East Office 8"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    401.9,
+    1241.8
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Quarters 4",
+    "Concourse West Store 5"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1755.0,
+    2409.2
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse South Loading Bay 1",
+    "Concourse South Loading Bay 8"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1382.3,
+    1183.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse North Bay 4",
+    "Concourse North Armoury 5"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1545.0,
+    572.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse North Machine Shop 1",
+    "Concourse North Canteen 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1545.0,
+    2305.2
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse South Armoury 1",
+    "Concourse South Loading Bay 9"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2431.0,
+    1825.1
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Clinic 3",
+    "Concourse East Canteen 8"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2303.7,
+    1240.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse East Canteen 5",
+    "Concourse East Cabin 12"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1755.0,
+    780.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse North Armoury 2",
+    "Concourse North Control 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2892.3,
+    1513.8
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Plant 4",
+    "Concourse East Bay 6"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2140.1,
+    2117.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Cargo Bay 1",
+    "Concourse South Machine Shop 7"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1545.0,
+    884.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse North Machine Shop 2",
+    "Concourse North Canteen 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1755.0,
+    572.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse North Loading Bay 1",
+    "Concourse North Canteen 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1755.0,
+    988.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse North Loading Bay 2",
+    "Concourse North Cargo Bay 8"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1755.0,
+    676.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse North Cargo Bay 1",
+    "Concourse North Canteen 4"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    429.5,
+    1846.4
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse West Cabin 4",
+    "Concourse West Store 6"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    3016.6,
+    1997.5
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse East Control 4",
+    "Concourse East Control 10"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2334.8,
+    1448.9
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Loading Bay 7",
+    "Concourse East Loading Bay 10"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1755.0,
+    2474.8
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse South Loading Bay 2",
+    "Concourse South Cargo Bay 4"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    314.4,
+    2032.5
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Office 4",
+    "Concourse West Cabin 7"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    314.4,
+    1962.5
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Office 4",
+    "Concourse West Lobby 6"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1545.0,
+    780.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse North Bay 1",
+    "Concourse North Store 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    232.9,
+    1328.8
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse West Lobby 4",
+    "Concourse West Office 10"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2870.5,
+    1784.4
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse East Cabin 8",
+    "Concourse East Cabin 13"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2932.5,
+    1846.4
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse East Quarters 5",
+    "Concourse East Clinic 4"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2429.7,
+    2073.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse East Armoury 3",
+    "Concourse East Armoury 4"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1974.0,
+    2260.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse South Machine Shop 4",
+    "Concourse South Plant 5"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1430.3,
+    1882.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse West Quarters 5",
+    "Concourse South Control 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2715.2,
+    1843.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Machine Shop 6",
+    "Concourse East Plant 7"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1254.3,
+    2205.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse South Armoury 3",
+    "Concourse South Loading Bay 10"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1869.7,
+    1882.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse East Office 5",
+    "Concourse South Clinic 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2932.5,
+    2147.6
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse East Cabin 9",
+    "Concourse East Lobby 4"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2807.5,
+    2209.6
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse East Cabin 10",
+    "Concourse East Clinic 5"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1457.0,
+    2403.4
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse South Machine Shop 5",
+    "Concourse South Loading Bay 11"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1410.0,
+    1423.9
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse West Quarters 6",
+    "Concourse North Canteen 5"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1510.0,
+    1026.4
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse North Cargo Bay 7",
+    "Concourse North Lobby 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1159.9,
+    2205.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse South Plant 4",
+    "Concourse South Plant 6"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1917.7,
+    1095.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse North Bay 6",
+    "Concourse North Quarters 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1843.0,
+    2403.4
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse South Loading Bay 8",
+    "Concourse South Armoury 4"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2365.7,
+    1240.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse East Cabin 12",
+    "Concourse East Cabin 14"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2140.1,
+    2205.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse South Machine Shop 7",
+    "Concourse South Machine Shop 8"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    398.5,
+    1815.4
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Store 6",
+    "Concourse West Canteen 4"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    3078.6,
+    1983.5
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse East Control 10",
+    "Concourse East Quarters 7"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    314.4,
+    2094.5
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Cabin 7",
+    "Concourse West Lounge 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2932.5,
+    1784.4
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse East Cabin 13",
+    "Concourse East Quarters 8"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2994.5,
+    1846.4
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse East Clinic 4",
+    "Concourse East Canteen 9"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1589.0,
+    1148.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse North Loading Bay 3",
+    "Concourse North Bay 3"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1765.7,
+    1213.5
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse North Plant 2",
+    "Concourse North Cargo Bay 3"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1711.0,
+    2134.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse South Plant 1",
+    "Concourse South Plant 2"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1589.0,
+    2134.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse South Bay 1",
+    "Concourse South Bay 2"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2052.0,
+    1602.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse East Lounge 1",
+    "Concourse East Quarters 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1170.0,
+    1602.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse West Clinic 1",
+    "Concourse West Office 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1014.0,
+    1602.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse West Clinic 2",
+    "Concourse West Cabin 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1318.0,
+    1698.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse West Control 2",
+    "Concourse West Cabin 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2060.0,
+    1698.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse East Control 1",
+    "Concourse East Canteen 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1162.0,
+    1698.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse West Canteen 1",
+    "Concourse West Office 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2216.0,
+    1698.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse East Canteen 3",
+    "Concourse East Lobby 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2372.0,
+    1698.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse East Quarters 3",
+    "Concourse East Canteen 4"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    928.0,
+    1698.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse West Canteen 2",
+    "Concourse West Lobby 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2686.4,
+    1589.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse East Bay 1",
+    "Concourse East Bay 2"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1222.3,
+    1240.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse North Cargo Bay 5",
+    "Concourse West Office 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2155.7,
+    1240.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse East Cabin 4",
+    "Concourse East Office 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1066.3,
+    1240.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse West Quarters 3",
+    "Concourse West Control 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1869.7,
+    1349.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse North Machine Shop 3",
+    "Concourse North Cargo Bay 6"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1430.3,
+    1349.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse North Armoury 3",
+    "Concourse North Plant 4"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1222.3,
+    1349.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse West Plant 2",
+    "Concourse West Bay 1"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1268.2,
+    1901.1
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Cargo Bay 2",
+    "Concourse West Office 9"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1800.7,
+    2100.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse South Office 1",
+    "Concourse South Loading Bay 4"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1997.7,
+    2073.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse South Bay 5",
+    "Concourse South Cargo Bay 2"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1366.2,
+    2120.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse South Bay 6",
+    "Concourse South Loading Bay 5"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    464.5,
+    1976.6
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Control 5",
+    "Concourse West Office 6"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2835.5,
+    2017.4
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Control 3",
+    "Concourse East Control 7"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2585.1,
+    1347.8
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse East Machine Shop 2",
+    "Concourse East Loading Bay 2"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    610.9,
+    1347.8
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse West Machine Shop 3",
+    "Concourse West Loading Bay 3"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2898.1,
+    1291.8
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Loading Bay 3",
+    "Concourse East Cabin 11"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    682.9,
+    1450.8
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse West Clinic 5",
+    "Concourse West Cargo Bay 4"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    474.9,
+    1469.8
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse West Bay 3",
+    "Concourse West Bay 4"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    504.9,
+    1183.8
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Plant 4",
+    "Concourse West Bay 5"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2814.1,
+    1287.8
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse East Plant 5",
+    "Concourse East Store 4"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1098.0,
+    1492.9
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse West Bay 6",
+    "Concourse West Bay 7"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1994.0,
+    1807.1
+   ],
+   "o": "v",
+   "rooms": [
+    "Concourse East Machine Shop 5",
+    "Mech Dealer"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1372.2,
+    1857.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Quarters 5",
+    "Weapons"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1060.2,
+    1857.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Concourse West Bay 8",
+    "Concourse West Quarters 7"
+   ],
+   "type": "pilot",
+   "key": 0
+  }
+ ],
+ "entry": "Dock Pad S",
+ "mech_rooms_unreached": [],
+ "counts": {
+  "mech_rooms": 159,
+  "pilot_rooms": 150,
+  "mech_doors": 182,
+  "pilot_doors": 171,
+  "locked": {
+   "OPEN": 353,
+   "YELLOW": 0,
+   "ORANGE": 0,
+   "RED": 0
+  }
+ }
+}
