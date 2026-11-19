@@ -45,5 +45,5 @@ Step 2 fits the traced library rooms along them. The v13.166 room plans (`plan.*
 ROOMS, narrow parts = HALLS (width auto from the map's most common corridor), the map's own inner wall lines kept as
 walls; every room-hall / room-room contact becomes ONE flat door face (snapped to 45 deg). Output per map `lib/`
 (pieces.json, lib_overlay.jpg, lib_sheet.jpg). `alien_lib_index.py` gathers all rooms into
-`room_library/alien_rooms.json` (196 rooms, each from 0,0, sizes in map px and in the map's grid cells) +
+`room_library/alien_rooms.json` (all 20 maps, each from 0,0, sizes in map px and in the map's grid cells) +
 `alien_rooms_sheet.jpg`. Not yet: metres per grid cell (owner), hand fixes for rooms split by floor markings.
