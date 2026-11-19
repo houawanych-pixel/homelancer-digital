@@ -5613,6 +5613,43 @@ func _update_weather(dt: float) -> void:
 		mm2.set_instance_transform(i, t)
 
 ## Lightning, the fog and the streaming smoke, every frame.
+## v13.234 (owner: "the ship that appeared in the cloud comes in as a white silhouette, make it more its true colour"):
+## inside a cloud, a ship close to you (the boarding target, any ship) is drawn in its own colours, not the white haze;
+## further off it still fades into the cloud (hidden ships stay hidden).
+var _fogc_t := 0.0
+var fog_clear_ships := 0
+func _fog_clear_ships(dt: float) -> void:
+	_fogc_t -= dt
+	if _fogc_t > 0.0 or not is_instance_valid(player): return
+	_fogc_t = 0.5
+	var nodes: Array = []
+	for c in get_children():
+		if c is Node3D and str(c.get_meta("kind", "")) == "board_target": nodes.append(c)
+	for en in enemies:
+		if en is Dictionary and is_instance_valid((en as Dictionary).get("node", null)): nodes.append(en["node"])
+	var n_on := 0
+	for n0 in nodes:
+		var n := n0 as Node3D
+		var want: bool = _neb_fog_on and n.global_position.distance_to(player.global_position) < Data.NEBULA_SHIP_CLEAR
+		if want: n_on += 1
+		if bool(n.get_meta("fog_clear", false)) == want: continue
+		n.set_meta("fog_clear", want)
+		for g in n.find_children("*", "MeshInstance3D", true, false):
+			var mi := g as MeshInstance3D
+			if mi.material_override is BaseMaterial3D:
+				if not mi.has_meta("own_ovr"):
+					mi.material_override = mi.material_override.duplicate()
+					mi.set_meta("own_ovr", true)
+				(mi.material_override as BaseMaterial3D).disable_fog = want
+			elif mi.mesh != null:
+				for i in mi.mesh.get_surface_count():
+					var m := mi.get_surface_override_material(i)
+					if m == null and mi.mesh.surface_get_material(i) is BaseMaterial3D:
+						m = mi.mesh.surface_get_material(i).duplicate()
+						mi.set_surface_override_material(i, m)
+					if m is BaseMaterial3D: (m as BaseMaterial3D).disable_fog = want
+	fog_clear_ships = n_on
+
 func _update_nebulae(dt: float) -> void:
 	if nebulae.is_empty() or surface_mode: return
 	var pp: Vector3 = player.global_position
@@ -5662,6 +5699,7 @@ func _update_nebulae(dt: float) -> void:
 			e.fog_enabled = false
 			_neb_fog_on = false
 			_cloud_dome(0.0, Color.BLACK)
+	_fog_clear_ships(dt)
 	# smoke streaming past: puffs left behind are put back ahead of the ship
 	if not is_instance_valid(_neb_stream): return
 	_neb_stream.visible = in_nebula > 0.02
@@ -11580,10 +11618,11 @@ func start_escape_film(ship: Node3D) -> void:
 	pitch = player.rotation.x
 	vel = Vector3.ZERO
 	controls = false
-	for k in 14:   # the chain of blasts running across the hull, faster and bigger toward the end
-		var f := float(k) / 13.0
+	var nb := Data.ESCAPE_FILM_BLASTS
+	for k in nb:   # the chain of blasts running across the hull, faster and bigger toward the end
+		var f := float(k) / float(nb - 1)
 		var o := Vector3(_rng.randf_range(-1, 1), _rng.randf_range(-0.3, 0.3), _rng.randf_range(-1, 1)) * r * 0.55
-		blast_pending.append({"t": 0.3 + 4.3 * f, "at": at + o, "size": r * lerpf(0.3, 0.7, f)})
+		blast_pending.append({"t": 0.3 + (Data.ESCAPE_FILM_RAYS_AT - 0.4) * pow(f, 0.8), "at": at + o, "size": r * lerpf(0.3, 0.75, f)})
 
 func _escape_film(dt: float) -> void:
 	var F := esc_film
@@ -11595,14 +11634,7 @@ func _escape_film(dt: float) -> void:
 	# your ship: out of the hangar slowly, then the engines light and it's gone
 	var sp := lerpf(r * 0.08, r * 0.5, clampf((t - 0.6) / 3.0, 0.0, 1.0))
 	player.global_position += away * sp * dt
-	if t > 4.8 and not bool(F["boom"]):   # the reactor goes: the big one, then the ship is gone
-		F["boom"] = true
-		_blast(at, [r * 1.6, 30, 40, 6, 0.18])
-		_burst_fx(at, r * 1.5, 2.5)
-		hit_shake = 1.0
-		Sfx.play("explosion", 0.0, 0.6)
-		var sh: Node3D = F["ship"]
-		if is_instance_valid(sh): sh.visible = false
+	_film_finale(F, t, at, r)
 	# the camera: first wide, off the ship's side, the chain of blasts running over it; then it rides out with your
 	# ship, ahead of it and looking back, so the ship goes up behind you
 	var side: Vector3 = F["side"]
@@ -11617,8 +11649,167 @@ func _escape_film(dt: float) -> void:
 	_set_cam(rel, look - player.global_position, Vector3.UP)
 	cam.fov = 60.0
 	if t >= Data.ESCAPE_FILM_S:
+		for kk in ["glow", "flash"]: if is_instance_valid(F.get(kk, null)): (F[kk] as Node).queue_free()
+		for arr in [F.get("rays", []), F.get("rings", [])]:
+			for n in arr: if is_instance_valid(n): (n as Node).queue_free()
 		esc_film = {}
 		escape_film_done.emit()
+
+## v13.234 (owner: "like the Star Wars explosion when they blow up the Death Star: a huge explosion with a huge Saturn
+## ring that waves out, multiple little explosions first, light rays coming out of it before it finally explodes"):
+## after the chain of blasts, beams of light break out through the hull and a glow swells inside; then the white
+## flash, the fireball, and two flat shock rings racing out far past your ship, with sparks thrown everywhere.
+const _FILM_FX_SHADER := """
+shader_type spatial;
+render_mode unshaded, blend_add, depth_draw_never, cull_disabled, fog_disabled, shadows_disabled;
+uniform vec4 col : source_color = vec4(1.0);
+uniform float fade = 1.0;
+uniform int kind = 0;   // 0 glow ball, 1 ray, 2 ring
+uniform float width = 0.14;
+varying vec3 lp;
+void vertex() { lp = VERTEX; }
+void fragment() {
+	float a = 1.0;
+	if (kind == 0) {
+		float f = clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0);
+		a = pow(f, 1.5);
+	} else if (kind == 1) {
+		float along = clamp(lp.y + 0.5, 0.0, 1.0);   // 0 at the ship, 1 at the tip
+		a = (1.0 - along) * (1.0 - along);
+	} else {
+		vec2 p = UV * 2.0 - 1.0;
+		float d = length(p);
+		float band = smoothstep(1.0 - width, 1.0 - width * 0.35, d) * (1.0 - smoothstep(0.97, 1.0, d));
+		float haze = smoothstep(0.2, 1.0, d) * 0.18 * (1.0 - smoothstep(0.9, 1.0, d));
+		a = band + haze;
+	}
+	ALBEDO = col.rgb;
+	ALPHA = clamp(a * fade * col.a, 0.0, 1.0);
+}
+"""
+var _film_fx_sh: Shader
+func _film_fx(mesh: Mesh, col: Color, kind: int, width := 0.14) -> MeshInstance3D:
+	if _film_fx_sh == null:
+		_film_fx_sh = Shader.new()
+		_film_fx_sh.code = _FILM_FX_SHADER
+	var m := ShaderMaterial.new()
+	m.shader = _film_fx_sh
+	m.set_shader_parameter("col", col)
+	m.set_shader_parameter("kind", kind)
+	m.set_shader_parameter("width", width)
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.extra_cull_margin = 16384.0
+	add_child(mi)
+	return mi
+
+var film_fx_seen := {}   # (tests) which parts of the finale played: rays, flash, rings
+func _film_finale(F: Dictionary, t: float, at: Vector3, r: float) -> void:
+	var t_rays := Data.ESCAPE_FILM_RAYS_AT
+	var t_boom := Data.ESCAPE_FILM_BOOM_AT
+	# the light rays and the glow inside, growing until the reactor goes
+	if t >= t_rays and not F.has("rays"):
+		var rays: Array = []
+		var cone := CylinderMesh.new()
+		cone.top_radius = 0.0
+		cone.bottom_radius = 1.0
+		cone.height = 1.0
+		cone.radial_segments = 8
+		cone.rings = 1
+		for i in Data.ESCAPE_FILM_RAYS:
+			var dir := Vector3(_rng.randf_range(-1, 1), _rng.randf_range(-0.6, 0.6), _rng.randf_range(-1, 1)).normalized()
+			var ray := _film_fx(cone, Color(1.0, 0.92, 0.7, 0.9), 1)
+			ray.global_position = at
+			ray.set_meta("dir", dir)
+			ray.set_meta("w", _rng.randf_range(0.03, 0.07))
+			ray.set_meta("ph", _rng.randf() * TAU)
+			rays.append(ray)
+		var ball := SphereMesh.new()
+		ball.radius = 1.0
+		ball.height = 2.0
+		var glow := _film_fx(ball, Color(1.0, 0.85, 0.55), 0)
+		glow.global_position = at
+		F["rays"] = rays
+		F["glow"] = glow
+		film_fx_seen["rays"] = true
+		Sfx.play("alarm" if Sfx.streams.get("alarm") != null else "explosion", -12.0, 0.5)
+	if F.has("rays") and not bool(F.get("boom", false)):
+		var k := clampf((t - t_rays) / maxf(0.1, t_boom - t_rays), 0.0, 1.0)
+		for ray0 in F["rays"]:
+			if not is_instance_valid(ray0): continue
+			var ray := ray0 as MeshInstance3D
+			var dir: Vector3 = ray.get_meta("dir")
+			var ln := r * lerpf(0.4, 3.2, k)
+			var w := r * float(ray.get_meta("w")) * lerpf(0.6, 1.4, k)
+			ray.global_basis = _basis_along(dir) * Basis.from_scale(Vector3(w, ln, w))
+			ray.global_position = at + dir * ln * 0.5
+			(ray.material_override as ShaderMaterial).set_shader_parameter("fade", lerpf(0.35, 1.0, k) * (0.75 + 0.25 * sin(t * 30.0 + float(ray.get_meta("ph")))))
+		var glow := F["glow"] as MeshInstance3D if is_instance_valid(F["glow"]) else null
+		if glow != null:
+			glow.scale = Vector3.ONE * r * lerpf(0.25, 0.9, k * k)
+			(glow.material_override as ShaderMaterial).set_shader_parameter("fade", lerpf(0.3, 1.0, k))
+		hit_shake = maxf(hit_shake, 0.25 * k)
+	# the reactor goes: flash, fireball, rings
+	if t >= t_boom and not bool(F.get("boom", false)):
+		F["boom"] = true
+		F["t_boom"] = t
+		for ray in F.get("rays", []): if is_instance_valid(ray): (ray as Node).queue_free()
+		if is_instance_valid(F.get("glow", null)): (F["glow"] as Node).queue_free()
+		_blast(at, [r * 2.2, 40, 60, 8, 0.2])
+		_burst_fx(at, r * 2.0, 3.0)
+		hit_shake = 1.4
+		Sfx.play("explosion", 3.0, 0.45)
+		Sfx.play("explosion", 0.0, 0.7)
+		var sh: Node3D = F["ship"]
+		if is_instance_valid(sh): sh.visible = false
+		var ball2 := SphereMesh.new()
+		ball2.radius = 1.0
+		ball2.height = 2.0
+		var flash := _film_fx(ball2, Color(1.0, 0.97, 0.9), 0)
+		flash.global_position = at
+		var disc := PlaneMesh.new()
+		disc.size = Vector2(2.0, 2.0)
+		var tilt := Basis(Vector3(1, 0, 0), deg_to_rad(_rng.randf_range(8.0, 16.0))) * Basis(Vector3(0, 0, 1), deg_to_rad(_rng.randf_range(-10.0, 10.0)))
+		var ring1 := _film_fx(disc, Color(1.0, 0.62, 0.25), 2, 0.1)
+		ring1.global_position = at
+		ring1.set_meta("tilt", tilt)
+		var ring2 := _film_fx(disc, Color(0.55, 0.8, 1.0), 2, 0.22)
+		ring2.global_position = at
+		ring2.set_meta("tilt", tilt * Basis(Vector3(1, 0, 0), deg_to_rad(-22.0)))
+		F["flash"] = flash
+		F["rings"] = [ring1, ring2]
+		film_fx_seen["flash"] = true
+		film_fx_seen["rings"] = true
+		for k2 in 6:   # the last fires bursting round the fireball
+			var o := Vector3(_rng.randf_range(-1, 1), _rng.randf_range(-0.4, 0.4), _rng.randf_range(-1, 1)).normalized() * r * _rng.randf_range(0.6, 1.4)
+			blast_pending.append({"t": t + 0.15 + 0.12 * k2, "at": at + o, "size": r * 0.6})
+	if bool(F.get("boom", false)):
+		var e := t - float(F["t_boom"])
+		var flash0 = F.get("flash")
+		if is_instance_valid(flash0):
+			var flash := flash0 as MeshInstance3D
+			flash.scale = Vector3.ONE * r * lerpf(0.5, 2.6, clampf(e / 0.35, 0.0, 1.0))
+			var ff := clampf(1.0 - (e - 0.2) / 1.0, 0.0, 1.0)
+			(flash.material_override as ShaderMaterial).set_shader_parameter("fade", ff)
+			if ff <= 0.0: flash.queue_free()
+		var rings: Array = F.get("rings", [])
+		for i in rings.size():
+			if not is_instance_valid(rings[i]): continue
+			var rg := rings[i] as MeshInstance3D
+			var life := Data.ESCAPE_FILM_RING_S * (1.0 if i == 0 else 0.8)
+			var q := clampf(e / life, 0.0, 1.0)
+			var rad := r * lerpf(1.0, Data.ESCAPE_FILM_RING_R * (1.0 if i == 0 else 0.7), 1.0 - pow(1.0 - q, 2.2))
+			rg.global_basis = (rg.get_meta("tilt") as Basis) * Basis.from_scale(Vector3(rad, 1.0, rad))
+			(rg.material_override as ShaderMaterial).set_shader_parameter("fade", (1.0 - q) * minf(1.0, e * 8.0))
+			if q >= 1.0: rg.queue_free()
+
+static func _basis_along(dir: Vector3) -> Basis:   # a basis whose y axis is dir
+	var y := dir.normalized()
+	var x := y.cross(Vector3.FORWARD if absf(y.dot(Vector3.FORWARD)) < 0.95 else Vector3.RIGHT).normalized()
+	var z := x.cross(y).normalized()
+	return Basis(x, y, z)
 
 var cine_t := -1.0   # v12.52: the landing film (>= 0: the camera flies round your ship on its own)
 func _update_camera(dt: float, snap: bool) -> void:

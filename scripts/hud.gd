@@ -104,11 +104,11 @@ func _esc_clock_ui() -> void:
 	if _esc_clock == null:
 		_esc_clock = Label.new()
 		_esc_clock.name = "EscapeClock"
-		_esc_clock.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_esc_clock.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
-		_esc_clock.offset_left = -300.0
-		_esc_clock.offset_right = 300.0
-		_esc_clock.offset_top = Data.ts(195)
+		_esc_clock.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT   # v13.234 (owner): top left, yellow, red in the last minute
+		_esc_clock.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+		_esc_clock.offset_left = Data.ts(24)
+		_esc_clock.offset_right = Data.ts(24) + 400.0
+		_esc_clock.offset_top = Data.ts(2)
 		_esc_clock.add_theme_font_size_override("font_size", Data.ts(Data.ESCAPE_CLOCK_FONT))
 		_esc_clock.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
 		_esc_clock.add_theme_constant_override("outline_size", Data.ts(10))
@@ -125,9 +125,10 @@ func _esc_clock_ui() -> void:
 	_esc_clock.text = "%d:%02d" % [s / 60, s % 60]
 	var last: bool = left <= Data.ESCAPE_CLOCK_RED
 	var k := 0.5 + 0.5 * sin(t * TAU * 2.0) if last else 0.0
-	_esc_clock.add_theme_color_override("font_color", Color(1.0, 0.15 + 0.25 * k, 0.1) if last else Color(1.0, 0.82, 0.25))
+	var warn: bool = left <= Data.ESCAPE_CLOCK_WARN
+	_esc_clock.add_theme_color_override("font_color", Color(1.0, 0.15 + 0.25 * k, 0.1) if warn else Color(1.0, 0.86, 0.1))
 	_esc_clock.scale = Vector2.ONE * (1.0 + 0.12 * k)
-	_esc_clock.pivot_offset = _esc_clock.size / 2.0
+	_esc_clock.pivot_offset = Vector2(0.0, _esc_clock.size.y / 2.0)
 	if last and s != _esc_last:
 		Sfx.play("button", -3.0, 1.6)
 	_esc_last = s

@@ -2789,19 +2789,25 @@ func _run() -> void:
 				if kind == "sabotage":   # v13.220 (owner): the big escape clock at the top centre
 					await _wait(0.2)
 					var ck: Label = main.hud._esc_clock
-					_check("%s sabotage: the big escape clock shows at the top centre (%s)" % [fid, ck.text if ck != null else "-"], ck != null and ck.visible and ck.text.contains(":"), str(ck))
+					var ck_left: bool = ck != null and ck.global_position.x < main.hud.get_viewport_rect().size.x * 0.25 and ck.global_position.y < main.hud.get_viewport_rect().size.y * 0.2
+					var ck_col: Color = ck.get_theme_color("font_color") if ck != null else Color.BLACK
+					_check("%s sabotage: the big escape clock shows at the top LEFT in yellow (v13.234) (%s)" % [fid, ck.text if ck != null else "-"], ck != null and ck.visible and ck.text.contains(":") and ck_left and ck_col.g > 0.7 and ck_col.b < 0.3, "%s %s" % [str(ck.global_position) if ck != null else "-", str(ck_col)])
 					await _capture("fb_%s_clock" % fid)
 			var films0: int = main.film_runs
 			var ex: Array = Boarding.ROOMS[exk]["r"]   # out by the way out (v13.92: wherever it is)
 			s.player.global_position = Vector3((float(ex[0]) + float(ex[1])) * 0.5, float(Boarding.ROOMS[exk]["y"][0]) + 6.0, (float(ex[2]) + float(ex[3])) * 0.5)
 			if kind == "sabotage":   # v13.220 (owner): the film: the ship going up, your ship flying clear
 				await _until(func(): return main.film_runs > films0 and is_instance_valid(main.space) and not main.space.esc_film.is_empty(), 12.0)
-				await _wait(1.2)
-				await _capture("fb_%s_film_a" % fid)
-				await _wait(2.6)
-				await _capture("fb_%s_film_b" % fid)
+				main.space.film_fx_seen = {}
+				await _wait(1.5)
+				await _capture("fb_%s_film_a" % fid)   # (the little blasts)
+				await _wait(3.6)
+				await _capture("fb_%s_film_b" % fid)   # (v13.234: the light rays)
 				await _wait(1.3)
-				await _capture("fb_%s_film_c" % fid)
+				await _capture("fb_%s_film_c" % fid)   # (the flash and the shock ring)
+				await _wait(1.4)
+				await _capture("fb_%s_film_d" % fid)   # (the ring racing out)
+				_check("%s sabotage: the Death Star finale played: light rays, the flash, the shock rings (v13.234)" % fid, main.space.film_fx_seen.has("rays") and main.space.film_fx_seen.has("flash") and main.space.film_fx_seen.has("rings"), str(main.space.film_fx_seen))
 			await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and not main.space.boarding, 30.0)
 			await _wait(1.0)
 			if kind == "sabotage": _check("%s sabotage: the escape film played (the ship blew up behind you)" % fid, main.film_runs > films0 and main.space.esc_film.is_empty(), str(main.film_runs))

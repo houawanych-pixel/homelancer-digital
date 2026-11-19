@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.233"
+const VERSION := "v13.234"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -1235,6 +1235,7 @@ const NEBULA_BACKDROPS := 3          # v12.2: huge clouds out past the system ed
 const NEBULA_BACKDROP_R := [160000.0, 260000.0]
 const NEBULA_PUFFS := 240             # smoke puffs in a full-size cloud (smaller clouds get fewer)
 const NEBULA_PUFF_ALPHA := 0.55
+const NEBULA_SHIP_CLEAR := 2000.0   # v13.234 (owner): in a cloud, ships nearer than this (m) show their own colours, not the white haze
 const NEBULA_FOG_DENSITY := 0.005   # (v1.9z: thicker: deep inside you see a few hundred metres, not the other side)    # fog at the heart of a cloud (things ~600 m off fade into the haze)
 const NEBULA_STREAM := 40             # smoke puffs streaming past the ship inside a cloud
 const NEBULA_STREAM_RANGE := 320.0
@@ -2044,8 +2045,15 @@ const BOARD_BAY_REACH := 360.0   # v11.89: 4x with the battleship
 const BOARD_MECHS := [3, 10]           # [most at once, in all]
 const BOARD_ESCAPE := 90.0             # s to get out after the core blows
 const ESCAPE_CLOCK_FONT := 72         # v13.220: the big escape countdown (top centre)
-const ESCAPE_CLOCK_RED := 10.0         # s: red, pulsing and beeping from here
-const ESCAPE_FILM_S := 8.0             # v13.220: the escape film: the ship goes up while yours flies clear (s)
+const ESCAPE_CLOCK_RED := 10.0         # s: pulsing and beeping from here
+const ESCAPE_CLOCK_WARN := 60.0        # v13.234 (owner): the clock turns red in the last minute (yellow before)
+const ESCAPE_FILM_S := 11.0            # v13.220: the escape film: the ship goes up while yours flies clear (s) (v13.234: 8 -> 11, the Death Star finale)
+const ESCAPE_FILM_BLASTS := 22          # v13.234: little blasts running over the hull first
+const ESCAPE_FILM_RAYS_AT := 4.4        # s: beams of light break out through the hull
+const ESCAPE_FILM_BOOM_AT := 6.0        # s: the reactor goes: flash, fireball, shock rings
+const ESCAPE_FILM_RAYS := 12
+const ESCAPE_FILM_RING_R := 14.0        # the shock ring races out to this many ship radii
+const ESCAPE_FILM_RING_S := 3.5         # s: how long the ring takes to fade out
 const ESCAPE_FILM_CAM := 30.0         # m: the camera riding ahead of your ship, looking back at it
 const ESCAPE_FILM_AWAY := 9000.0       # m from the station when there is no boarded ship out there (tests)
 const FLEET_ESCAPE := BOARD_ESCAPE + 300.0   # v13.136 (owner: "the time limit to escape needs 5 min more"): s to get out of a fleet ship
