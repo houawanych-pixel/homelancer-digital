@@ -1614,9 +1614,21 @@ func setup_boarding(info: Dictionary) -> void:
 	var root := Node3D.new()
 	root.name = "BattleshipInside"
 	add_child(root)
-	var built: Dictionary = Boarding.build(root, tint)
-	merged_level = _merge_static(root, built)   # v12.44: the web build drew nothing past ~1000 pieces: one mesh per material
+	var _t0 := Time.get_ticks_msec()
+	_board_root = root
+	_board_tint = tint
+	_built_decks = {}
+	var dy0 := INF
+	if Boarding.STACKED and bool(Boarding.INFO.get("station", false)):   # v13.227: a station builds the deck you start on; the others when you ride a lift to them
+		dy0 = Boarding.deck_y(Boarding.START_AT)
+		_built_decks[dy0] = true
+	var built: Dictionary = Boarding.build(root, tint, dy0)
+	var _t1 := Time.get_ticks_msec()
+	merged_level = _merge_static(root, built)
+	if OS.get_environment("HL_BTIME") != "": print("BTIME build %d merge %d" % [_t1 - _t0, Time.get_ticks_msec() - _t1])   # v12.44: the web build drew nothing past ~1000 pieces: one mesh per material
+	var _tr := Time.get_ticks_msec()
 	_reshow(root)   # v12.34: on the web (phones) the freshly built level drew nothing until shown again
+	if OS.get_environment("HL_BTIME") != "": print("BTIME reshow %d" % (Time.get_ticks_msec() - _tr))
 	_level_lights = root.find_children("*", "OmniLight3D", true, false)   # v12.35: only the nearest few are on
 	_cap_lights(true)
 	surf_boxes = built["boxes"]
@@ -1685,14 +1697,19 @@ func setup_boarding(info: Dictionary) -> void:
 			board["calm_deck"] = true
 			_station_spots(root)
 			message.emit("Welcome aboard %s. Walk up to a sign for the BAR, the shops or the MISSION BOARD. Your ship waits in the HANGAR (east)." % str(info["name"]))
-		elif Boarding.INFO.has("fleet"): _fleet_setup(root, info, fac)
+		elif Boarding.INFO.has("fleet"):
+			var _tf := Time.get_ticks_msec()
+			_fleet_setup(root, info, fac)
+			if OS.get_environment("HL_BTIME") != "": print("BTIME fleet_setup %d" % (Time.get_ticks_msec() - _tf))
 		else: message.emit("You're in %s with a price on your head. Their guards are on patrol: keep out of their sight and find your way to YOUR SHIP in the hangar (MAP: the deck plan)." % str(info["name"]))
 	else:
 		message.emit("Inside the %s. Fight through toward the back of the ship and down into the belly: the REACTOR." % board["ship"])
 	life = StationLife.new()   # v12.48: tables / crates / consoles to break, marks on the walls, the crew
 	life.name = "StationLife"
 	root.add_child(life)
+	var _tl := Time.get_ticks_msec()
 	life.setup(self, fac, bool(info.get("escape", false)), tint)
+	if OS.get_environment("HL_BTIME") != "": print("BTIME life %d" % (Time.get_ticks_msec() - _tl))
 	if Boarding.STACKED and not _deck_nodes.is_empty(): _fleet_show_deck()   # v13.188
 	_update_camera(1.0, true)
 
@@ -2120,14 +2137,20 @@ func _fleet_setup(root: Node3D, info: Dictionary, fac: String) -> void:
 		bc.global_position = tp + Vector3(0, 15.0, 0)
 		fl["beacon"] = bc
 		bc.visible = false   # v13.130 (owner: "the player has to figure it out"): shown only when Evee marks it
+	var _t2 := Time.get_ticks_msec()
 	if Boarding.STACKED:
 		_fleet_decks(root)
 		_fleet_show_deck()   # v13.187: only the deck you are on is drawn from the start (all five at once blacked out phones)
+	if OS.get_environment("HL_BTIME") != "": print("BTIME decks %d" % (Time.get_ticks_msec() - _t2))
 	if bool(Boarding.INFO.get("station", false)) and is_instance_valid(env):   # v13.187: no room lamps on a station: a brighter deck light
 		env.environment.ambient_light_energy = 1.25
+	var _t3 := Time.get_ticks_msec()
 	_crew_walkers(fac, kind, str(info.get("ship_id", "")))   # v13.148
+	var _t4 := Time.get_ticks_msec()
 	_mech_guards(fac, str(info.get("ship_id", "")))   # v13.151
+	var _t5 := Time.get_ticks_msec()
 	_stealth_setup(root, kind == "visit")
+	if OS.get_environment("HL_BTIME") != "": print("BTIME crew %d mechs %d stealth %d" % [_t4 - _t3, _t5 - _t4, Time.get_ticks_msec() - _t5])
 	if kind == "visit":
 		message.emit("Aboard the %s as a guest. The crew is calm (NEUTRAL). Card doors: talk to the card carriers for the codes, or punch them in at the floor pads." % str(info["name"]))
 		return
@@ -2194,8 +2217,32 @@ func _fleet_decks(root: Node3D) -> void:
 			"need": e.get("need", {}), "c": Vector2((x0 + x1) * 0.5, (z0 + z1) * 0.5), "half": minf(x1 - x0, z1 - z0) * 0.5, "node": pl, "label": str(e.get("label", "LIFT"))})
 	_fleet_show_deck(true)
 
+## v13.227: a station's decks are built one at a time: this one now (on a lift ride to it, or if you are on it)
+var _built_decks := {}
+var _board_root: Node3D
+var _board_tint := Color.WHITE
+var decks_built := 0   # (tests)
+func _ensure_deck(y: float) -> void:
+	if _built_decks.is_empty() or _built_decks.has(y) or not is_instance_valid(_board_root): return
+	_built_decks[y] = true
+	decks_built += 1
+	var r2 := Node3D.new()
+	r2.name = "Deck %d" % int(y)
+	_board_root.add_child(r2)
+	var built: Dictionary = Boarding.build(r2, _board_tint, y)
+	_merge_static(r2, built)
+	surf_boxes += built["boxes"]
+	var F: Dictionary = Boarding.INFO.get("fleet", {})
+	for d in built["doors"]:
+		for l in F.get("locks", []):
+			if Boarding.is_door(d, l["rooms"]): d["key"] = int(l["key"])
+	board_doors += built["doors"]
+	var dn := Boarding.deck_name(y)
+	if _deck_nodes.has(dn): r2.reparent(_deck_nodes[dn], true)
+
 func _fleet_show_deck(both := false) -> void:
 	var here := Boarding.deck_name(Boarding.deck_y(player.global_position))
+	_ensure_deck(Boarding.deck_y(player.global_position))
 	for dn in _deck_nodes: (_deck_nodes[dn] as Node3D).visible = both or dn == here
 	# v13.188 (owner: Liberty Hub black on the phone: the web build draws nothing past ~1000 pieces): the pieces made after
 	# the decks were sorted (doors' pads and posts, the crew and props) are hidden off your deck too
@@ -2251,6 +2298,7 @@ func _fleet_elev(dt: float) -> bool:
 	return riding
 
 func _lift_start(e: Dictionary, to_y: float) -> void:
+	_ensure_deck(to_y)   # v13.227
 	e["ride"] = true
 	e["target"] = to_y
 	_fleet_show_deck(true)

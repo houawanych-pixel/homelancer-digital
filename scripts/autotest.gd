@@ -1929,6 +1929,13 @@ func _run() -> void:
 		await _wait(2.0)
 		var nodes := 0
 		for c in s.get_children(): nodes += 1 + c.get_child_count()
+		var fast: Array = Boarding.doors()   # v13.227: the fast door finder finds exactly what trying every pair finds
+		var slow: Array = Boarding.doors_all()
+		var same := fast.size() == slow.size()
+		if same:
+			for i in fast.size():
+				if fast[i]["rooms"] != slow[i]["rooms"] or not is_equal_approx(float(fast[i]["at"]), float(slow[i]["at"])): same = false; break
+		_check("v13.227: the fast door finder = every pair (%d doors)" % fast.size(), same, "%d vs %d" % [fast.size(), slow.size()])
 		_check("v13.174: calm (a visit), you start in the docking bay", s.stealth == "neutral" and Boarding.room_at(s.player.global_position) == "sbay", "%s %s" % [s.stealth, Boarding.room_at(s.player.global_position)])
 		await _shot("stboard_bay")
 		# walk the hall toward the hub: stand in the middle of the station, then in a named room

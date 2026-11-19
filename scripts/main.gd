@@ -1548,7 +1548,9 @@ static func station_board_path(sys_id: String) -> String:
 func board_station(kind: String, job := {}) -> void:
 	if not is_instance_valid(space) or state == "boarding": return
 	var path := station_board_path(GS.system_id)
+	var _bt0 := Time.get_ticks_msec()
 	var L := Boarding.fleet_layout(path)
+	if OS.get_environment("HL_BTIME") != "": print("BTIME layout %d" % (Time.get_ticks_msec() - _bt0))
 	if L.is_empty():
 		hud.flash_message("No deck plan for this station yet.")
 		return
@@ -1577,7 +1579,9 @@ func board_station(kind: String, job := {}) -> void:
 	if Data.FLEET_MECH:
 		Packs.request("mechs")
 		await Packs.wait("mechs", 60.0)
+	var _bt1 := Time.get_ticks_msec()
 	Boarding.use(L)
+	if OS.get_environment("HL_BTIME") != "": print("BTIME use %d" % (Time.get_ticks_msec() - _bt1))
 	Boarding.INFO["name"] = nm
 	var dmaps2 := {}   # v13.175: each deck's own map picture
 	for dn in (Boarding.INFO.get("deck_maps", {}) as Dictionary):
@@ -1588,7 +1592,9 @@ func board_station(kind: String, job := {}) -> void:
 	Boarding.INFO["plan_tex_decks"] = dmaps2
 	_new_space("Boarding")
 	space.escape_pilot = not (Data.FLEET_MECH and Packs.is_ready("mechs"))
+	var _bt2 := Time.get_ticks_msec()
 	space.setup_boarding({"sys": board_from["sys"], "faction": fac, "name": nm, "escape": true, "mission": kind, "ship_id": ""})
+	if OS.get_environment("HL_BTIME") != "": print("BTIME setup %d" % (Time.get_ticks_msec() - _bt2))
 	_connect_space()
 	var tw2 := create_tween()
 	tw2.tween_property(fx, "fade", 0.0, 0.6)

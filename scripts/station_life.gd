@@ -68,10 +68,14 @@ func _mats() -> void:
 	_glow.emission = Color(0.3, 0.9, 1.0)
 	_glow.emission_energy_multiplier = 1.6
 
+var _st_fast := false   # v13.227: a station (thousands of pieces): props only in rooms, each checked against its own room's props
+var _room_props := {}
 func _fill(body: Color) -> void:
+	_st_fast = bool(Boarding.INFO.get("station", false))
 	for k in Boarding.ROOMS:
 		var R: Dictionary = Boarding.ROOMS[k]
 		if str(R.get("label", "")) == "CORRIDOR" or bool(R.get("hex", false)): continue
+		if _st_fast and (bool(R.get("conn", false)) or bool(R.get("flow", false))): continue
 		var r: Array = R["r"]
 		var area := (float(r[1]) - float(r[0])) * (float(r[3]) - float(r[2]))
 		var n := clampi(int(area / 9000.0), 3, 8)
@@ -100,7 +104,7 @@ func _free_spot(k: String, pad: float) -> Vector3:
 		var con: Vector3 = sp.board.get("console", Vector3.INF) if sp != null else Vector3.INF
 		if con != Vector3.INF and q.distance_to(Vector2(con.x, con.z)) < 50.0: continue
 		var ok := true
-		for pr in props:
+		for pr in (_room_props.get(k, []) if _st_fast else props):
 			var pc: Vector3 = (pr["aabb"] as AABB).get_center()
 			if q.distance_to(Vector2(pc.x, pc.z)) < 28.0:
 				ok = false
@@ -201,6 +205,9 @@ func _add_prop(kind: String, at: Vector3, yaw: float, body: Color, room: String)
 	for g in (sh["split"] as Array).size(): left.append(g)
 	props.append({"node": mi, "aabb": bb, "hp": float(PROP_HP[kind]), "kind": kind, "room": room, "broken": false, "body": body, "yaw": yaw, "at": at,
 		"left": left, "chip_hp": float(PROP_HP[kind]) / maxf(1.0, float(left.size()))})
+	if _st_fast:
+		if not _room_props.has(room): _room_props[room] = []
+		(_room_props[room] as Array).append(props[-1])
 
 ## the nearest intact prop along from -> to: [t 0..1, prop] (t = 1 when none)
 func seg_prop(from: Vector3, to: Vector3) -> Array:

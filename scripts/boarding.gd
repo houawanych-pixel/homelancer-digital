@@ -916,6 +916,40 @@ static func joint(a: String, b: String) -> Dictionary:
 	return {}
 
 static func doors() -> Array:
+	# v13.227: only pairs whose edges line up are tried (rooms bucketed by their edge lines): the same joints in the same
+	# order as trying every pair, but a five-deck station (2000+ pieces) no longer takes seconds
+	var out: Array = []
+	var ks: Array = ROOMS.keys()
+	var idx := {}
+	var bx := {}   # round(x) of a left edge -> rooms;  bz: round(z) of a near edge -> rooms
+	var bz := {}
+	for i in ks.size():
+		idx[ks[i]] = i
+		var r: Array = ROOMS[ks[i]]["r"]
+		for e in [[bx, float(r[0])], [bx, float(r[1])], [bz, float(r[2])], [bz, float(r[3])]]:
+			var key := int(round(float(e[1])))
+			if not (e[0] as Dictionary).has(key): (e[0] as Dictionary)[key] = []
+			if not ((e[0] as Dictionary)[key] as Array).has(i): ((e[0] as Dictionary)[key] as Array).append(i)
+	var pairs := {}
+	for i in ks.size():
+		var r: Array = ROOMS[ks[i]]["r"]
+		for e in [[bx, float(r[0])], [bx, float(r[1])], [bz, float(r[2])], [bz, float(r[3])]]:
+			var key := int(round(float(e[1])))
+			for kk in [key - 1, key, key + 1]:
+				for j in (e[0] as Dictionary).get(kk, []):
+					if j > i: pairs[i * 1000003 + j] = [i, j]
+	var keys: Array = pairs.keys()
+	keys.sort()
+	for pk in keys:
+		var ij: Array = pairs[pk]
+		var jt := joint(ks[ij[0]], ks[ij[1]])
+		if jt.is_empty(): continue
+		jt["rooms"] = [ks[ij[0]], ks[ij[1]]]
+		out.append(jt)
+	return out
+
+## the old way (every pair), kept for the check that the fast one finds the very same doors
+static func doors_all() -> Array:
 	var out: Array = []
 	var ks: Array = ROOMS.keys()
 	for i in ks.size():
@@ -954,7 +988,9 @@ static func grey(col: Color) -> StandardMaterial3D:
 ## Build every area, its doors, lights and the reactor pit under `root`. Returns {"boxes": the solid walls,
 ## "doors": [{rooms, axis, at, lo, hi, base, h, panels, box, center, open, locked, sealed}], "alarm": the lamps,
 ## "path": the exit lights}.
-static func build(root: Node3D, tint: Color) -> Dictionary:
+## v13.227: deck_y (a ship / station with floors): build only the rooms on that deck (the others are built when you ride
+## a lift to them); INF builds them all, as before.
+static func build(root: Node3D, tint: Color, deck_y := INF) -> Dictionary:
 	var boxes: Array = []
 	var wall_m := grey(Color(0.44, 0.45, 0.48))
 	var deck_m := grey(Color(0.36, 0.37, 0.4))
@@ -964,6 +1000,14 @@ static func build(root: Node3D, tint: Color) -> Dictionary:
 	var lamps: Array = []
 	var lifts := {}
 	var dl := doors()
+	var only := deck_y != INF and STACKED
+	var on_deck := func(k) -> bool: return not only or absf(minf(float(ROOMS[k]["y"][0]), float(ROOMS[k]["y"][1])) - deck_y) < 1.0
+	if only: dl = dl.filter(func(d): return on_deck.call(d["rooms"][0]) and on_deck.call(d["rooms"][1]))
+	var by_room := {}   # v13.227: each room's doors (not every door tried on every wall)
+	for d in dl:
+		for rk in d["rooms"]:
+			if not by_room.has(rk): by_room[rk] = []
+			(by_room[rk] as Array).append(d)
 	var shaft_lo := {}   # v13.96: a lift car's roof / floor left open, so the shaft runs from deck to deck
 	var shaft_hi := {}
 	if STACKED:
@@ -974,6 +1018,7 @@ static func build(root: Node3D, tint: Color) -> Dictionary:
 				if i < ks.size() - 1: shaft_lo[ks[i]] = true
 				if i > 0: shaft_hi[ks[i]] = true
 	for k in ROOMS:
+		if only and not on_deck.call(k): continue
 		var R: Dictionary = ROOMS[k]
 		var r: Array = R["r"]
 		var x0: float = r[0]
@@ -991,8 +1036,8 @@ static func build(root: Node3D, tint: Color) -> Dictionary:
 			if k == "lbay" and side[0] == "x" and is_equal_approx(float(side[1]), x0): continue   # the port bay's open side (in)
 			if k == "sbay" and side[0] == "x" and is_equal_approx(float(side[1]), x1) and not INFO.has("fleet"): continue   # the starboard bay's open side (out) (v13.92: a fleet ship's bay is closed: you leave by reaching it)
 			var cuts: Array = []
-			for d in dl:
-				if not (d["rooms"] as Array).has(k) or d["axis"] != side[0] or absf(float(d["at"]) - float(side[1])) > 0.5: continue
+			for d in by_room.get(k, []):
+				if d["axis"] != side[0] or absf(float(d["at"]) - float(side[1])) > 0.5: continue
 				cuts.append([float(d["lo"]), float(d["hi"])])
 			cuts.sort_custom(func(a, b): return a[0] < b[0])
 			var at := float(side[2])
