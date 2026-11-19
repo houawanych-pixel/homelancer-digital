@@ -1020,6 +1020,7 @@ static func build(root: Node3D, tint: Color, deck_y := INF) -> Dictionary:
 	for k in ROOMS:
 		if only and not on_deck.call(k): continue
 		var R: Dictionary = ROOMS[k]
+		var c0 := root.get_child_count()   # v13.233: every piece knows its room (a station draws only the rooms round you)
 		var r: Array = R["r"]
 		var x0: float = r[0]
 		var x1: float = r[1]
@@ -1072,6 +1073,7 @@ static func build(root: Node3D, tint: Color, deck_y := INF) -> Dictionary:
 				lamp.light_color = Color(1, 0.96, 0.9).lerp(tint, 0.12)
 				root.add_child(lamp)
 				lamps.append(lamp)
+		for ci in range(c0, root.get_child_count()): root.get_child(ci).set_meta("room", k)
 	# the doors: two panels meeting in the middle that slide apart into the wall
 	var out_doors: Array = []
 	for d in dl:
@@ -1100,6 +1102,7 @@ static func build(root: Node3D, tint: Color, deck_y := INF) -> Dictionary:
 			mi.position = closed_at
 			mi.set_meta("closed_at", closed_at)
 			mi.set_meta("open_off", (Vector3(0, 0, sgn * w * 0.5) if d["axis"] == "x" else Vector3(sgn * w * 0.5, 0, 0)))
+			mi.set_meta("rooms", d["rooms"])
 			root.add_child(mi)
 			panels.append(mi)
 		var a := Vector3(float(d["at"]) - WALL * 0.5, base, float(d["lo"])) if d["axis"] == "x" else Vector3(float(d["lo"]), base, float(d["at"]) - WALL * 0.5)

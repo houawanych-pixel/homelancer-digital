@@ -1639,6 +1639,7 @@ func setup_boarding(info: Dictionary) -> void:
 	ground_mode = GS.form == "mech"   # v12.58: in the mothership you fly your ship
 	player.global_position = Boarding.START_AT + Vector3(0, 6.0 if GS.form == "mech" else 30.0, 0)
 	_face(Boarding.START_FACE)
+	_stream_collect()   # v13.233: a station draws only the rooms round you
 	vel = Vector3.ZERO
 	board = {"phase": "fight", "faction": fac, "ship": str(info.get("name", "%s Battleship" % fac)), "guards": {}, "woke": {}, "escape": -1.0, "core": {}, "said": -1, "room": "lbay",
 		"boss": {}, "bridge": {}, "bridge_drop": false, "hostage": null, "hostage_pay": false}
@@ -1711,6 +1712,7 @@ func setup_boarding(info: Dictionary) -> void:
 	life.setup(self, fac, bool(info.get("escape", false)), tint)
 	if OS.get_environment("HL_BTIME") != "": print("BTIME life %d" % (Time.get_ticks_msec() - _tl))
 	if Boarding.STACKED and not _deck_nodes.is_empty(): _fleet_show_deck()   # v13.188
+	_stream_collect()   # v13.233 (again, with the props and crew)
 	_update_camera(1.0, true)
 
 func _build_board_env(tint: Color) -> void:
@@ -1805,6 +1807,7 @@ func _board_update(dt: float) -> void:
 			vel = Vector3(vel.x * 0.3, vel.y, vel.z * 0.3)
 		life.update(dt)
 	_board_doors(dt)
+	_stream_update(dt)
 	_hostage_tick(dt)
 	if player.global_position.x < Boarding.ENTRY_X:   # (the port bay's open side: in only; out is the starboard bay)
 		player.global_position.x = Boarding.ENTRY_X
@@ -2239,6 +2242,101 @@ func _ensure_deck(y: float) -> void:
 	board_doors += built["doors"]
 	var dn := Boarding.deck_name(y)
 	if _deck_nodes.has(dn): r2.reparent(_deck_nodes[dn], true)
+	_stream_collect()
+
+## v13.233 (owner: "only load as needed neighbouring rooms, like the example of the 5 rooms"; Liberty Hub black and laggy
+## on the phone): a station draws only the room you are in and the rooms joined to it by doors, out to Data.STATION_STREAM_R
+## from you; everything further is hidden (a phone draws nothing past ~1000 pieces). Each room's pieces are merged per room.
+var _stream_nodes: Array = []
+var _stream_adj := {}
+var _stream_room := ""
+var _stream_t := 0.0
+var _stream_at := Vector3.INF
+var stream_shown := 0
+var _stream_life: Array = []
+var stream_rooms := 0
+func _streams() -> bool:
+	return Boarding.STACKED and bool(Boarding.INFO.get("station", false))
+
+func _stream_collect() -> void:
+	_stream_nodes = []
+	_stream_adj = {}
+	_stream_room = ""
+	if not _streams() or not is_instance_valid(_board_root): return
+	for n in _board_root.find_children("*", "Node3D", true, false):
+		if n.has_meta("room") or n.has_meta("rooms"): _stream_nodes.append(n)
+	_stream_life = []
+	if is_instance_valid(life):   # (the station's props stay in their room; the crew walk: shown by distance)
+		for c in life.get_children():
+			if not (c is Node3D): continue
+			if c is MeshInstance3D:
+				var rk := Boarding.room_at((c as Node3D).global_position)
+				if rk != "":
+					c.set_meta("room", rk)
+					_stream_nodes.append(c)
+					continue
+			_stream_life.append(c)
+	for d in Boarding.doors():
+		var a := str(d["rooms"][0])
+		var b := str(d["rooms"][1])
+		if not _stream_adj.has(a): _stream_adj[a] = []
+		if not _stream_adj.has(b): _stream_adj[b] = []
+		(_stream_adj[a] as Array).append(b)
+		(_stream_adj[b] as Array).append(a)
+	_stream_update(0.0, true)
+
+static func _box_dist(r: Array, p: Vector3) -> float:
+	var dx := maxf(0.0, maxf(float(r[0]) - p.x, p.x - float(r[1])))
+	var dz := maxf(0.0, maxf(float(r[2]) - p.z, p.z - float(r[3])))
+	return sqrt(dx * dx + dz * dz)
+
+func _stream_update(dt: float, now := false) -> void:
+	if _stream_nodes.is_empty() or not is_instance_valid(player): return
+	_stream_t -= dt
+	if not now and _stream_t > 0.0: return
+	_stream_t = 0.5
+	var p := player.global_position
+	var here := Boarding.room_at(p)
+	if here == "": here = _stream_room
+	_stream_room = here
+	_stream_at = p
+	var near := {}
+	if here != "":   # (the rooms joined to yours by doors, out to the stream distance)
+		near[here] = true
+		var front: Array = [here]
+		while not front.is_empty():
+			var nx: Array = []
+			for k in front:
+				for j in _stream_adj.get(k, []):
+					if near.has(j) or not Boarding.ROOMS.has(j): continue
+					if _box_dist(Boarding.ROOMS[j]["r"], p) > Data.STATION_STREAM_R: continue
+					near[j] = true
+					nx.append(j)
+			front = nx
+	else:   # (nowhere yet: everything close by)
+		for k in Boarding.ROOMS:
+			if _box_dist(Boarding.ROOMS[k]["r"], p) < Data.STATION_STREAM_R * 0.5: near[k] = true
+	var shown := 0
+	for n0 in _stream_nodes:
+		if not is_instance_valid(n0): continue
+		var n := n0 as Node3D
+		var on: bool
+		if n.has_meta("rooms"):
+			var rr: Array = n.get_meta("rooms")
+			on = near.has(str(rr[0])) or near.has(str(rr[1]))
+		else: on = near.has(str(n.get_meta("room")))
+		if bool(n.get_meta("deck_hid", false)): on = false
+		if n.visible != on: n.visible = on
+		if on: shown += 1
+	for n0 in _stream_life:
+		if not is_instance_valid(n0): continue
+		var n := n0 as Node3D
+		if bool(n.get_meta("deck_hid", false)): continue
+		var on: bool = n.global_position.distance_to(p) < Data.STATION_STREAM_R
+		if n.visible != on: n.visible = on
+		if on: shown += 1
+	stream_shown = shown
+	stream_rooms = near.size()
 
 func _fleet_show_deck(both := false) -> void:
 	var here := Boarding.deck_name(Boarding.deck_y(player.global_position))
@@ -2957,7 +3055,7 @@ func _board_doors(dt: float) -> void:
 			board["card_msg"] = 4.0
 			message.emit("%s CARD NEEDED: a guard on this ship carries it%s." % [ShipInterior.KEY_NAME[need], " (or punch the code in at the floor pad)" if d.has("pads") else ""])
 		var want := 0.0 if shut or not near else 1.0
-		d["open"] = move_toward(float(d["open"]), want, dt * 1.6)
+		d["open"] = move_toward(float(d["open"]), want, dt * (Data.STATION_DOOR_SPEED if _streams() else 1.6))   # v13.233: station doors slide slower (time for the next rooms)
 		# v13.177 (owner: "I didn't see the colour doors for the different access"): a card door's whole panel wears its
 		# card's colour (yellow / orange / red) until you can go through; a locked / sealed one is red
 		var pcol: Color = (ShipInterior.KEY_COL[need] if no_card and not bool(d["locked"]) and not bool(d["sealed"]) else Color(0.85, 0.18, 0.12)) if shut and (no_card or bool(d["locked"]) or bool(d["sealed"])) else Color(0, 0, 0, 0)
@@ -11233,6 +11331,7 @@ func _merge_static(root: Node3D, built: Dictionary) -> int:
 		var key = mi.material_override
 		if Boarding.STACKED:   # v13.188: one merged mesh per material PER DECK (a ship / station with floors draws only your deck)
 			key = [mi.material_override, Boarding.deck_of_piece((mi.global_transform * mi.get_aabb()).get_center().y if mi.is_inside_tree() else mi.position.y)]
+			if _streams() and mi.has_meta("room"): key.append(str(mi.get_meta("room")))   # v13.233: a station merges per ROOM (drawn only near you)
 		if not groups.has(key): groups[key] = []
 		groups[key].append(mi)
 	var gone := 0
@@ -11248,6 +11347,7 @@ func _merge_static(root: Node3D, built: Dictionary) -> int:
 		one.mesh = st.commit()
 		one.material_override = mat[0] if mat is Array else mat
 		one.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		if mat is Array and (mat as Array).size() > 2: one.set_meta("room", mat[2])
 		root.add_child(one)
 		for mi: MeshInstance3D in list:
 			root.remove_child(mi)

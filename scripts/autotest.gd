@@ -1942,6 +1942,16 @@ func _run() -> void:
 				if fast[i]["rooms"] != slow[i]["rooms"] or not is_equal_approx(float(fast[i]["at"]), float(slow[i]["at"])): same = false; break
 		_check("v13.227: the fast door finder = every pair (%d doors)" % fast.size(), same, "%d vs %d" % [fast.size(), slow.size()])
 		_check("v13.174: calm (a visit), you start in the docking bay", s.stealth == "neutral" and Boarding.room_at(s.player.global_position) == "sbay", "%s %s" % [s.stealth, Boarding.room_at(s.player.global_position)])
+		var pv := 0
+		var pk := {}
+		for mi in s.find_children("*", "MeshInstance3D", true, false):
+			if (mi as Node3D).is_visible_in_tree():
+				pv += 1
+				var pn := str(mi.get_parent().name).left(14) + "/" + str(mi.name).left(10)
+				pk[pn] = int(pk.get(pn, 0)) + 1
+		var pkl := pk.keys()
+		pkl.sort_custom(func(a, b): return pk[a] > pk[b])
+		_check("v13.233: the web build draws the station: under 900 pieces on screen (%d; %s)" % [pv, str(pkl.slice(0, 4).map(func(k): return "%s=%d" % [k, pk[k]]))], pv < 900, "")
 		await _shot("stboard_bay")
 		# walk the hall toward the hub: stand in the middle of the station, then in a named room
 		s.player.global_position = Vector3(0, 6, 0)
