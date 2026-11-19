@@ -35,9 +35,9 @@ C, NPX = 1650.0, 3300
 MW, PW = 34.0, 20.0
 A_HUB, A_A = 128.0, 232.0
 LIB_AREA = 3817526.0                     # Liberty Hub main deck floor (px^2): every station is built at that size
-LIFTS = {"Lift (north)": ((1667, 1332, 1729, 1402), (1667.0, 1367.0, "v")), "Lift (south)": ((1667, 1976, 1729, 2046), (1667.0, 2011.0, "v")),
+LIFTS = {"Lift (north)": ((1667, 1332, 1729, 1402), (1667.0, 1367.0, "v")), "Lift (south)": ((1667, 1898, 1729, 1968), (1667.0, 1933.0, "v")),
          "Lift (East)": ((1898, 1571, 1968, 1633), (1933.0, 1633.0, "h")), "Lift (West)": ((1332, 1571, 1402, 1633), (1367.0, 1633.0, "h"))}
-LIFT_AT = [[1698, 1367], [1698, 2011], [1933, 1602], [1367, 1602]]
+LIFT_AT = [[1698, 1367], [1698, 1933], [1933, 1602], [1367, 1602]]   # (v13.229: south = the north mirrored, so a ring of 342+ clears all four)
 DECKS = [("lower2", "HANGAR", -2), ("lower", "ENGINEERING", -1), ("main", "MAIN HUB", 0), ("upper", "HABITAT", 1), ("upper2", "COMMAND", 2)]
 ROLE = {
     "HANGAR": dict(dist=["Freight Hall", "Drone Bay", "Fighter Deck"], hub="Flight Control", pad="Launch Pad", word="Hangar",
@@ -94,6 +94,18 @@ def cut_of(hw, hh): return CUT * min(hw, hh)
 def outlines(model):
     O = SP.deck_outlines({"model": model})
     polys = [p.buffer(0) for p in O["polys"]]
+    # a deck the slices were too broken for came back as the top silhouette (the same for the top and bottom deck):
+    # use the model's own slice nearest that height, between it and the hub, that is a usable floor (owner: every
+    # floor its own silhouette)
+    for k in (0, 1, 3, 4):
+        if O["src"][k] != "silhouette": continue
+        i0, hub = O["idx"][k], O["idx"][2]
+        step = 1 if hub > i0 else -1
+        for i in range(i0, hub, step):
+            q = SP.outline(SP.clean(O["masks"][i]))
+            if q is None or q.area < 0.35 * polys[2].area or q.length / math.sqrt(q.area) > 14.0: continue
+            if any(q.symmetric_difference(polys[j]).area < 0.05 * q.area for j in range(5) if j != k): continue
+            polys[k] = q.buffer(0); O["src"][k] = "slice %d" % i; break
     main = polys[2]
     # the mirror axis: vertical or horizontal, wherever the main slice matches its own mirror best
     def sym(g, vertical):
@@ -151,9 +163,25 @@ def build_deck(HULL0, role, sid, name, here, src):
             else: hi_ = mid
         hw, hh = min(lo_ * r_, 1450), lo_
         if INNER.contains(octo(C, C, hw + MW / 2, hh + MW / 2, cut_of(hw, hh))) and (best is None or hw * hh > best[0] * best[1]): best = (hw, hh)
+    DY = 0.0
+    if not best or min(best) < 342:
+        # a deck too tight round the lifts for a ring with rooms outside it: the ring may hug the hull, and sit off
+        # the lift centre up or down, as long as it still clears the four shafts (its sides 342+ from the centre)
+        IN2 = HULL.buffer(-MW / 2 - 10, join_style=2); best2 = None
+        for dy_ in np.arange(-320.0, 321.0, 20.0):
+            for r_ in np.linspace(0.45, 2.6, 18):
+                lo_, hi_ = 150.0, 1450.0
+                for _ in range(18):
+                    mid = (lo_ + hi_) / 2; hw, hh = min(mid * r_, 1450), mid
+                    if IN2.contains(octo(C, C + dy_, hw + MW / 2, hh + MW / 2, cut_of(hw, hh))): lo_ = mid
+                    else: hi_ = mid
+                hw, hh = min(lo_ * r_, 1450), lo_
+                if hh - abs(dy_) >= 342 and hw >= 342 and IN2.contains(octo(C, C + dy_, hw + MW / 2, hh + MW / 2, cut_of(hw, hh))) and (best2 is None or hw * hh > best2[0] * best2[1]):
+                    best2 = (hw, hh, dy_)
+        if best2: best, DY = best2[:2], float(best2[2])
     RINGS = [(A_A, A_A)]
-    if best and min(best) >= 330:
-        P_ = best; RINGS.append(((A_A + P_[0]) / 2, (A_A + P_[1]) / 2) if min(P_) >= 560 else None); RINGS.append(P_)
+    if best and min(best) >= 342:   # (an outer ring nearer than that would run through the lift shafts)
+        P_ = best; RINGS.append(((A_A + P_[0]) / 2, (A_A + P_[1]) / 2) if min(P_) >= 560 and DY == 0 else None); RINGS.append(P_)
         RINGS = [q for q in RINGS if q]
     hwP, hhP = RINGS[-1]; cP = cut_of(hwP, hhP)
     def verts(cx, cy, hw, hh):
@@ -178,6 +206,7 @@ def build_deck(HULL0, role, sid, name, here, src):
                      (cx - hw, cy - hh + c, cx - hw, cy + hh - c, w), (cx + hw, cy - hh + c, cx + hw, cy + hh - c, w)])
         return V
     RG = [{"cx": C, "cy": C, "hw": hw, "hh": hh, "breaks": {}} for hw, hh in RINGS]
+    if len(RG) > 1: RG[-1]["cy"] = C + DY
     MAINP = RG[-1]
     CORNER = lambda rg, x, y: (0 if y < rg["cy"] else 2) if x > rg["cx"] else (6 if y < rg["cy"] else 4)
     PADS, LINKS, DIST = [], [], []
@@ -274,12 +303,15 @@ def build_deck(HULL0, role, sid, name, here, src):
             if ok_h and ok_t: return (kind, pts, o, rg)
         return None
     TAKEN = [unary_union([ring_shape(r_, MW / 2 + 70) for r_ in RG])]
+    CROSS = []
     # ---- the hub and the cross (out of the outer ring on to a pad wherever the hull runs on)
     hubname = NAMES["hub"] + (" (%s)" % name if role == "MAIN HUB" else "")
     R[hubname] = octo(C, C, A_HUB, A_HUB, A_HUB * 0.414)
     for dx, dy, lab in ((0, -1, "N"), (0, 1, "S"), (1, 0, "E"), (-1, 0, "W")):
-        a1 = MAINP["hh"] if dx == 0 else MAINP["hw"]
-        HALLS.append(hall((C + dx * A_HUB, C + dy * A_HUB), (C + dx * a1, C + dy * a1), w=MW))
+        a1 = (MAINP["hh"] + dy * (MAINP["cy"] - C)) if dx == 0 else MAINP["hw"]
+        if a1 < 360:   # (no outer ring: the cross runs on past the lift doors to a junction)
+            a1 = 360.0; node(C + dx * a1, C + dy * a1, MW)
+        HALLS.append(hall((C + dx * A_HUB, C + dy * A_HUB), (C + dx * a1, C + dy * a1), w=MW)); CROSS.append([(C + dx * A_HUB, C + dy * A_HUB), (C + dx * a1, C + dy * a1)])
         DOORS.append((C + dx * A_HUB, C + dy * A_HUB, "h" if dx == 0 else "v"))
         SEGS.append((C, C + dy * A_HUB, C, C + dy * a1, MW) if dx == 0 else (C + dx * A_HUB, C, C + dx * a1, C, MW))
         p = (C + dx * a1, C + dy * a1)
@@ -290,7 +322,7 @@ def build_deck(HULL0, role, sid, name, here, src):
             else: cy = C
             if not HULL.contains(box(cx - hw, cy - hw, cx + hw, cy + hw)): continue
             e = (cx - dx * hw, cy - dy * hw)
-            HALLS.append(hall(p, e, w=MW)); SEGS.append((p[0], min(p[1], e[1]), e[0], max(p[1], e[1]), MW) if dx == 0 else (min(p[0], e[0]), p[1], max(p[0], e[0]), e[1], MW))
+            CROSS.append([p, e]); HALLS.append(hall(p, e, w=MW)); SEGS.append((p[0], min(p[1], e[1]), e[0], max(p[1], e[1]), MW) if dx == 0 else (min(p[0], e[0]), p[1], max(p[0], e[0]), e[1], MW))
             nm = "%s %s" % (NAMES["pad"], lab); R[nm] = octo(cx, cy, hw, hw, hw * 0.3)
             DOORS.append((round(e[0], 1), round(e[1], 1), "h" if dx == 0 else "v")); PADS.append(nm)
             TAKEN[0] = TAKEN[0].union(hall(p, e, w=MW + 2 * 100)).union(box(cx - hw, cy - hw, cx + hw, cy + hw).buffer(100))
@@ -330,7 +362,7 @@ def build_deck(HULL0, role, sid, name, here, src):
     # ---- spurs: the narrower floor left over (wings, spikes) gets a lane from the nearest ring out to a pad at its tip
     SPURS = []
     from shapely.prepared import prep
-    STRAIGHT = [[a_, b_] for kind, pts, o, rg_, nr in LINKS if kind == "s" for a_, b_ in [pts]]
+    STRAIGHT = [[a_, b_] for kind, pts, o, rg_, nr in LINKS if kind == "s" for a_, b_ in [pts]] + CROSS
     def tspur(q):
         """a straight lane at right angles off any straight walkway side, as far into the piece q as it goes, a pad at
         its end (the longest such lane wins)"""
@@ -338,14 +370,16 @@ def build_deck(HULL0, role, sid, name, here, src):
         for rg in RG:
             V = verts(rg["cx"], rg["cy"], rg["hw"], rg["hh"])
             segs += [[V[7], V[0]], [V[1], V[2]], [V[3], V[4]], [V[5], V[6]]]
-        HI, TK, QP = prep(HULL.buffer(-50)), prep(TAKEN[0]), prep(q)
+        HI, TK, QP = prep(HULL.buffer(-36)), prep(TAKEN[0]), prep(q)
+        HIp = prep(HULL.buffer(-MW / 2 - 6))   # (angled lanes and lanes out of a pad may squeeze through a neck to a pod beyond)
+        FREE = HULL.buffer(-12)
         CB = all_cb()
         padok = lambda bb: HULL.contains(bb) and not TK.intersects(bb) and not boxes_hit([bb.buffer(4).bounds], CB)
         best = None
         for (ax_, ay_), (bx_, by_) in segs:
             hz = abs(ay_ - by_) < 1
             lo, hi = (min(ax_, bx_), max(ax_, bx_)) if hz else (min(ay_, by_), max(ay_, by_))
-            for u in np.arange(lo + MW, hi - MW, 24.0):
+            for u in np.arange(lo + MW / 2 + 6, hi - MW / 2 - 5, 12.0):
                 for sd in (-1, 1):
                     x_, y_ = (u, ay_) if hz else (ax_, u)
                     if x_ < C + MW / 2 + 60: continue
@@ -353,14 +387,15 @@ def build_deck(HULL0, role, sid, name, here, src):
                     t = MW / 2
                     while t < 1600:
                         pt = Point(x_ + dx_ * (t + 10), y_ + dy_ * (t + 10))
-                        if not HI.contains(pt) or (t > 110 and TK.contains(pt)): break
+                        if not HIp.contains(pt) or (t > 110 and TK.contains(pt)): break
                         t += 10
+                    if os.environ.get("SB_DEBUG3") and x_ > 2100: print("   s-ray", round(x_), round(y_), dx_, dy_, t, QP.contains(Point(x_ + dx_ * (t - 60), y_ + dy_ * (t - 60))))
                     if t < 200 or not QP.contains(Point(x_ + dx_ * (t - 60), y_ + dy_ * (t - 60))): continue
                     if best and t <= best[0]: continue
-                    for a in (60, 52, 45):
-                        Q = (x_ + dx_ * (t + 40 - a), y_ + dy_ * (t + 40 - a))
+                    for a, bk in [(a_, b_) for b_ in range(0, int(t) - 150, 20) for a_ in (60, 52, 45)]:   # (as far out as a pad fits)
+                        Q = (x_ + dx_ * (t + 40 - a - bk), y_ + dy_ * (t + 40 - a - bk))
                         if padok(box(Q[0] - a, Q[1] - a, Q[0] + a, Q[1] + a)):
-                            best = (t, "s", [(x_, y_), (Q[0] - dx_ * a, Q[1] - dy_ * a)], Q, a, None); break
+                            best = (t - bk, "s", [(x_, y_), (Q[0] - dx_ * a, Q[1] - dy_ * a)], Q, a, None); break
         # angled: off a ring's 45 deg corner face (a short straight stub, then the lane out at 45 deg to a pad)
         for rg in RG:
             cx, cy, hw, hh = rg["cx"], rg["cy"], rg["hw"], rg["hh"]; c = cut_of(hw, hh)
@@ -379,10 +414,26 @@ def build_deck(HULL0, role, sid, name, here, src):
                             ok_ = True
                             for off in (-MW / 2, 0, MW / 2):
                                 pt = Point(a0[0] + u[0] * (t + 10) - u[1] * off, a0[1] + u[1] * (t + 10) + u[0] * off)
-                                if not HI.contains(pt) or TKr.contains(pt): ok_ = False; break
+                                if not HIp.contains(pt) or TKr.contains(pt): ok_ = False; break
                             if not ok_: break
                             t += 10
-                        if t < 220 or not QP.contains(Point(a0[0] + u[0] * (t - 40), a0[1] + u[1] * (t - 40))): continue
+                        if os.environ.get("SB_DEBUG2"): print("  d-ray", [round(v) for v in r1], sgx, sgy, t, QP.contains(Point(a0[0] + u[0] * (t - 40), a0[1] + u[1] * (t - 40))))
+                        if t < 150 or not QP.contains(Point(a0[0] + u[0] * (t - 40), a0[1] + u[1] * (t - 40))): continue
+                        # a pod ring where the angled lane comes out into open floor (a district of its own); the lane
+                        # ends square on the middle part of its near side
+                        for a in (190.0, 160.0, 130.0, 110.0):
+                            got = None
+                            for d in np.arange(150.0, t + 1, 10.0):
+                                b0 = (a0[0] + u[0] * d, a0[1] + u[1] * d)
+                                for off in (0.0, -0.35 * a, 0.35 * a):
+                                    cen = (b0[0] + sgx * a, b0[1] + off)
+                                    og = octo(cen[0], cen[1], a + MW / 2 + 4, a + MW / 2 + 4, cut_of(a, a))
+                                    if FREE.contains(og) and not TKr.intersects(og) and QP.intersects(og) and abs(off) <= a - cut_of(a, a) - MW:
+                                        got = (b0, cen); break
+                                if got: break
+                            if got:
+                                if not best or a + t > best[0]: best = (a + t, "dr", [r1, st1, a0, got[0]], got[1], a, rg)
+                                break
                         if best and t <= best[0]: continue
                         for a in (60, 52, 45):
                             b0 = (a0[0] + u[0] * (t + 30 - 2 * a), a0[1] + u[1] * (t + 30 - 2 * a))
@@ -392,7 +443,7 @@ def build_deck(HULL0, role, sid, name, here, src):
                                 best = (t, "d", [r1, st1, a0, b0], Q, a, rg); break
         # on from a pad: a lane out of a pad's side (the pad is a junction room, doors at both ends)
         for kind0, pts0, o0, rg0_, Qp, ap in SPURS:
-            if Qp[0] < C + MW / 2 + 60: continue
+            if kind0 in ("pr", "dr") or Qp[0] < C + MW / 2 + 60: continue
             TKr = prep(TAKEN[0].difference(box(Qp[0] - ap, Qp[1] - ap, Qp[0] + ap, Qp[1] + ap).buffer(MW + 46)))
             for u, sh in [(u_, sh_) for u_ in ((1, 0), (-1, 0), (0, 1), (0, -1)) for sh_ in (0, -1, 1)]:
                 if (u[0] * (pts0[-1][0] - Qp[0]) + u[1] * (pts0[-1][1] - Qp[1])) > ap - 2: continue   # (the side it is reached from)
@@ -403,17 +454,29 @@ def build_deck(HULL0, role, sid, name, here, src):
                     ok_ = True
                     for off in (-MW / 2, 0, MW / 2):
                         pt = Point(st[0] + u[0] * (t + 10) - u[1] * off, st[1] + u[1] * (t + 10) + u[0] * off)
-                        if not HI.contains(pt) or TKr.contains(pt): ok_ = False; break
+                        if not HIp.contains(pt) or TKr.contains(pt): ok_ = False; break
                     if not ok_: break
                     t += 10
+                # a pod ring at the end when the floor opens out there (a district of its own)
+                for a in (190.0, 160.0, 130.0, 110.0):
+                    got = None
+                    for d in np.arange(t, a + 2 * MW, -10.0):
+                        cen = (st[0] + u[0] * d, st[1] + u[1] * d)
+                        if cen[0] - a - MW < C + MW / 2 + 40: continue
+                        og = octo(cen[0], cen[1], a + MW / 2 + 4, a + MW / 2 + 4, cut_of(a, a))
+                        if FREE.contains(og) and not TK.intersects(og) and QP.intersects(og):
+                            got = cen; break
+                    if got and (not best or a + t > best[0]):
+                        best = (a + t, "pr", [st, (got[0] - u[0] * a, got[1] - u[1] * a)], got, a, None)
+                    if got: break
                 if os.environ.get("SB_DEBUG"): print("   pad-ray", [round(v) for v in Qp], ap, u, t, QP.contains(Point(st[0] + u[0] * (t - 60), st[1] + u[1] * (t - 60))))
                 if t < 200 or not QP.contains(Point(st[0] + u[0] * (t - 60), st[1] + u[1] * (t - 60))): continue
                 if best and t <= best[0]: continue
-                for a in (60, 52, 45):
-                    Q = (st[0] + u[0] * (t + 40 - a), st[1] + u[1] * (t + 40 - a))
+                for a, bk in [(a_, b_) for b_ in range(0, int(t) - 150, 20) for a_ in (60, 52, 45)]:
+                    Q = (st[0] + u[0] * (t + 40 - a - bk), st[1] + u[1] * (t + 40 - a - bk))
                     bb = box(Q[0] - a, Q[1] - a, Q[0] + a, Q[1] + a)
                     if padok(bb):
-                        best = (t, "p", [st, (Q[0] - u[0] * a, Q[1] - u[1] * a)], Q, a, None); break
+                        best = (t - bk, "p", [st, (Q[0] - u[0] * a, Q[1] - u[1] * a)], Q, a, None); break
         # straight out of a ring's corner face (a T on the angled corner), across or down
         for rg in RG:
             cx, cy, hw, hh = rg["cx"], rg["cy"], rg["hw"], rg["hh"]; c = cut_of(hw, hh)
@@ -431,21 +494,21 @@ def build_deck(HULL0, role, sid, name, here, src):
                                 ok_ = True
                                 for off in (-MW / 2, 0, MW / 2):
                                     pt = Point(r1[0] + u[0] * (t + 10) - u[1] * off, r1[1] + u[1] * (t + 10) + u[0] * off)
-                                    if not HI.contains(pt) or TKr.contains(pt): ok_ = False; break
+                                    if not HIp.contains(pt) or TKr.contains(pt): ok_ = False; break
                                 if not ok_: break
                                 t += 10
                             if os.environ.get("SB_DEBUG2"): print("  b-ray", [round(v) for v in r1], u, t, QP.contains(Point(r1[0] + u[0] * (t - 60), r1[1] + u[1] * (t - 60))))
-                            if t < 260 or not QP.contains(Point(r1[0] + u[0] * (t - 60), r1[1] + u[1] * (t - 60))): continue
+                            if t < 200 or not QP.contains(Point(r1[0] + u[0] * (t - 60), r1[1] + u[1] * (t - 60))): continue
                             if best and t <= best[0]: continue
-                            for a in (60, 52, 45):
-                                Q = (r1[0] + u[0] * (t + 40 - a), r1[1] + u[1] * (t + 40 - a))
+                            for a, bk in [(a_, b_) for b_ in range(0, int(t) - 150, 20) for a_ in (60, 52, 45)]:
+                                Q = (r1[0] + u[0] * (t + 40 - a - bk), r1[1] + u[1] * (t + 40 - a - bk))
                                 bb = box(Q[0] - a, Q[1] - a, Q[0] + a, Q[1] + a)
                                 if padok(bb):
-                                    best = (t, "b", [r1, (Q[0] - u[0] * a, Q[1] - u[1] * a)], Q, a, rg); break
+                                    best = (t - bk, "b", [r1, (Q[0] - u[0] * a, Q[1] - u[1] * a)], Q, a, rg); break
         if not best: return None
-        if best[1] in ("s", "d", "b", "p"): return best[1:]
+        if best[1] in ("s", "d", "b", "p", "pr", "dr"): return best[1:]
         return ("s", best[1], best[2], best[3], None)
-    for _ in range(6):
+    for _ in range(16):
         free = HULL.buffer(-(MW / 2 + 16), join_style=2).difference(TAKEN[0].buffer(MW / 2 + 40)).intersection(box(C + MW / 2 + 70, 0, NPX, NPX))
         pcs = sorted([q for q in getattr(free, "geoms", [free]) if q.geom_type == "Polygon" and q.area > 25000], key=lambda q: -q.area)
         made = False
@@ -458,7 +521,9 @@ def build_deck(HULL0, role, sid, name, here, src):
             near = min(RG, key=lambda r_: math.hypot(r_["cx"] - xs.mean(), r_["cy"] - ys.mean()))
             dd = np.hypot(xs - near["cx"], ys - near["cy"]); i_ = int(np.argmax(dd))
             Q = (float(xs[i_]), float(ys[i_])); a = float(min(60, dt[ys[i_], xs[i_]] - 6))
-            for rg in sorted(RG, key=lambda r_: math.hypot(r_["cx"] - Q[0], r_["cy"] - Q[1])):
+            t_ = tspur(q)   # (a pod ring, when one fits, beats a bare lane to a pad)
+            pod = bool(t_) and t_[0] in ("pr", "dr")
+            for rg in ([] if pod else sorted(RG, key=lambda r_: math.hypot(r_["cx"] - Q[0], r_["cy"] - Q[1]))):
                 if rg["hw"] < 300 and not rg.get("district"): continue
                 L1 = link(rg, Q, a, pad=True)
                 Qm = (2 * C - Q[0], Q[1]); rgm = rg if rg["cx"] == C else next((r_ for r_ in RG if abs(r_["cx"] - (2 * C - rg["cx"])) < 1 and abs(r_["cy"] - rg["cy"]) < 1), None)
@@ -471,13 +536,18 @@ def build_deck(HULL0, role, sid, name, here, src):
                         TAKEN[0] = TAKEN[0].union(box(QQ[0] - a, QQ[1] - a, QQ[0] + a, QQ[1] + a).buffer(MW + 40)).union(hall(pts[0], pts[-1], w=MW + 60))
                     made = True; break
             if not made:
-                t_ = tspur(q)
                 if os.environ.get("SB_DEBUG"): print("spur piece", round(q.area), [round(v) for v in q.bounds], "tspur", t_ and t_[0])
                 if t_:
                     kind_, pts, Q, a, rg0 = t_
                     for k_ in (1, -1):
                         P2 = pts if k_ == 1 else [(2 * C - x_, y_) for x_, y_ in pts]; QQ = Q if k_ == 1 else (2 * C - Q[0], Q[1])
                         SPURS.append((kind_, P2, "x", None, QQ, a))
+                        if kind_ in ("pr", "dr"):
+                            nr = {"cx": QQ[0], "cy": QQ[1], "hw": a, "hh": a, "breaks": {}, "district": True}
+                            RG.append(nr); TAKEN[0] = TAKEN[0].union(ring_shape(nr, MW / 2 + 70)).union(hall(P2[0], P2[-1], w=MW + 60))
+                            if kind_ == "pr": STRAIGHT.append(P2); continue
+                            rgx = rg0 if (k_ == 1 or abs(rg0["cx"] - C) < 1) else next((r_ for r_ in RG if abs(r_["cx"] - (2 * C - rg0["cx"])) < 1 and abs(r_["cy"] - rg0["cy"]) < 1), rg0)
+                            rgx["breaks"].setdefault(CORNER(rgx, *P2[0]), []).append(P2[0]); continue
                         if kind_ in ("d", "b"):
                             rgx = rg0 if (k_ == 1 or abs(rg0["cx"] - C) < 1) else next((r_ for r_ in RG if abs(r_["cx"] - (2 * C - rg0["cx"])) < 1 and abs(r_["cy"] - rg0["cy"]) < 1), rg0)
                             rgx["breaks"].setdefault(CORNER(rgx, *P2[0]), []).append(P2[0])
@@ -489,11 +559,20 @@ def build_deck(HULL0, role, sid, name, here, src):
     for rg in RG: ring(rg)
     pname = lambda cx, cy: "%s %d" % (NAMES["pad"], int(round(math.degrees(math.atan2(-(cy - C), cx - C)) % 360)))
     for kind, pts, o, rg_, Q, a in SPURS:
+        if kind == "dr":   # (an angled lane out of a ring corner to a pod ring's side)
+            r1, st1, a0, b0 = pts
+            HALLS.append(hall(r1, st1, w=MW)); node(st1[0], st1[1], MW)
+            HALLS.append(dhall(a0, b0, w=MW, axis="x"))
+            continue
+        if kind == "pr":   # (a lane from a pad to a pod ring: a door on the pad, a T into the ring's side)
+            DOORS.append((round(pts[0][0], 1), round(pts[0][1], 1), "h" if abs(pts[0][0] - pts[1][0]) < 1 else "v"))
+            HALLS.append(hall(*pts, w=MW)); SEGS.append((min(pts[0][0], pts[1][0]), min(pts[0][1], pts[1][1]), max(pts[0][0], pts[1][0]), max(pts[0][1], pts[1][1]), MW))
+            continue
         nm = pname(*Q)
         while nm in R: nm += "b"
         e = pts[-1]
         # (later breaks move a ring corner's pieces: a pad now over one is drawn in toward its door, if nothing starts from it)
-        fed = any(k2 == "p" and box(Q[0] - a - 2, Q[1] - a - 2, Q[0] + a + 2, Q[1] + a + 2).contains(Point(*p2[0])) for k2, p2, *_ in SPURS)
+        fed = any(k2 in ("p", "pr") and box(Q[0] - a - 2, Q[1] - a - 2, Q[0] + a + 2, Q[1] + a + 2).contains(Point(*p2[0])) for k2, p2, *_ in SPURS)
         DB = [g.bounds for g in planlib.DIAG]
         u_ = ((Q[0] - e[0]) / max(abs(Q[0] - e[0]), 1e-9), 0) if abs(Q[0] - e[0]) > 1 else (0, (Q[1] - e[1]) / max(abs(Q[1] - e[1]), 1e-9))
         while not fed and a > 32 and boxes_hit([box(Q[0] - a, Q[1] - a, Q[0] + a, Q[1] + a).buffer(3).bounds], DB):
@@ -535,18 +614,19 @@ def build_deck(HULL0, role, sid, name, here, src):
                 SEGS.append((min(p0[0], p1[0]), min(p0[1], p1[1]), max(p0[0], p1[0]), max(p0[1], p1[1]), MW))
     hwP, hhP = MAINP["hw"], MAINP["hh"]
     # ---- side lanes: from each ring's corners straight out to the next ring
-    for (hw0, hh0), (hw1, hh1) in zip(RINGS, RINGS[1:]):
+    for k_, ((hw0, hh0), (hw1, hh1)) in enumerate(zip(RINGS, RINGS[1:])):
         c0, c1 = cut_of(hw0, hh0), cut_of(hw1, hh1)
+        dy1 = DY if k_ + 2 == len(RINGS) else 0.0
         for sx in (-1, 1):
             for sy in (-1, 1):
                 if hw0 - c0 < hw1 - c1 - MW:
-                    a, b = (C + sx * (hw0 - c0), C + sy * hh0), (C + sx * (hw0 - c0), C + sy * hh1)
+                    a, b = (C + sx * (hw0 - c0), C + sy * hh0), (C + sx * (hw0 - c0), C + dy1 + sy * hh1)
                     HALLS.append(hall(a, b, w=MW)); SEGS.append((a[0], min(a[1], b[1]), b[0], max(a[1], b[1]), MW))
-                if hh0 - c0 < hh1 - c1 - MW:
+                if hh0 - c0 < hh1 - c1 - MW and abs(sy * (hh0 - c0) - dy1) <= hh1 - c1 - MW:
                     a, b = (C + sx * hw0, C + sy * (hh0 - c0)), (C + sx * hw1, C + sy * (hh0 - c0))
                     HALLS.append(hall(a, b, w=MW)); SEGS.append((min(a[0], b[0]), a[1], max(a[0], b[0]), b[1], MW))
     # ---- the district rooms: in the band between the last two rings, either side of the cross
-    if len(RINGS) >= 2:
+    if len(RINGS) >= 2 and DY == 0:
         (hwB, hhB), (hwP_, hhP_) = RINGS[-2], RINGS[-1]
         cB = cut_of(hwB, hhB)
         bi = iter(NAMES["big"])
