@@ -409,58 +409,75 @@
     "lower2",
     "lower",
     "main",
-    "upper"
+    "upper",
+    "upper2"
    ],
    "at": [
     1698,
     1367
    ],
-   "label": "LIFT"
+   "label": "LIFT",
+   "need": {
+    "upper2": 3
+   }
   },
   {
    "decks": [
     "lower2",
     "lower",
     "main",
-    "upper"
+    "upper",
+    "upper2"
    ],
    "at": [
     1698,
     2011
    ],
-   "label": "LIFT"
+   "label": "LIFT",
+   "need": {
+    "upper2": 3
+   }
   },
   {
    "decks": [
     "lower2",
     "lower",
     "main",
-    "upper"
+    "upper",
+    "upper2"
    ],
    "at": [
     1933,
     1602
    ],
-   "label": "LIFT"
+   "label": "LIFT",
+   "need": {
+    "upper2": 3
+   }
   },
   {
    "decks": [
     "lower2",
     "lower",
     "main",
-    "upper"
+    "upper",
+    "upper2"
    ],
    "at": [
     1367,
     1602
    ],
-   "label": "LIFT"
+   "label": "LIFT",
+   "need": {
+    "upper2": 3
+   }
   }
  ],
  "deck_names": {
   "main": "MAIN HUB DECK",
   "lower": "ENGINEERING DECK",
   "lower2": "HANGAR DECK",
-  "upper": "HABITAT DECK"
+  "upper": "HABITAT DECK",
+  "upper2": "COMMAND DECK"
  }
 }

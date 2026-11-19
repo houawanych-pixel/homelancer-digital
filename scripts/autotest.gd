@@ -2018,6 +2018,32 @@ func _run() -> void:
 						s.player.global_position = back
 						await get_tree().process_frame
 					await _wait(1.0)
+				if Boarding.ROOMS.has("u2_r_lift__north"):   # v13.226: on up to the COMMAND deck (the red card), the Bridge
+					s.lift_go(1)
+					await _until(func(): return Boarding.deck_name(Boarding.deck_y(s.player.global_position)) == "COMMAND DECK" and not bool(s._elev[0]["ride"]), 15.0)
+					await _wait(1.0)
+					_check("v13.226: UP again: the COMMAND deck", Boarding.deck_name(Boarding.deck_y(s.player.global_position)) == "COMMAND DECK", Boarding.deck_name(Boarding.deck_y(s.player.global_position)))
+					main.open_map()
+					await _wait(0.8)
+					await _shot("stboard_command_map")
+					main.open_map()
+					await _wait(0.4)
+					var br: Array = Boarding.ROOMS.get("u2_r_bridge", {}).get("r", [])
+					if not br.is_empty():
+						var back2 := s.player.global_position
+						for i in 10:
+							s.player.global_position = Vector3((float(br[0]) + float(br[1])) * 0.5, 346, (float(br[2]) + float(br[3])) * 0.5)
+							await get_tree().process_frame
+						await _wait(0.6)
+						_check("v13.226: you can stand on the BRIDGE", Boarding.room_at(s.player.global_position) == "u2_r_bridge", Boarding.room_at(s.player.global_position))
+						await _shot("stboard_bridge")
+						for i in 20:
+							s.player.global_position = back2
+							await get_tree().process_frame
+						await _wait(1.0)
+					s.lift_go(-1)
+					await _until(func(): return Boarding.deck_name(Boarding.deck_y(s.player.global_position)) == "HABITAT DECK" and not bool(s._elev[0]["ride"]), 15.0)
+					await _wait(1.0)
 				s.lift_go(-1)
 				await _until(func(): return Boarding.deck_name(Boarding.deck_y(s.player.global_position)) == "MAIN HUB DECK" and not bool(s._elev[0]["ride"]), 15.0)
 				await _wait(1.0)
