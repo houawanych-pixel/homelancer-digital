@@ -1,0 +1,603 @@
+{
+ "wreck": [],
+ "patrols": [],
+ "lifts": [
+  {
+   "room": "Lift (north)",
+   "at": [
+    1698,
+    1367
+   ]
+  },
+  {
+   "room": "Lift (south)",
+   "at": [
+    1698,
+    2011
+   ]
+  },
+  {
+   "room": "Lift (East)",
+   "at": [
+    1933,
+    1602
+   ]
+  },
+  {
+   "room": "Lift (West)",
+   "at": [
+    1367,
+    1602
+   ]
+  }
+ ],
+ "room_guards": {
+  "Main Hub (Orbital Command)": 2,
+  "Dock Pad N": 2,
+  "Dock Pad S": 2,
+  "Dock Pad E": 2,
+  "Dock Pad W": 2,
+  "Dock Pad 66": 2,
+  "Dock Pad 114": 2,
+  "Trade Plaza East": 2,
+  "Trade Plaza West": 2,
+  "Concourse North Lobby 1": 0,
+  "Concourse North Lobby 2": 0,
+  "Concourse North Quarters 1": 2,
+  "Concourse North Quarters 2": 0,
+  "Concourse North Bay 1": 2,
+  "Concourse North Bay 2": 2,
+  "Concourse North Store 1": 0,
+  "Concourse North Store 2": 0,
+  "Concourse North Quarters 3": 0,
+  "Concourse North Quarters 4": 0,
+  "Concourse North Canteen 1": 0,
+  "Concourse North Canteen 2": 0,
+  "Concourse South Canteen 1": 0,
+  "Concourse South Canteen 2": 0,
+  "Concourse South Store 1": 0,
+  "Concourse South Store 2": 0,
+  "Concourse South Machine Shop 1": 2,
+  "Concourse South Machine Shop 2": 2,
+  "Concourse South Armoury 1": 2,
+  "Concourse South Armoury 2": 2,
+  "Concourse East Clinic 1": 0,
+  "Concourse West Clinic 1": 0,
+  "Concourse East Office 1": 0,
+  "Concourse West Office 1": 0,
+  "Concourse East Clinic 2": 0,
+  "Concourse West Clinic 2": 0,
+  "Concourse East Quarters 1": 0,
+  "Concourse West Quarters 1": 0,
+  "Concourse East Lobby 1": 0,
+  "Concourse West Lobby 1": 0,
+  "Concourse East Cabin 1": 0,
+  "Concourse West Cabin 1": 0,
+  "Concourse East Store 1": 0,
+  "Concourse West Store 1": 0,
+  "Concourse East Quarters 2": 0,
+  "Concourse West Quarters 2": 0,
+  "Concourse East Office 2": 0,
+  "Concourse West Office 2": 0,
+  "Concourse East Control 2": 0,
+  "Concourse West Control 2": 0,
+  "Concourse East Lounge 2": 0,
+  "Concourse West Lounge 2": 0,
+  "Concourse East Armoury 1": 2,
+  "Concourse West Armoury 1": 2,
+  "Concourse East Plant 1": 2,
+  "Concourse West Plant 1": 2,
+  "Concourse East Machine Shop 1": 2,
+  "Concourse West Machine Shop 1": 2,
+  "Concourse East Armoury 2": 2,
+  "Concourse West Armoury 2": 2,
+  "Concourse East Office 3": 0,
+  "Concourse West Office 3": 0,
+  "Concourse East Cargo Bay 1": 2,
+  "Concourse West Cargo Bay 1": 2,
+  "Concourse East Machine Shop 2": 2,
+  "Concourse West Machine Shop 2": 2,
+  "Concourse East Loading Bay 1": 2,
+  "Concourse West Loading Bay 1": 2,
+  "Concourse East Bay 1": 2,
+  "Concourse West Bay 1": 2,
+  "Concourse East Clinic 3": 0,
+  "Concourse West Clinic 3": 0,
+  "Concourse North Plant 1": 2,
+  "Concourse North Plant 2": 2,
+  "Concourse North Lounge 1": 0,
+  "Concourse North Lounge 2": 0,
+  "Concourse North Machine Shop 1": 2,
+  "Concourse North Machine Shop 2": 2,
+  "Concourse East Canteen 1": 0,
+  "Concourse West Canteen 1": 0,
+  "Concourse North Armoury 1": 2,
+  "Concourse North Armoury 2": 2,
+  "Concourse North Machine Shop 3": 2,
+  "Concourse North Machine Shop 4": 2,
+  "Concourse East Plant 2": 2,
+  "Concourse West Plant 2": 2,
+  "Concourse East Cargo Bay 2": 2,
+  "Concourse West Cargo Bay 2": 2,
+  "Concourse South Machine Shop 3": 2,
+  "Concourse South Machine Shop 4": 2,
+  "Concourse South Cargo Bay 1": 2,
+  "Concourse South Cargo Bay 2": 2,
+  "Concourse East Machine Shop 3": 2,
+  "Concourse West Machine Shop 3": 2,
+  "Concourse East Plant 3": 2,
+  "Concourse West Plant 3": 2,
+  "Concourse South Loading Bay 1": 2,
+  "Concourse South Loading Bay 2": 2,
+  "Concourse South Armoury 3": 2,
+  "Concourse South Armoury 4": 2,
+  "Concourse South Bay 1": 2,
+  "Concourse South Bay 2": 2,
+  "Concourse East Bay 2": 2,
+  "Concourse West Bay 2": 2,
+  "Concourse East Armoury 3": 2,
+  "Concourse West Armoury 3": 2,
+  "Concourse East Quarters 3": 0,
+  "Concourse West Quarters 3": 0,
+  "Concourse East Control 3": 0,
+  "Concourse West Control 3": 0,
+  "Concourse East Canteen 2": 0,
+  "Concourse West Canteen 2": 0,
+  "Concourse East Office 4": 0,
+  "Concourse West Office 4": 0,
+  "Concourse East Lobby 2": 0,
+  "Concourse West Lobby 2": 0,
+  "Concourse East Cargo Bay 3": 2,
+  "Concourse West Cargo Bay 3": 2,
+  "Concourse East Office 5": 0,
+  "Concourse West Office 5": 0,
+  "Concourse East Armoury 4": 2,
+  "Concourse West Armoury 4": 2,
+  "Concourse East Store 2": 0,
+  "Concourse West Store 2": 0,
+  "Concourse East Control 4": 0,
+  "Concourse West Control 4": 0,
+  "Concourse East Cabin 2": 0,
+  "Concourse West Cabin 2": 0,
+  "Concourse East Office 6": 0,
+  "Concourse West Office 6": 0,
+  "Concourse East Store 3": 0,
+  "Concourse West Store 3": 0,
+  "Concourse East Armoury 5": 2,
+  "Concourse West Armoury 5": 2,
+  "Concourse East Office 7": 0,
+  "Concourse West Office 7": 0,
+  "Concourse South Clinic 1": 0,
+  "Concourse South Clinic 2": 0,
+  "Concourse South Armoury 5": 2,
+  "Concourse South Armoury 6": 2,
+  "Concourse South Bay 3": 2,
+  "Concourse South Bay 4": 2,
+  "Concourse South Bay 5": 2,
+  "Concourse South Bay 6": 2,
+  "Concourse South Bay 7": 2,
+  "Concourse South Bay 8": 2,
+  "Concourse South Clinic 3": 0,
+  "Concourse South Clinic 4": 0,
+  "Concourse South Canteen 3": 0,
+  "Concourse South Canteen 4": 0,
+  "Concourse North Quarters 5": 0,
+  "Concourse North Quarters 6": 0,
+  "Concourse North Cargo Bay 1": 2,
+  "Concourse North Cargo Bay 2": 2,
+  "Concourse North Cargo Bay 3": 2,
+  "Concourse North Cargo Bay 4": 2,
+  "Concourse East Armoury 6": 2,
+  "Concourse West Armoury 6": 2,
+  "Concourse East Plant 4": 2,
+  "Concourse West Plant 4": 2,
+  "Concourse East Store 4": 0,
+  "Concourse West Store 4": 0,
+  "Concourse East Bay 3": 2,
+  "Concourse West Bay 3": 2,
+  "Concourse East Plant 5": 2,
+  "Concourse West Plant 5": 2,
+  "Concourse East Store 5": 0,
+  "Concourse West Store 5": 0,
+  "Concourse East Store 6": 0,
+  "Concourse West Store 6": 0,
+  "Shipyard": 2,
+  "Mech Dealer": 2,
+  "Supplies": 2,
+  "Weapons": 2,
+  "Mission Center": 0,
+  "Pilots' Lounge": 0,
+  "Medical Bay": 0,
+  "Command": 0
+ },
+ "note": "Orbital Command MAIN HUB deck (station_v2/station_build.py)",
+ "formula": {
+  "C": "Main Hub (Orbital Command)",
+  "A_gate": "Dock Pad W",
+  "card_yellow": "Concourse East Clinic 2",
+  "card_red": "Concourse North Quarters 1",
+  "entry": "Dock Pad S",
+  "way_out": "Dock Pad N",
+  "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
+ },
+ "entry": {
+  "room": "Dock Pad S",
+  "at": [
+   1650,
+   2307
+  ]
+ },
+ "exit": {
+  "room": "Dock Pad N",
+  "at": [
+   1650,
+   742
+  ]
+ },
+ "locks": [
+  {
+   "door": [
+    1650.0,
+    1522.0
+   ],
+   "key": 3,
+   "why": "the objective (Main Hub (Orbital Command))"
+  },
+  {
+   "door": [
+    1650.0,
+    1778.0
+   ],
+   "key": 3,
+   "why": "the objective (Main Hub (Orbital Command))"
+  },
+  {
+   "door": [
+    1778.0,
+    1650.0
+   ],
+   "key": 3,
+   "why": "the objective (Main Hub (Orbital Command))"
+  },
+  {
+   "door": [
+    1522.0,
+    1650.0
+   ],
+   "key": 3,
+   "why": "the objective (Main Hub (Orbital Command))"
+  },
+  {
+   "door": [
+    1667.0,
+    897.8
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    1650.0,
+    780.8
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    374.7,
+    1650.0
+   ],
+   "key": 1,
+   "why": "the orange card's room (Dock Pad W)"
+  }
+ ],
+ "guards": [
+  {
+   "key": 1,
+   "room": "Concourse East Clinic 2",
+   "at": [
+    2155,
+    1606
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Dock Pad W",
+   "at": [
+    336,
+    1650
+   ]
+  },
+  {
+   "key": 3,
+   "room": "Concourse North Quarters 1",
+   "at": [
+    1690,
+    895
+   ]
+  }
+ ],
+ "targets": {
+  "sabotage": {
+   "room": "Main Hub (Orbital Command)",
+   "at": [
+    1650,
+    1650
+   ],
+   "key": 3
+  },
+  "capture": {
+   "room": "Main Hub (Orbital Command)",
+   "at": [
+    1650,
+    1650
+   ],
+   "key": 3
+  },
+  "rescue": {
+   "room": "Main Hub (Orbital Command)",
+   "at": [
+    1650,
+    1650
+   ],
+   "key": 3
+  }
+ },
+ "room_level": {
+  "Main Hub (Orbital Command)": 3,
+  "Dock Pad N": 2,
+  "Dock Pad S": 0,
+  "Dock Pad E": 0,
+  "Dock Pad W": 1,
+  "Dock Pad 66": 0,
+  "Dock Pad 114": 0,
+  "Trade Plaza East": 0,
+  "Trade Plaza West": 0,
+  "Concourse North Lobby 1": 0,
+  "Concourse North Lobby 2": 0,
+  "Concourse North Quarters 1": 2,
+  "Concourse North Quarters 2": 0,
+  "Concourse North Bay 1": 0,
+  "Concourse North Bay 2": 0,
+  "Concourse North Store 1": 0,
+  "Concourse North Store 2": 0,
+  "Concourse North Quarters 3": 0,
+  "Concourse North Quarters 4": 0,
+  "Concourse North Canteen 1": 0,
+  "Concourse North Canteen 2": 0,
+  "Concourse South Canteen 1": 0,
+  "Concourse South Canteen 2": 0,
+  "Concourse South Store 1": 0,
+  "Concourse South Store 2": 0,
+  "Concourse South Machine Shop 1": 0,
+  "Concourse South Machine Shop 2": 0,
+  "Concourse South Armoury 1": 0,
+  "Concourse South Armoury 2": 0,
+  "Concourse East Clinic 1": 0,
+  "Concourse West Clinic 1": 0,
+  "Concourse East Office 1": 0,
+  "Concourse West Office 1": 0,
+  "Concourse East Clinic 2": 0,
+  "Concourse West Clinic 2": 0,
+  "Concourse East Quarters 1": 0,
+  "Concourse West Quarters 1": 0,
+  "Concourse East Lobby 1": 0,
+  "Concourse West Lobby 1": 0,
+  "Concourse East Cabin 1": 0,
+  "Concourse West Cabin 1": 0,
+  "Concourse East Store 1": 0,
+  "Concourse West Store 1": 0,
+  "Concourse East Quarters 2": 0,
+  "Concourse West Quarters 2": 0,
+  "Concourse East Office 2": 0,
+  "Concourse West Office 2": 0,
+  "Concourse East Control 2": 0,
+  "Concourse West Control 2": 0,
+  "Concourse East Lounge 2": 0,
+  "Concourse West Lounge 2": 0,
+  "Concourse East Armoury 1": 0,
+  "Concourse West Armoury 1": 0,
+  "Concourse East Plant 1": 0,
+  "Concourse West Plant 1": 0,
+  "Concourse East Machine Shop 1": 0,
+  "Concourse West Machine Shop 1": 0,
+  "Concourse East Armoury 2": 0,
+  "Concourse West Armoury 2": 0,
+  "Concourse East Office 3": 0,
+  "Concourse West Office 3": 0,
+  "Concourse East Cargo Bay 1": 0,
+  "Concourse West Cargo Bay 1": 0,
+  "Concourse East Machine Shop 2": 0,
+  "Concourse West Machine Shop 2": 0,
+  "Concourse East Loading Bay 1": 0,
+  "Concourse West Loading Bay 1": 0,
+  "Concourse East Bay 1": 0,
+  "Concourse West Bay 1": 0,
+  "Concourse East Clinic 3": 0,
+  "Concourse West Clinic 3": 0,
+  "Concourse North Plant 1": 0,
+  "Concourse North Plant 2": 0,
+  "Concourse North Lounge 1": 0,
+  "Concourse North Lounge 2": 0,
+  "Concourse North Machine Shop 1": 0,
+  "Concourse North Machine Shop 2": 0,
+  "Concourse East Canteen 1": 0,
+  "Concourse West Canteen 1": 0,
+  "Concourse North Armoury 1": 0,
+  "Concourse North Armoury 2": 0,
+  "Concourse North Machine Shop 3": 0,
+  "Concourse North Machine Shop 4": 0,
+  "Concourse East Plant 2": 0,
+  "Concourse West Plant 2": 0,
+  "Concourse East Cargo Bay 2": 0,
+  "Concourse West Cargo Bay 2": 0,
+  "Concourse South Machine Shop 3": 0,
+  "Concourse South Machine Shop 4": 0,
+  "Concourse South Cargo Bay 1": 0,
+  "Concourse South Cargo Bay 2": 0,
+  "Concourse East Machine Shop 3": 0,
+  "Concourse West Machine Shop 3": 0,
+  "Concourse East Plant 3": 0,
+  "Concourse West Plant 3": 0,
+  "Concourse South Loading Bay 1": 0,
+  "Concourse South Loading Bay 2": 0,
+  "Concourse South Armoury 3": 0,
+  "Concourse South Armoury 4": 0,
+  "Concourse South Bay 1": 0,
+  "Concourse South Bay 2": 0,
+  "Concourse East Bay 2": 0,
+  "Concourse West Bay 2": 0,
+  "Concourse East Armoury 3": 0,
+  "Concourse West Armoury 3": 0,
+  "Concourse East Quarters 3": 0,
+  "Concourse West Quarters 3": 0,
+  "Concourse East Control 3": 0,
+  "Concourse West Control 3": 0,
+  "Concourse East Canteen 2": 0,
+  "Concourse West Canteen 2": 0,
+  "Concourse East Office 4": 0,
+  "Concourse West Office 4": 0,
+  "Concourse East Lobby 2": 0,
+  "Concourse West Lobby 2": 0,
+  "Concourse East Cargo Bay 3": 0,
+  "Concourse West Cargo Bay 3": 0,
+  "Concourse East Office 5": 0,
+  "Concourse West Office 5": 0,
+  "Concourse East Armoury 4": 0,
+  "Concourse West Armoury 4": 0,
+  "Concourse East Store 2": 0,
+  "Concourse West Store 2": 0,
+  "Concourse East Control 4": 0,
+  "Concourse West Control 4": 0,
+  "Concourse East Cabin 2": 0,
+  "Concourse West Cabin 2": 0,
+  "Concourse East Office 6": 0,
+  "Concourse West Office 6": 0,
+  "Concourse East Store 3": 0,
+  "Concourse West Store 3": 0,
+  "Concourse East Armoury 5": 0,
+  "Concourse West Armoury 5": 0,
+  "Concourse East Office 7": 0,
+  "Concourse West Office 7": 0,
+  "Concourse South Clinic 1": 0,
+  "Concourse South Clinic 2": 0,
+  "Concourse South Armoury 5": 0,
+  "Concourse South Armoury 6": 0,
+  "Concourse South Bay 3": 0,
+  "Concourse South Bay 4": 0,
+  "Concourse South Bay 5": 0,
+  "Concourse South Bay 6": 0,
+  "Concourse South Bay 7": 0,
+  "Concourse South Bay 8": 0,
+  "Concourse South Clinic 3": 0,
+  "Concourse South Clinic 4": 0,
+  "Concourse South Canteen 3": 0,
+  "Concourse South Canteen 4": 0,
+  "Concourse North Quarters 5": 0,
+  "Concourse North Quarters 6": 0,
+  "Concourse North Cargo Bay 1": 0,
+  "Concourse North Cargo Bay 2": 0,
+  "Concourse North Cargo Bay 3": 0,
+  "Concourse North Cargo Bay 4": 0,
+  "Concourse East Armoury 6": 0,
+  "Concourse West Armoury 6": 0,
+  "Concourse East Plant 4": 0,
+  "Concourse West Plant 4": 0,
+  "Concourse East Store 4": 0,
+  "Concourse West Store 4": 0,
+  "Concourse East Bay 3": 0,
+  "Concourse West Bay 3": 0,
+  "Concourse East Plant 5": 0,
+  "Concourse West Plant 5": 0,
+  "Concourse East Store 5": 0,
+  "Concourse West Store 5": 0,
+  "Concourse East Store 6": 0,
+  "Concourse West Store 6": 0,
+  "Shipyard": 0,
+  "Mech Dealer": 0,
+  "Supplies": 0,
+  "Weapons": 0,
+  "Mission Center": 0,
+  "Pilots' Lounge": 0,
+  "Medical Bay": 0,
+  "Command": 0
+ },
+ "elevators": [
+  {
+   "decks": [
+    "lower2",
+    "lower",
+    "main",
+    "upper",
+    "upper2"
+   ],
+   "at": [
+    1698,
+    1367
+   ],
+   "label": "LIFT",
+   "need": {
+    "upper2": 3
+   }
+  },
+  {
+   "decks": [
+    "lower2",
+    "lower",
+    "main",
+    "upper",
+    "upper2"
+   ],
+   "at": [
+    1698,
+    2011
+   ],
+   "label": "LIFT",
+   "need": {
+    "upper2": 3
+   }
+  },
+  {
+   "decks": [
+    "lower2",
+    "lower",
+    "main",
+    "upper",
+    "upper2"
+   ],
+   "at": [
+    1933,
+    1602
+   ],
+   "label": "LIFT",
+   "need": {
+    "upper2": 3
+   }
+  },
+  {
+   "decks": [
+    "lower2",
+    "lower",
+    "main",
+    "upper",
+    "upper2"
+   ],
+   "at": [
+    1367,
+    1602
+   ],
+   "label": "LIFT",
+   "need": {
+    "upper2": 3
+   }
+  }
+ ],
+ "deck_names": {
+  "main": "MAIN HUB DECK",
+  "lower": "ENGINEERING DECK",
+  "lower2": "HANGAR DECK",
+  "upper": "HABITAT DECK",
+  "upper2": "COMMAND DECK"
+ }
+}

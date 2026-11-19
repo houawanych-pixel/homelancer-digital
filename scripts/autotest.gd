@@ -1915,6 +1915,11 @@ func _run() -> void:
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
 		await _wait(1.0)
+		var st_sys := OS.get_environment("HL_SYS")   # v13.228: any station built with station_v2 (HL_SYS=malachar ...)
+		if st_sys != "" and GS.system_id != st_sys:
+			main._load_system(st_sys, "station")
+			await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.sys_id == st_sys, 15.0)
+			await _wait(1.0)
 		var s0 := _sp()
 		main.dock(s0.station)
 		await _until(func(): return main.state == "hub", 15.0)
