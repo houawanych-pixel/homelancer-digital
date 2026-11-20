@@ -8268,14 +8268,18 @@ var _gas_warned := {}   # v12.66: gas giants already warned about this visit
 var autodock_target: Node3D = null   # v12.62: a course you set: the autopilot docks when it gets there   # v12.62: the surface spot the autopilot just reached (main docks if it's a dock)
 var _ap_final: Node3D = null   # v13.238: the planet whose approach point you have reached (now the slow final run to its gate)
 var _ap_goal := Vector3.INF     # where the autopilot is actually heading this frame (the warp eases off on it)
+var ap_via := false   # v13.238: heading for a point on the way, not the destination
 func _autopilot_input() -> Array:
 	var goal: Vector3 = autopilot.global_position
 	var kind: String = autopilot.get_meta("kind", "")
 	if kind == "planet" or kind == "station" or autopilot.has_meta("dock") or kind == "platform": goal = dock_point(autopilot)
 	var final_run := false
+	ap_via = false
 	if kind == "planet" and not surface_mode:   # v13.238 (owner: "it should find the best waypoint there, a dock there, not boost and crash into it")
+		var gate0 := goal
 		goal = _ap_planet_goal(autopilot, goal)
 		final_run = _ap_final == autopilot
+		ap_via = goal != gate0   # (on the way: the approach point or round the planet: not there yet)
 	if kind == "landmark" and not autopilot.has_meta("dock"):      # stop a little way off a placeholder planet or station
 		var off: Vector3 = (player.global_position - autopilot.global_position).normalized()
 		goal = autopilot.global_position + off * (float(autopilot.get_meta("radius")) + Data.PH_GOTO_STANDOFF)
@@ -8311,7 +8315,8 @@ func _autopilot_input() -> Array:
 		drop_warp()
 		if not lane_enter(): message.emit("Autopilot: at the trade lane.")
 		return [Vector2.ZERO, Vector2.ZERO]
-	if dist < 170.0:
+	if dist < 170.0 and ap_via: pass   # v13.238: a point on the way is not arriving (it docked at the station next door)
+	elif dist < 170.0:
 		last_arrived = autopilot   # v1.9k: main sees where the autopilot got to (a job's GO TO carries on through gates)
 		arrived_spot = surf_goal.duplicate() if autopilot == _surf_goal_node else {}
 		autopilot = null
