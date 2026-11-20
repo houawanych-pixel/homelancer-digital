@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.240"
+const VERSION := "v13.241"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -2354,7 +2354,7 @@ const STATION_INFIL_LEVEL := 3   # v11.99: an alien station is infiltrated as a 
 ## v13.239: the facilities' own three floors (tools/trace/facility_v1), by difficulty; a site picks one by its name
 const FACILITY_DECKS := {1: ["res://assets/holodeck/facility_d1_a.json"], 2: ["res://assets/holodeck/facility_d2_a.json"],
 	3: ["res://assets/holodeck/facility_d3_a.json"], 4: ["res://assets/holodeck/facility_d4_a.json"]}   # (one each for now: every facility adds ~4 MB to the main download)
-const NUKE_FILM_S := 10.0          # v13.242: the mushroom cloud film over a blown base (s)
+const NUKE_FILM_S := 10.0          # v13.241: the mushroom cloud film over a blown base (s)
 const NUKE_FILM_HEIGHT := 4.5      # its column: this many base half-widths high
 const NUKE_FILM_RING := 14.0       # its shock ring races out to this many half-widths
 const NUKE_FILM_BACK := 9.0        # the camera holds this many half-widths back

@@ -2796,7 +2796,7 @@ func _leave_fleet_ship(won: bool) -> void:
 		await get_tree().process_frame
 		await get_tree().process_frame
 		var fbase: Array = space.facility_base_at(str(bf["name"]))
-		var blow: bool = won and str(bf.get("kind", "")) == "sabotage" and fbase[0] != Vector3.INF   # v13.242: the generator's gone: the base goes up
+		var blow: bool = won and str(bf.get("kind", "")) == "sabotage" and fbase[0] != Vector3.INF   # v13.241: the generator's gone: the base goes up
 		if fjob: Missions._pay(space, "%s is done. %s pays %d cr." % [str(bf["name"]), Missions.giver_name(GS.mission), int(GS.mission["pay"])])
 		space.player.global_position = (bf["pos"] as Vector3) + Vector3(0, 40.0, 0)
 		space.vel = Vector3.ZERO

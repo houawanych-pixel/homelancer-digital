@@ -1073,14 +1073,14 @@ func _raid_open(e: Dictionary) -> void:
 	Sfx.play("explosion", -2.0, 0.7)
 	message.emit("SHIELD GENERATOR DOWN! Land by the base and INFILTRATE it.")
 
-## v13.242: where a facility's base stands on this tile (its main building), and how big; Vector3.INF if not here.
+## v13.241: where a facility's base stands on this tile (its main building), and how big; Vector3.INF if not here.
 func facility_base_at(site_name: String) -> Array:
 	for h in planet_bases:
 		if is_instance_valid(h) and h.has_meta("facility") and str((h.get_meta("facility") as Dictionary).get("name", "")) == site_name:
 			return [Vector3(h.global_position.x, _ground(h.global_position.x, h.global_position.z), h.global_position.z), float(h.get_meta("half", 80.0))]
 	return [Vector3.INF, 0.0]
 
-## v13.242: a fixed facility you blew stays down while you're here (it's rebuilt when you come back).
+## v13.241: a fixed facility you blew stays down while you're here (it's rebuilt when you come back).
 func base_blown(site_name: String) -> void:
 	if not raid_base.is_empty() and is_instance_valid(raid_base.get("raid_dome", null)): (raid_base["raid_dome"] as Node3D).visible = false
 	for n in tile_root.get_children() if is_instance_valid(tile_root) else []:
@@ -11918,7 +11918,7 @@ func start_escape_film(ship: Node3D) -> void:
 		var o := Vector3(_rng.randf_range(-1, 1), _rng.randf_range(-0.3, 0.3), _rng.randf_range(-1, 1)) * r * 0.55
 		blast_pending.append({"t": 0.3 + (Data.ESCAPE_FILM_RAYS_AT - 0.4) * pow(f, 0.8), "at": at + o, "size": r * lerpf(0.3, 0.75, f)})
 
-## v13.242 (owner: "a different explosion, like a mushroom cloud explosion when you destroy the base; use similar
+## v13.241 (owner: "a different explosion, like a mushroom cloud explosion when you destroy the base; use similar
 ## effects"): the base you blew goes up as a mushroom cloud: the flash and the fireball on the ground, a column of fire
 ## rising, the cap rolling out at the top, a shock ring racing out over the ground and a ring round the cap; the camera
 ## holds well back and tilts up with it. The same pieces as the ship finale (_blast, _film_fx, the blast queue).
@@ -12300,7 +12300,7 @@ func _update_camera(dt: float, snap: bool) -> void:
 	if not esc_film.is_empty() and is_instance_valid(player):   # v13.220
 		_escape_film(dt)
 		return
-	if not nuke_film.is_empty() and is_instance_valid(player):   # v13.242
+	if not nuke_film.is_empty() and is_instance_valid(player):   # v13.241
 		_nuke_film(dt)
 		return
 	if cine_t >= 0.0 and is_instance_valid(player):
