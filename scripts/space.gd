@@ -11940,17 +11940,16 @@ func start_nuke_film(at: Vector3, r: float) -> void:
 	var H := r * Data.NUKE_FILM_HEIGHT
 	var S := Data.NUKE_FILM_S
 	# the cloud itself: solid puffs (fire turning to smoke) - the glow sparks wash out against a day sky
-	var ball := SphereMesh.new()
-	ball.radius = 1.0
-	ball.height = 2.0
-	ball.radial_segments = 12
-	ball.rings = 6
+	var ball := QuadMesh.new()   # (soft smoke puffs facing the camera: the clouds' own puff picture, not balls)
+	ball.size = Vector2(2.4, 2.4)
 	var mk := func(born: float, from: Vector3, to: Vector3, rad: float, life: float) -> void:
 		var mi := MeshInstance3D.new()
 		mi.mesh = ball
 		var m := StandardMaterial3D.new()
 		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+		m.albedo_texture = SpaceSystem.puff_texture()
 		m.albedo_color = Color(1.0, 0.6, 0.2, 0.0)
 		mi.material_override = m
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -11959,19 +11958,21 @@ func start_nuke_film(at: Vector3, r: float) -> void:
 		(nuke_film["puffs"] as Array).append({"n": mi, "born": born, "from": from, "to": to, "rad": rad, "life": life, "ph": _rng.randf() * TAU})
 	var Hc := r * Data.NUKE_FILM_HEIGHT
 	var Sc := Data.NUKE_FILM_S
-	for i in 12:   # the stem: puffs rising one over another
-		var f := float(i) / 11.0
-		var o := Vector3(_rng.randf_range(-1, 1), 0, _rng.randf_range(-1, 1)) * r * 0.12
-		mk.call(0.2 + f * Sc * 0.3, at + o, at + Vector3(0, Hc * f, 0) + o, r * lerpf(0.75, 0.55, f), Sc)
-	for i in 16:   # the cap: a ring rolling out at the top
-		var a := TAU * float(i) / 16.0
-		mk.call(Sc * 0.28 + float(i % 4) * 0.12, at + Vector3(0, Hc * 0.85, 0), at + Vector3(cos(a) * r * 1.6, Hc + r * 0.2 * sin(a * 2.0), sin(a) * r * 1.6), r * 0.85, Sc)
-	for i in 5:   # its dome
-		var o2 := Vector3(_rng.randf_range(-1, 1), _rng.randf_range(0, 1), _rng.randf_range(-1, 1)) * r * 0.5
-		mk.call(Sc * 0.3 + i * 0.1, at + Vector3(0, Hc * 0.8, 0), at + Vector3(0, Hc + r * 0.6, 0) + o2, r * 1.2, Sc)
-	for i in 10:   # the dust skirt round its foot
-		var a2 := TAU * float(i) / 10.0
-		mk.call(0.1, at, at + Vector3(cos(a2) * r * 2.2, r * 0.25, sin(a2) * r * 2.2), r * 0.7, Sc)
+	for i in 22:   # the stem: puffs rising one over another, a little ragged
+		var f := float(i) / 21.0
+		var o := Vector3(_rng.randf_range(-1, 1), _rng.randf_range(-0.5, 0.5), _rng.randf_range(-1, 1)) * r * 0.18
+		mk.call(0.2 + f * Sc * 0.3, at + o, at + Vector3(0, Hc * f, 0) + o, r * lerpf(0.65, 0.5, f) * _rng.randf_range(0.85, 1.15), Sc)
+	for i in 28:   # the cap: a ring rolling out at the top, two layers
+		var a := TAU * float(i) / 14.0 + (0.22 if i >= 14 else 0.0)
+		var cr := r * (1.55 if i < 14 else 1.0) * _rng.randf_range(0.9, 1.1)
+		var cy := Hc + (r * 0.1 if i < 14 else r * 0.55) + r * 0.15 * sin(a * 3.0)
+		mk.call(Sc * 0.28 + float(i % 5) * 0.1, at + Vector3(0, Hc * 0.85, 0), at + Vector3(cos(a) * cr, cy, sin(a) * cr), r * 0.8 * _rng.randf_range(0.85, 1.15), Sc)
+	for i in 8:   # its dome
+		var o2 := Vector3(_rng.randf_range(-1, 1), _rng.randf_range(0, 1), _rng.randf_range(-1, 1)) * r * 0.55
+		mk.call(Sc * 0.3 + i * 0.08, at + Vector3(0, Hc * 0.8, 0), at + Vector3(0, Hc + r * 0.7, 0) + o2, r * 1.0, Sc)
+	for i in 12:   # the dust skirt round its foot, low and wide
+		var a2 := TAU * float(i) / 12.0
+		mk.call(0.1 + _rng.randf() * 0.4, at, at + Vector3(cos(a2) * r * 1.6, r * 0.12, sin(a2) * r * 1.6), r * 0.5, Sc)
 	for k in 14:   # the skirt: fire and dust rolling out along the ground
 		var a := TAU * float(k) / 14.0
 		for st in 3:
