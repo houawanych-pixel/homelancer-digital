@@ -11818,7 +11818,7 @@ func _film_finale(F: Dictionary, t: float, at: Vector3, r: float) -> void:
 				var f3 := float(st3) / 3.0
 				blast_pending.append({"t": t + 0.1 + f3 * 1.3 / sp3, "at": at + dir3 * r * lerpf(0.8, 5.5, f3) * sp3, "size": r * lerpf(0.5, 0.25, f3), "full": st3 == 0, "fire": true})
 		# ... and the ring of fire racing out flat (in the shock ring's own plane)
-		var tilt0 := Basis(Vector3(1, 0, 0), deg_to_rad(12.0))
+		var tilt0 := _film_ring_basis(at)
 		var na := Data.ESCAPE_FILM_FIRE_RING
 		for st4 in 6:
 			var f4 := float(st4) / 5.0
@@ -11838,7 +11838,7 @@ func _film_finale(F: Dictionary, t: float, at: Vector3, r: float) -> void:
 		flash.global_position = at
 		var disc := PlaneMesh.new()
 		disc.size = Vector2(2.0, 2.0)
-		var tilt := Basis(Vector3(1, 0, 0), deg_to_rad(12.0))   # (the fire ring runs in the same plane)
+		var tilt := _film_ring_basis(at)   # (the fire ring runs in the same plane)
 		var ring1 := _film_fx(disc, Color(1.0, 0.42, 0.1), 2, 0.16)
 		ring1.global_position = at
 		ring1.set_meta("tilt", tilt)
@@ -11871,6 +11871,20 @@ func _film_finale(F: Dictionary, t: float, at: Vector3, r: float) -> void:
 			rg.global_basis = (rg.get_meta("tilt") as Basis) * Basis.from_scale(Vector3(rad, 1.0, rad))
 			(rg.material_override as ShaderMaterial).set_shader_parameter("fade", (1.0 - q) * minf(1.0, e * 8.0))
 			if q >= 1.0: rg.queue_free()
+
+# v13.236: the rings lean toward the camera (Data.ESCAPE_FILM_RING_TILT off face-on), so they read as a wide ring of fire,
+# not a thin line seen edge-on.
+func _film_ring_basis(at: Vector3) -> Basis:
+	var cam := get_viewport().get_camera_3d()
+	var to_cam := Vector3.UP if cam == null else (cam.global_position - at).normalized()
+	if to_cam.length() < 0.5: to_cam = Vector3.UP
+	var side := to_cam.cross(Vector3.UP)
+	if side.length() < 0.1: side = Vector3.RIGHT
+	var up := to_cam.rotated(side.normalized(), deg_to_rad(Data.ESCAPE_FILM_RING_TILT))
+	var x := side.normalized()
+	var z := x.cross(up).normalized()
+	return Basis(x, up.normalized(), z)
+
 
 static func _basis_along(dir: Vector3) -> Basis:   # a basis whose y axis is dir
 	var y := dir.normalized()

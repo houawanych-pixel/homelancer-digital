@@ -2056,6 +2056,7 @@ const ESCAPE_FILM_BOOM_AT := 6.0        # s: the reactor goes: flash, fireball, 
 const ESCAPE_FILM_RAYS := 12
 const ESCAPE_FILM_RING_R := 14.0        # the shock ring races out to this many ship radii
 const ESCAPE_FILM_SCATTER := 36       # v13.237: fireballs flung out in every direction at the big blast
+const ESCAPE_FILM_RING_TILT := 55.0   # v13.236: degrees the fire rings lean off face-on to the camera
 const ESCAPE_FILM_FIRE_RING := 28     # v13.237: fire blasts round each step of the ring of fire
 const ESCAPE_FILM_RING_S := 3.5         # s: how long the ring takes to fade out
 const ESCAPE_FILM_CAM := 30.0         # m: the camera riding ahead of your ship, looking back at it
