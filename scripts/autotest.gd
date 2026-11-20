@@ -10242,9 +10242,15 @@ func _job_v1132() -> void:
 		s._bump_ships()   # (v13.237: its real shape is made as you come near)
 		await get_tree().physics_frame   # (the new hull joins the physics world on the next physics step)
 		await get_tree().physics_frame
-		s._hull_prev = bse["node"].global_position + Vector3(0, 390, 0)   # (flown in from above: a real-shape hull stops you at its skin)
-		s.player.global_position = bse["node"].global_position + Vector3(0, 2, 0)
-		s._bump_ships()
+		var top0: Vector3 = bse["node"].global_position + Vector3(0, 390, 0)
+		for st5 in 40:   # (flown in from above in steps, like real flight: a real-shape hull stops you at its skin)
+			s._hull_prev = s.player.global_position
+			var want: Vector3 = top0.lerp(bse["node"].global_position + Vector3(0, 2, 0), float(st5 + 1) / 40.0)
+			if s.player.global_position.distance_to(want) > 5.0 and st5 > 0 and s.ship_bumps > b0: break   # (stopped: it held you)
+			s.player.global_position = want
+			s._bump_ships()
+			await get_tree().physics_frame
+		print("[route] solid debug: hulls %d dyn %s bumps %d" % [s.ship_hulls, str(bse["node"].has_meta("hull_dyn")), s.ship_bumps - b0])
 		var out_d: float = s.player.global_position.distance_to(bse["node"].global_position)
 		var solid_ok: bool = s.ship_bumps > b0 and out_d > 15.0 and bse["node"].has_meta("ship_box")
 		s.player.global_position = pp0
