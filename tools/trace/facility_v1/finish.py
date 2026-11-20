@@ -21,8 +21,11 @@ PURPLE = d >= 3   # (owner: "3 to 4 key method", by difficulty: the hard facilit
 G["elevators"] = [{"decks": decks, "at": at, "label": "LIFT", "need": {"lower2": 4} if PURPLE else {}} for at in LIFT_AT]
 G["deck_names"] = {"main": "ENTRY LEVEL", "lower": "SUB-LEVEL 1", "lower2": "SUB-LEVEL 2"}
 json.dump(G, open(os.path.join(eng, "gameplay.json"), "w"), indent=1)
-out = os.path.join("assets", "holodeck", fid + ".json")
+out = os.path.join("assets", "facilities", fid + ".json")   # (the facilities' own download pack)
 py(os.path.join(TR, "to_deck_json.py"), os.path.join("tools", "trace", "fleet_" + fid), "--decks", "--out", out)
+for dn in ("lower", "lower2"):   # (to_deck_json writes the floors' map pictures into assets/holodeck: they go with the facility)
+    src_ = os.path.join(REPO, "assets", "holodeck", "%s_%s.jpg" % (fid, dn))
+    if os.path.exists(src_): shutil.move(src_, os.path.join(REPO, "assets", "facilities", "%s_%s.jpg" % (fid, dn)))
 # the facility marks (as station_ship_deck.py does for a station)
 p = os.path.join(REPO, out); D = json.load(open(p)); b = D["board"]
 NAMES = {-340.0: "SUB-LEVEL 2", -170.0: "SUB-LEVEL 1", 0.0: "ENTRY LEVEL"}
@@ -47,8 +50,8 @@ if PURPLE:
     print(fid, "PURPLE card in", k4, "- objective in", hub2)
 b["info"]["difficulty"] = d
 b["info"]["deck_names"] = [[y, NAMES[y]] for y in ys if y in NAMES]
-shutil.copy(os.path.join(TR, "fleet_" + fid, "source.jpg"), os.path.join(REPO, "assets", "holodeck", fid + "_map.jpg"))
+shutil.copy(os.path.join(TR, "fleet_" + fid, "source.jpg"), os.path.join(REPO, "assets", "facilities", fid + "_map.jpg"))
 files = {"ENTRY LEVEL": fid + "_map.jpg", "SUB-LEVEL 1": fid + "_lower.jpg", "SUB-LEVEL 2": fid + "_lower2.jpg"}
-b["info"]["deck_maps"] = {k: v for k, v in files.items() if os.path.exists(os.path.join(REPO, "assets", "holodeck", v))}
+b["info"]["deck_maps"] = {k: v for k, v in files.items() if os.path.exists(os.path.join(REPO, "assets", "facilities", v))}
 json.dump(D, open(p, "w"), separators=(",", ":"))
 print(fid, "facility floors:", b["info"]["deck_names"], "maps:", list(b["info"]["deck_maps"]))

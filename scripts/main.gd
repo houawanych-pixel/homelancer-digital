@@ -2452,15 +2452,19 @@ func facility_deck(site: Dictionary) -> String:
 	if not facility_decks_on: return ""
 	var arr: Array = Data.FACILITY_DECKS.get(clampi(int(site.get("difficulty", 1)), 1, 4), [])
 	if arr.is_empty(): return ""
-	var p := str(arr[absi(hash("%s:%s" % [str(site.get("planet", "")), str(site.get("name", ""))])) % arr.size()])
-	return p if FileAccess.file_exists(p) else ""
+	return str(arr[absi(hash("%s:%s" % [str(site.get("planet", "")), str(site.get("name", ""))])) % arr.size()])   # (v13.242: in the facilities pack; it's fetched on the way in)
 
 func _enter_facility_deck(site: Dictionary, path: String) -> void:
-	var L := Boarding.fleet_layout(path)
-	if L.is_empty():
-		hud.flash_message("No map for that facility yet.")
-		return
 	state = "boarding"
+	if not Packs.is_ready("facilities"):   # v13.242: the facilities' floors are their own download
+		hud.flash_message("Loading the facility...")
+		Packs.request("facilities")
+		await Packs.wait("facilities", 90.0)
+	var L := Boarding.fleet_layout(path) if FileAccess.file_exists(path) else {}
+	if L.is_empty():
+		state = "flight"
+		hud.flash_message("That facility's map didn't load: try again in a moment.")
+		return
 	var fac := str(Data.SYSTEMS.get(space.sys_id, {}).get("faction", "Enemy"))
 	if Factions.rival(fac) != "": fac = Factions.rival(fac)
 	if not Factions.has(fac): fac = "Savagers"

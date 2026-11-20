@@ -2352,8 +2352,7 @@ const BORDER_MARGIN := 0.25   # v12.3: map squares kept clear inside the border 
 const UNKNOWN_KAIJU_MULT := 3.0   # v12.3 (owner: "high level areas ... like level 3 fighters"): Kaijurai in the uncharted areas are 3x as tough
 const STATION_INFIL_LEVEL := 3   # v11.99: an alien station is infiltrated as a level 3 facility
 ## v13.239: the facilities' own three floors (tools/trace/facility_v1), by difficulty; a site picks one by its name
-const FACILITY_DECKS := {1: ["res://assets/holodeck/facility_d1_a.json"], 2: ["res://assets/holodeck/facility_d2_a.json"],
-	3: ["res://assets/holodeck/facility_d3_a.json"], 4: ["res://assets/holodeck/facility_d4_a.json"]}   # (one each for now: every facility adds ~4 MB to the main download)
+const FACILITY_DECKS := {1: ["res://assets/facilities/facility_d1_a.json", "res://assets/facilities/facility_d1_b.json", "res://assets/facilities/facility_d1_c.json"], 2: ["res://assets/facilities/facility_d2_a.json", "res://assets/facilities/facility_d2_b.json", "res://assets/facilities/facility_d2_c.json"], 3: ["res://assets/facilities/facility_d3_a.json", "res://assets/facilities/facility_d3_b.json", "res://assets/facilities/facility_d3_c.json"], 4: ["res://assets/facilities/facility_d4_a.json", "res://assets/facilities/facility_d4_b.json", "res://assets/facilities/facility_d4_c.json"]}   # (v13.242: three per level, in the facilities download pack: assets/facilities)
 const NUKE_FILM_S := 10.0          # v13.241: the mushroom cloud film over a blown base (s)
 const NUKE_FILM_HEIGHT := 4.5      # its column: this many base half-widths high
 const NUKE_FILM_RING := 14.0       # its shock ring races out to this many half-widths
