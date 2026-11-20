@@ -1947,7 +1947,12 @@ func _run() -> void:
 					if not rh.is_empty(): hit_n += 1
 		_check("v13.240: the base is solid by its own shape, not its box: %d of 49 spots under the box's roof are open air (no invisible ceiling), %d hit the model" % [open_n, hit_n], real and open_n > 5 and hit_n > 5, "real %s" % real)
 		s.player.global_position = hb.global_position + Vector3(0, 600, 900) if hb else s.player.global_position
-		s.player.look_at(hb.global_position if hb else Vector3.ZERO, Vector3.UP)
+		if hb:
+			var dv: Vector3 = (hb.global_position - s.player.global_position).normalized()
+			s.yaw = atan2(-dv.x, -dv.z)
+			s.pitch = asin(clampf(dv.y, -1.0, 1.0))
+			s.player.basis = Basis.from_euler(Vector3(s.pitch, s.yaw, 0))
+		s.controls = false
 		s._update_camera(1.0, true)
 		await _wait(1.5)
 		await _capture("portbase")
