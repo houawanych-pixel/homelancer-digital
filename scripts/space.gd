@@ -9645,8 +9645,12 @@ func _update_blasts(dt: float) -> void:
 		if q["t"] > 0.0: continue
 		blast_pending.remove_at(i)
 		var at: Vector3 = q["at"]
-		_spark(at, Color(1.0, 0.95, 0.8), float(q["size"]), 0.12)
+		if bool(q.get("full", false)):   # v13.237: a full fire blast (the fighters' own explosion), for the big finale
+			_blast(at, [float(q["size"]), 6, 0, 0, 0.0], "film")
+			continue
+		_spark(at, Color(1.0, 0.95, 0.8) if not bool(q.get("fire", false)) else Color(1.0, 0.8, 0.4), float(q["size"]), 0.12)
 		_spark(at, Color(1.0, 0.55, 0.2), float(q["size"]) * 0.7, 0.6)
+		if bool(q.get("fire", false)): _spark(at, Color(1.0, 0.3, 0.08), float(q["size"]) * 0.5, 1.0)
 		var dd := at.distance_to(player.global_position)
 		if dd < 1200.0: Sfx.play("explosion", -8.0 - dd / 90.0, _rng.randf_range(1.1, 1.5))
 
@@ -11746,6 +11750,23 @@ func _film_finale(F: Dictionary, t: float, at: Vector3, r: float) -> void:
 		if is_instance_valid(F.get("glow", null)): (F["glow"] as Node).queue_free()
 		_blast(at, [r * 2.2, 40, 60, 8, 0.2])
 		_burst_fx(at, r * 2.0, 3.0)
+		# v13.237 (owner: "not a white vague: the Death Star explosion that scatters outward, then the ring that blew up in
+		# fire ... like a fighter blowing up but more massive"): fire flung out in every direction ...
+		for k3 in Data.ESCAPE_FILM_SCATTER:
+			var dir3 := Vector3(_rng.randfn(0, 1), _rng.randfn(0, 0.5), _rng.randfn(0, 1)).normalized()
+			var sp3 := _rng.randf_range(0.7, 1.0)
+			for st3 in 4:   # (each one a fireball travelling out: four blasts further and further along its line)
+				var f3 := float(st3) / 3.0
+				blast_pending.append({"t": t + 0.1 + f3 * 1.3 / sp3, "at": at + dir3 * r * lerpf(0.8, 5.5, f3) * sp3, "size": r * lerpf(0.5, 0.25, f3), "full": st3 == 0, "fire": true})
+		# ... and the ring of fire racing out flat (in the shock ring's own plane)
+		var tilt0 := Basis(Vector3(1, 0, 0), deg_to_rad(12.0))
+		var na := Data.ESCAPE_FILM_FIRE_RING
+		for st4 in 6:
+			var f4 := float(st4) / 5.0
+			for a4 in na:
+				var ang := TAU * (float(a4) + 0.5 * float(st4 % 2)) / float(na)
+				var pos4 := at + tilt0 * Vector3(cos(ang), 0.0, sin(ang)) * r * lerpf(1.3, Data.ESCAPE_FILM_RING_R * 0.85, f4)
+				blast_pending.append({"t": t + 0.2 + f4 * Data.ESCAPE_FILM_RING_S * 0.55, "at": pos4, "size": r * lerpf(0.55, 0.3, f4), "full": a4 % 4 == 0 and st4 < 3, "fire": true})
 		hit_shake = 1.4
 		Sfx.play("explosion", 3.0, 0.45)
 		Sfx.play("explosion", 0.0, 0.7)
@@ -11754,17 +11775,17 @@ func _film_finale(F: Dictionary, t: float, at: Vector3, r: float) -> void:
 		var ball2 := SphereMesh.new()
 		ball2.radius = 1.0
 		ball2.height = 2.0
-		var flash := _film_fx(ball2, Color(1.0, 0.97, 0.9), 0)
+		var flash := _film_fx(ball2, Color(1.0, 0.62, 0.25), 0)
 		flash.global_position = at
 		var disc := PlaneMesh.new()
 		disc.size = Vector2(2.0, 2.0)
-		var tilt := Basis(Vector3(1, 0, 0), deg_to_rad(_rng.randf_range(8.0, 16.0))) * Basis(Vector3(0, 0, 1), deg_to_rad(_rng.randf_range(-10.0, 10.0)))
-		var ring1 := _film_fx(disc, Color(1.0, 0.62, 0.25), 2, 0.1)
+		var tilt := Basis(Vector3(1, 0, 0), deg_to_rad(12.0))   # (the fire ring runs in the same plane)
+		var ring1 := _film_fx(disc, Color(1.0, 0.42, 0.1), 2, 0.16)
 		ring1.global_position = at
 		ring1.set_meta("tilt", tilt)
-		var ring2 := _film_fx(disc, Color(0.55, 0.8, 1.0), 2, 0.22)
+		var ring2 := _film_fx(disc, Color(1.0, 0.75, 0.3), 2, 0.08)
 		ring2.global_position = at
-		ring2.set_meta("tilt", tilt * Basis(Vector3(1, 0, 0), deg_to_rad(-22.0)))
+		ring2.set_meta("tilt", tilt)
 		F["flash"] = flash
 		F["rings"] = [ring1, ring2]
 		film_fx_seen["flash"] = true
@@ -11777,8 +11798,8 @@ func _film_finale(F: Dictionary, t: float, at: Vector3, r: float) -> void:
 		var flash0 = F.get("flash")
 		if is_instance_valid(flash0):
 			var flash := flash0 as MeshInstance3D
-			flash.scale = Vector3.ONE * r * lerpf(0.5, 2.6, clampf(e / 0.35, 0.0, 1.0))
-			var ff := clampf(1.0 - (e - 0.2) / 1.0, 0.0, 1.0)
+			flash.scale = Vector3.ONE * r * lerpf(0.5, 1.8, clampf(e / 0.3, 0.0, 1.0))
+			var ff := clampf(1.0 - (e - 0.1) / 0.45, 0.0, 1.0) * 0.8
 			(flash.material_override as ShaderMaterial).set_shader_parameter("fade", ff)
 			if ff <= 0.0: flash.queue_free()
 		var rings: Array = F.get("rings", [])
