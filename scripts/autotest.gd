@@ -10251,6 +10251,14 @@ func _job_v1132() -> void:
 			s._bump_ships()
 			await get_tree().physics_frame
 		print("[route] solid debug: hulls %d dyn %s bumps %d" % [s.ship_hulls, str(bse["node"].has_meta("hull_dyn")), s.ship_bumps - b0])
+		if bse["node"].has_meta("hull_dyn"):
+			var hb: StaticBody3D = bse["node"].get_meta("hull_dyn")
+			var fz: PackedVector3Array = ((hb.get_child(0) as CollisionShape3D).shape as ConcavePolygonShape3D).get_faces()
+			var ab := AABB(fz[0], Vector3.ZERO)
+			for v5 in fz: ab = ab.expand(v5)
+			var rq5 := PhysicsRayQueryParameters3D.create(top0, bse["node"].global_position - Vector3(0, 390, 0), 0xFFFFFFFF)
+			var rh5 := s.get_world_3d().direct_space_state.intersect_ray(rq5)
+			print("[route] solid debug2: faces %d local box %s body at %s node at %s scale %s inside %s layer %d ray %s" % [fz.size() / 3, ab, hb.global_position, bse["node"].global_position, bse["node"].global_basis.get_scale(), hb.is_inside_tree(), hb.collision_layer, str(rh5.get("collider", null)) + " " + str(rh5.get("position", ""))])
 		var out_d: float = s.player.global_position.distance_to(bse["node"].global_position)
 		var solid_ok: bool = s.ship_bumps > b0 and out_d > 15.0 and bse["node"].has_meta("ship_box")
 		s.player.global_position = pp0
