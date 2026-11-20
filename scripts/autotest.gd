@@ -10238,6 +10238,9 @@ func _job_v1132() -> void:
 		# v11.37: solid: flown into the middle, you are pushed out of its hull
 		var b0: int = s.ship_bumps
 		var pp0: Vector3 = s.player.global_position
+		var pm0: int = s.process_mode
+		s.process_mode = Node.PROCESS_MODE_INHERIT   # (a paused space takes its bodies out of physics: this step had left it paused)
+		await get_tree().physics_frame
 		s.player.global_position = bse["node"].global_position + Vector3(0, 390, 0)   # (come near first: its real shape is made then)
 		s._bump_ships()   # (v13.237: its real shape is made as you come near)
 		await get_tree().physics_frame   # (the new hull joins the physics world on the next physics step)
@@ -10257,7 +10260,6 @@ func _job_v1132() -> void:
 					if grid_hits == 1:
 						top0 = bn5.global_position + off5 + Vector3(0, 390, 0)
 						aim0 = (rh6["position"] as Vector3) - Vector3(0, 30, 0)
-		print("[route] solid debug3: grid hits %d of 35" % grid_hits)
 		s.player.global_position = top0
 		await get_tree().physics_frame
 		for st5 in 40:   # (flown in from above in steps, like real flight: a real-shape hull stops you at its skin)
@@ -10267,19 +10269,10 @@ func _job_v1132() -> void:
 			s.player.global_position = want
 			s._bump_ships()
 			await get_tree().physics_frame
-		print("[route] solid debug: hulls %d dyn %s bumps %d" % [s.ship_hulls, str(bse["node"].has_meta("hull_dyn")), s.ship_bumps - b0])
-		if bse["node"].has_meta("hull_dyn"):
-			var hb: StaticBody3D = bse["node"].get_meta("hull_dyn")
-			var fz: PackedVector3Array = ((hb.get_child(0) as CollisionShape3D).shape as ConcavePolygonShape3D).get_faces()
-			var ab := AABB(fz[0], Vector3.ZERO)
-			for v5 in fz: ab = ab.expand(v5)
-			var rq5 := PhysicsRayQueryParameters3D.create(top0, bse["node"].global_position - Vector3(0, 390, 0), 0xFFFFFFFF)
-			var rh5 := s.get_world_3d().direct_space_state.intersect_ray(rq5)
-			print("[route] solid debug4: body space ok %s, can_process %s, s.mode %d, tree paused %s, fz0 %s, rest %s" % [PhysicsServer3D.body_get_space(hb.get_rid()) == s.get_world_3d().space, hb.can_process(), s.process_mode, get_tree().paused, hb.global_transform * fz[0], str(_tri_ray(s, hb, fz))])
-			print("[route] solid debug2: faces %d local box %s body at %s node at %s scale %s inside %s layer %d ray %s" % [fz.size() / 3, ab, hb.global_position, bse["node"].global_position, bse["node"].global_basis.get_scale(), hb.is_inside_tree(), hb.collision_layer, str(rh5.get("collider", null)) + " " + str(rh5.get("position", ""))])
 		var out_d: float = s.player.global_position.distance_to(aim0)   # (held at the skin, short of the point inside it)
 		var solid_ok: bool = s.ship_bumps > b0 and out_d > 15.0 and bse["node"].has_meta("ship_box")
 		s.player.global_position = pp0
+		s.process_mode = pm0
 		res.append("solid %s (pushed %.0f m)" % [solid_ok, out_d])
 		var hits := 0
 		while s.enemies.has(bse) and hits < 60:
@@ -18798,12 +18791,3 @@ func _dump_d(d) -> Dictionary:   # (HL_SYSDUMP: the plain fields of a planet dic
 			if d[k] is String or d[k] is bool or d[k] is int or d[k] is float: o[k] = d[k]
 	return o
 
-
-func _tri_ray(s: Node3D, hb: StaticBody3D, fz: PackedVector3Array) -> String:   # (a ray straight through the centre of the shape's first triangle)
-	var a: Vector3 = hb.global_transform * fz[0]
-	var b: Vector3 = hb.global_transform * fz[1]
-	var c: Vector3 = hb.global_transform * fz[2]
-	var cen := (a + b + c) / 3.0
-	var nn := (b - a).cross(c - a).normalized()
-	var rh := s.get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(cen + nn * 5.0, cen - nn * 5.0, 1 << 19))
-	return "%s" % str(rh.get("collider", null))
