@@ -11928,9 +11928,10 @@ func start_nuke_film(at: Vector3, r: float) -> void:
 	var d := Vector3(player.global_position.x - at.x, 0, player.global_position.z - at.z)
 	d = d.normalized() if d.length() > 1.0 else Vector3(0, 0, 1)
 	var view := at + d * r * Data.NUKE_FILM_BACK + Vector3.UP * r * 1.2
-	nuke_film = {"t": 0.0, "at": at, "r": r, "view": view, "d": d, "boom": false}
+	nuke_film = {"t": 0.0, "at": at, "r": r, "view": view, "d": d, "boom": false, "puffs": []}
 	nuke_films += 1
 	player.global_position = view
+	player.visible = false   # (the camera is where your ship is)
 	SpaceSystem.face(player, at - view)
 	yaw = player.rotation.y
 	pitch = player.rotation.x
@@ -11938,6 +11939,39 @@ func start_nuke_film(at: Vector3, r: float) -> void:
 	controls = false
 	var H := r * Data.NUKE_FILM_HEIGHT
 	var S := Data.NUKE_FILM_S
+	# the cloud itself: solid puffs (fire turning to smoke) - the glow sparks wash out against a day sky
+	var ball := SphereMesh.new()
+	ball.radius = 1.0
+	ball.height = 2.0
+	ball.radial_segments = 12
+	ball.rings = 6
+	var mk := func(born: float, from: Vector3, to: Vector3, rad: float, life: float) -> void:
+		var mi := MeshInstance3D.new()
+		mi.mesh = ball
+		var m := StandardMaterial3D.new()
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.albedo_color = Color(1.0, 0.6, 0.2, 0.0)
+		mi.material_override = m
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.visible = false
+		add_child(mi)
+		(nuke_film["puffs"] as Array).append({"n": mi, "born": born, "from": from, "to": to, "rad": rad, "life": life, "ph": _rng.randf() * TAU})
+	var Hc := r * Data.NUKE_FILM_HEIGHT
+	var Sc := Data.NUKE_FILM_S
+	for i in 12:   # the stem: puffs rising one over another
+		var f := float(i) / 11.0
+		var o := Vector3(_rng.randf_range(-1, 1), 0, _rng.randf_range(-1, 1)) * r * 0.12
+		mk.call(0.2 + f * Sc * 0.3, at + o, at + Vector3(0, Hc * f, 0) + o, r * lerpf(0.75, 0.55, f), Sc)
+	for i in 16:   # the cap: a ring rolling out at the top
+		var a := TAU * float(i) / 16.0
+		mk.call(Sc * 0.28 + float(i % 4) * 0.12, at + Vector3(0, Hc * 0.85, 0), at + Vector3(cos(a) * r * 1.6, Hc + r * 0.2 * sin(a * 2.0), sin(a) * r * 1.6), r * 0.85, Sc)
+	for i in 5:   # its dome
+		var o2 := Vector3(_rng.randf_range(-1, 1), _rng.randf_range(0, 1), _rng.randf_range(-1, 1)) * r * 0.5
+		mk.call(Sc * 0.3 + i * 0.1, at + Vector3(0, Hc * 0.8, 0), at + Vector3(0, Hc + r * 0.6, 0) + o2, r * 1.2, Sc)
+	for i in 10:   # the dust skirt round its foot
+		var a2 := TAU * float(i) / 10.0
+		mk.call(0.1, at, at + Vector3(cos(a2) * r * 2.2, r * 0.25, sin(a2) * r * 2.2), r * 0.7, Sc)
 	for k in 14:   # the skirt: fire and dust rolling out along the ground
 		var a := TAU * float(k) / 14.0
 		for st in 3:
@@ -12009,6 +12043,21 @@ func _nuke_film(dt: float) -> void:
 	if t > 1.0 and fmod(t, 0.25) < dt and t < S * 0.85:   # smoke boiling up the column and off the cap
 		var hy := minf(H, H * t / (S * 0.4))
 		_spark_v(at + Vector3(_rng.randf_range(-1, 1) * r * 0.4, hy * _rng.randf(), _rng.randf_range(-1, 1) * r * 0.4), Vector3(0, r * 0.15, 0), Color(0.32, 0.28, 0.26), r * 0.9, 3.0)
+	for pf in F.get("puffs", []):   # the cloud: each puff swells and drifts to its place, fire turning to smoke
+		var n2: MeshInstance3D = pf["n"]
+		if not is_instance_valid(n2): continue
+		var a0 := t - float(pf["born"])
+		if a0 < 0.0: continue
+		n2.visible = true
+		var q3 := clampf(a0 / 2.2, 0.0, 1.0)
+		var e3 := 1.0 - pow(1.0 - q3, 3.0)
+		var wob := sin(t * 1.3 + float(pf["ph"])) * float(pf["rad"]) * 0.06
+		n2.global_position = (pf["from"] as Vector3).lerp(pf["to"], e3) + Vector3(wob, 0, -wob)
+		n2.scale = Vector3.ONE * float(pf["rad"]) * lerpf(0.3, 1.0, e3) * (1.0 + 0.15 * clampf(a0 / 6.0, 0.0, 1.0))
+		var heat := clampf(1.0 - a0 / 3.5, 0.0, 1.0)   # (bright fire, to dark orange, to grey smoke)
+		var col := Color(0.32, 0.29, 0.27).lerp(Color(1.0, 0.45, 0.12), heat).lerp(Color(1.0, 0.85, 0.45), clampf(1.0 - a0 / 0.8, 0.0, 1.0))
+		col.a = clampf(a0 / 0.3, 0.0, 1.0) * clampf((S - t) / 1.5, 0.0, 1.0) * 0.92
+		(n2.material_override as StandardMaterial3D).albedo_color = col
 	# the camera: well back, tilting up as it rises
 	var view: Vector3 = F["view"]
 	var look := at + Vector3(0, H * clampf(t / (S * 0.5), 0.15, 0.85), 0)
@@ -12018,7 +12067,9 @@ func _nuke_film(dt: float) -> void:
 	cam.fov = 70.0
 	if t >= S:
 		for rg in F.get("rings", []): if is_instance_valid(rg): (rg as Node).queue_free()
+		for pf in F.get("puffs", []): if is_instance_valid(pf["n"]): (pf["n"] as Node).queue_free()
 		nuke_film = {}
+		player.visible = true
 		controls = true
 		nuke_film_done.emit()
 

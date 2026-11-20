@@ -2800,7 +2800,9 @@ func _leave_fleet_ship(won: bool) -> void:
 		if fjob: Missions._pay(space, "%s is done. %s pays %d cr." % [str(bf["name"]), Missions.giver_name(GS.mission), int(GS.mission["pay"])])
 		space.player.global_position = (bf["pos"] as Vector3) + Vector3(0, 40.0, 0)
 		space.vel = Vector3.ZERO
-		if blow: space.start_nuke_film(fbase[0], maxf(60.0, float(fbase[1])))
+		if blow:
+			space.start_nuke_film(fbase[0], maxf(60.0, float(fbase[1])))
+			space.base_blown(str(bf["name"]))   # (gone in the flash)
 		var twf2 := create_tween()
 		twf2.tween_property(fx, "fade", 0.0, 0.6)
 		await twf2.finished
@@ -2809,7 +2811,6 @@ func _leave_fleet_ship(won: bool) -> void:
 		if blow:
 			film_runs += 1
 			await space.nuke_film_done
-			space.base_blown(str(bf["name"]))
 		if fjob: space.raid_clear(str(bf["name"]))   # v13.241: the raid base is gone
 		space.controls = true
 		hud.visible = true
