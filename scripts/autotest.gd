@@ -5110,12 +5110,18 @@ func _run() -> void:
 		var low := INF
 		var top_v := 0.0
 		var t_end := Time.get_ticks_msec() + 300000
+		s.message.connect(func(m): print("[ad] msg: ", m))
+		var dbg_t := 0
 		while Time.get_ticks_msec() < t_end and main.state == "flight" and is_instance_valid(s) and not s.surface_mode:
+			dbg_t += 1
+			if dbg_t % 60 == 0: print("[ad] ap %s via %s final %s goal %s d %.0f R %.3f v %.0f warp %s lane %s" % [str(s.autopilot.name) if s.autopilot else "-", s.ap_via, s._ap_final != null, s._ap_goal, s.player.global_position.distance_to(s._ap_goal) if s._ap_goal != Vector3.INF else -1.0, s.player.global_position.distance_to(s.planet.global_position) / pr, s.vel.length(), s.warp_state, not s.lane.is_empty()])
 			var dpc: float = s.player.global_position.distance_to(s.planet.global_position) / pr
 			low = minf(low, dpc)
 			if s._ap_final == s.planet: top_v = maxf(top_v, s.vel.length())
 			await get_tree().process_frame
+		print("[ad] left loop: state %s" % main.state)
 		await _until(func(): return main.state == "hub", 30.0)
+		print("[ad] docked kind %s base %s" % [main.docked_node_kind, main.hub.base.get("name", "")])
 		var docked: bool = main.state == "hub" and main.docked_node_kind == "planet"
 		_check("v12.62 (owner): GO TO New Terra: by %s; the autopilot docked into the lane (%s) and flew on from its end (%s); then it docked on the planet (%s)" % [plan.get("via", "?"), saw_lane, after_lane, docked],
 			docked and (str(plan.get("via", "")) != "lane" or (saw_lane and after_lane)), "state %s lane %s after %s" % [main.state, saw_lane, after_lane])
