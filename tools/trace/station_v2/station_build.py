@@ -372,6 +372,8 @@ def build_deck(HULL0, role, sid, name, here, src):
             segs += [[V[7], V[0]], [V[1], V[2]], [V[3], V[4]], [V[5], V[6]]]
         HI, TK, QP = prep(HULL.buffer(-36)), prep(TAKEN[0]), prep(q)
         HIp = prep(HULL.buffer(-MW / 2 - 6))   # (angled lanes and lanes out of a pad may squeeze through a neck to a pod beyond)
+        HI6 = prep(HULL.buffer(-6))   # v13.236: an angled lane's EDGES only need to clear the hull wall (arm stems are narrow)
+        inl = lambda pt, off: HIp.contains(pt) if off == 0 else HI6.contains(pt)
         FREE = HULL.buffer(-12)
         CB = all_cb()
         padok = lambda bb: HULL.contains(bb) and not TK.intersects(bb) and not boxes_hit([bb.buffer(4).bounds], CB)
@@ -403,44 +405,91 @@ def build_deck(HULL0, role, sid, name, here, src):
             TKr = prep(TAKEN[0].difference(ring_shape(rg, MW / 2 + 72)))
             for sgx in (1, -1):
                 for sgy in (1, -1):
-                    for xo in np.arange(hw - c + 1.2 * MW, hw - 1.2 * MW, 20.0):
+                    for xo in np.arange(hw - c + 1.2 * MW, hw - 1.2 * MW, 10.0):
                         r1 = (cx + sgx * xo, cy + sgy * (hw + hh - c - xo))
-                        if any(abs(b_[0] - r1[0]) < 1.8 * MW for b_ in rg["breaks"].get(CORNER(rg, *r1), [])): continue
+                        if any(abs(b_[0] - r1[0]) < 1.8 * MW for b_ in rg["breaks"].get(CORNER(rg, *r1), [])):
+                            if os.environ.get("SB_DEBUG6"): print("   brk", [round(v) for v in r1], rg["breaks"].get(CORNER(rg, *r1)))
+                            continue
                         if r1[0] < C + MW / 2 + 60: continue
-                        st1 = (r1[0] + sgx * 1.5 * MW, r1[1]); a0 = (st1[0] + sgx * MW / 2, st1[1])
-                        if boxes_hit(dry_dhall(a0, (a0[0] + sgx * 300, a0[1] + sgy * 300), "x"), corner_boxes(rg, r1)): continue
-                        u = (sgx / math.sqrt(2), sgy / math.sqrt(2)); t = 0
+                        for vst in (False, True):   # v13.236: the stub out of the corner face goes across (lanes up to 60 deg) or up / down (steeper)
+                            if vst: st1 = (r1[0], r1[1] + sgy * 1.5 * MW); a0 = (st1[0], st1[1] + sgy * MW / 2)
+                            if not vst: st1 = (r1[0] + sgx * 1.5 * MW, r1[1]); a0 = (st1[0] + sgx * MW / 2, st1[1])
+                            ths = [45.0, 40.0, 50.0, 35.0, 55.0, 30.0, 60.0] if not vst else [60.0, 65.0, 55.0, 70.0, 50.0]   # v13.236: the lane at any angle 30..60 deg (arms at 30 deg steps)
+                            for qq in (q.centroid, q.representative_point()):   # (and aimed straight at the arm itself: its stem is narrow)
+                                ddx, ddy = qq.x - a0[0], qq.y - a0[1]
+                                if ddx * sgx > 0 and ddy * sgy > 0:
+                                    thq = math.degrees(math.atan2(abs(ddy), abs(ddx)))
+                                    if (25.0 <= thq <= 65.0) if not vst else (45.0 <= thq <= 75.0): ths = [thq, thq - 1.5, thq + 1.5] + ths
+                            for th in ths:
+                                u = (sgx * math.cos(math.radians(th)), sgy * math.sin(math.radians(th))); t = 0
+                                if boxes_hit(dry_dhall(a0, (a0[0] + u[0] * 424, a0[1] + u[1] * 424), "y" if vst else "x"), corner_boxes(rg, r1)):
+                                    if os.environ.get("SB_DEBUG6") and vst: print("   v-cb", [round(v) for v in r1], round(th, 1))
+                                    continue
+                                while t < 1600:
+                                    ok_ = True
+                                    for off in (-MW / 2, 0, MW / 2):
+                                        pt = Point(a0[0] + u[0] * (t + 10) - u[1] * off, a0[1] + u[1] * (t + 10) + u[0] * off)
+                                        if not inl(pt, off) or TKr.contains(pt): ok_ = False; break
+                                    if not ok_: break
+                                    t += 10
+                                if os.environ.get("SB_DEBUG6") and vst: print("   v-ray", [round(v) for v in r1], round(th, 1), t, QP.contains(Point(a0[0] + u[0] * (t - 40), a0[1] + u[1] * (t - 40))))
+                                if os.environ.get("SB_DEBUG2"): print("  d-ray", [round(v) for v in r1], sgx, sgy, t, QP.contains(Point(a0[0] + u[0] * (t - 40), a0[1] + u[1] * (t - 40))))
+                                if t < 150 or not QP.contains(Point(a0[0] + u[0] * (t - 40), a0[1] + u[1] * (t - 40))): continue
+                                # a pod ring where the angled lane comes out into open floor (a district of its own); the lane
+                                # ends square on the middle part of its near side
+                                for a in (() if vst else (190.0, 160.0, 130.0, 110.0)):
+                                    got = None
+                                    for d in np.arange(150.0, t + 1, 10.0):
+                                        b0 = (a0[0] + u[0] * d, a0[1] + u[1] * d)
+                                        for off in (0.0, -0.35 * a, 0.35 * a):
+                                            cen = (b0[0] + sgx * a, b0[1] + off)
+                                            og = octo(cen[0], cen[1], a + MW / 2 + 4, a + MW / 2 + 4, cut_of(a, a))
+                                            if FREE.contains(og) and not TKr.intersects(og) and QP.intersects(og) and abs(off) <= a - cut_of(a, a) - MW:
+                                                got = (b0, cen); break
+                                        if got: break
+                                    if got:
+                                        if not best or a + t > best[0]: best = (a + t, "dr", [r1, st1, a0, got[0]], got[1], a, rg)
+                                        break
+                                if best and t <= best[0]: continue
+                                for a, bk in [(a_, b_) for b_ in range(0, int(t) - 150, 20) for a_ in (60, 52, 45)]:   # (v13.236: slid back until the pad fits)
+                                    b0 = (a0[0] + u[0] * (t + 30 - 2 * a - bk), a0[1] + u[1] * (t + 30 - 2 * a - bk))
+                                    Q = (b0[0], b0[1] + sgy * a) if vst else (b0[0] + sgx * a, b0[1])
+                                    bb = box(Q[0] - a, Q[1] - a, Q[0] + a, Q[1] + a)
+                                    if os.environ.get("SB_DEBUG5"): print("   d-pad", vst, round(th, 1), t, a, [round(v) for v in Q], HULL.contains(bb), TK.intersects(bb), boxes_hit([bb.buffer(4).bounds], CB))
+                                    if padok(bb):
+                                        best = (t - bk, "dv" if vst else "d", [r1, st1, a0, b0], Q, a, rg); break
+        # v13.236 (Senate Station's 12 arms at 30 deg steps): a straight lane at ANY angle (up to 40 deg off square) out of
+        # a straight walkway side, along an arm to a pad at its end
+        for (ax_, ay_), (bx_, by_) in segs:
+            hz = abs(ay_ - by_) < 1
+            lo, hi = (min(ax_, bx_), max(ax_, bx_)) if hz else (min(ay_, by_), max(ay_, by_))
+            for uu in np.arange(lo + MW + 6, hi - MW - 5, 16.0):
+                for sd in (-1, 1):
+                    x_, y_ = (uu, ay_) if hz else (ax_, uu)
+                    if x_ < C + MW / 2 + 60: continue
+                    a0 = (x_, y_ + sd * MW / 2) if hz else (x_ + sd * MW / 2, y_)
+                    for phi in (15.0, -15.0, 25.0, -25.0, 32.0, -32.0, 40.0, -40.0):
+                        sn, cs = math.sin(math.radians(phi)), math.cos(math.radians(phi))
+                        u = (sn, sd * cs) if hz else (sd * cs, sn)
+                        t = 0
                         while t < 1600:
                             ok_ = True
                             for off in (-MW / 2, 0, MW / 2):
                                 pt = Point(a0[0] + u[0] * (t + 10) - u[1] * off, a0[1] + u[1] * (t + 10) + u[0] * off)
-                                if not HIp.contains(pt) or TKr.contains(pt): ok_ = False; break
+                                if not inl(pt, off) or (t > 110 and TK.contains(pt)): ok_ = False; break
                             if not ok_: break
                             t += 10
-                        if os.environ.get("SB_DEBUG2"): print("  d-ray", [round(v) for v in r1], sgx, sgy, t, QP.contains(Point(a0[0] + u[0] * (t - 40), a0[1] + u[1] * (t - 40))))
-                        if t < 150 or not QP.contains(Point(a0[0] + u[0] * (t - 40), a0[1] + u[1] * (t - 40))): continue
-                        # a pod ring where the angled lane comes out into open floor (a district of its own); the lane
-                        # ends square on the middle part of its near side
-                        for a in (190.0, 160.0, 130.0, 110.0):
-                            got = None
-                            for d in np.arange(150.0, t + 1, 10.0):
-                                b0 = (a0[0] + u[0] * d, a0[1] + u[1] * d)
-                                for off in (0.0, -0.35 * a, 0.35 * a):
-                                    cen = (b0[0] + sgx * a, b0[1] + off)
-                                    og = octo(cen[0], cen[1], a + MW / 2 + 4, a + MW / 2 + 4, cut_of(a, a))
-                                    if FREE.contains(og) and not TKr.intersects(og) and QP.intersects(og) and abs(off) <= a - cut_of(a, a) - MW:
-                                        got = (b0, cen); break
-                                if got: break
-                            if got:
-                                if not best or a + t > best[0]: best = (a + t, "dr", [r1, st1, a0, got[0]], got[1], a, rg)
-                                break
-                        if best and t <= best[0]: continue
-                        for a in (60, 52, 45):
-                            b0 = (a0[0] + u[0] * (t + 30 - 2 * a), a0[1] + u[1] * (t + 30 - 2 * a))
-                            Q = (b0[0] + sgx * a, b0[1])
-                            bb = box(Q[0] - a, Q[1] - a, Q[0] + a, Q[1] + a)
-                            if padok(bb):
-                                best = (t, "d", [r1, st1, a0, b0], Q, a, rg); break
+                        if t < 200 or not QP.contains(Point(a0[0] + u[0] * (t - 60), a0[1] + u[1] * (t - 60))): continue
+                        if best and t <= best[0] + 40: continue   # (a square lane wins a near tie)
+                        for a, bk in [(a_, b_) for b_ in range(0, int(t) - 150, 20) for a_ in (60, 52, 45)]:
+                            d = t + 30 - 2 * a - bk
+                            b0 = (a0[0] + u[0] * d, a0[1] + u[1] * d)
+                            Q = (b0[0], b0[1] + sd * a) if hz else (b0[0] + sd * a, b0[1])
+                            if (MW / 2) / cs > a - 6 or b0[0] < C + MW / 2 + 40: continue
+                            lane = LineString([a0, b0]).buffer(MW / 2, cap_style=2)
+                            if not HULL.contains(lane) or TK.intersects(lane.difference(Point(*a0).buffer(130))): continue
+                            if padok(box(Q[0] - a, Q[1] - a, Q[0] + a, Q[1] + a)):
+                                best = (t - bk, "a", [a0, b0], Q, a, "y" if hz else "x"); break
         # on from a pad: a lane out of a pad's side (the pad is a junction room, doors at both ends)
         for kind0, pts0, o0, rg0_, Qp, ap in SPURS:
             if kind0 in ("pr", "dr") or Qp[0] < C + MW / 2 + 60: continue
@@ -506,16 +555,17 @@ def build_deck(HULL0, role, sid, name, here, src):
                                 if padok(bb):
                                     best = (t - bk, "b", [r1, (Q[0] - u[0] * a, Q[1] - u[1] * a)], Q, a, rg); break
         if not best: return None
-        if best[1] in ("s", "d", "b", "p", "pr", "dr"): return best[1:]
+        if best[1] in ("s", "d", "dv", "b", "p", "pr", "dr", "a"): return best[1:]
         return ("s", best[1], best[2], best[3], None)
     for _ in range(16):
         free = HULL.buffer(-(MW / 2 + 16), join_style=2).difference(TAKEN[0].buffer(MW / 2 + 40)).intersection(box(C + MW / 2 + 70, 0, NPX, NPX))
-        pcs = sorted([q for q in getattr(free, "geoms", [free]) if q.geom_type == "Polygon" and q.area > 25000], key=lambda q: -q.area)
+        pcs = sorted([q for q in getattr(free, "geoms", [free]) if q.geom_type == "Polygon" and q.area > 12000], key=lambda q: -q.area)
         made = False
+        if os.environ.get("SB_DEBUG4"): print("pcs", [(round(q_.area), [round(v) for v in q_.bounds]) for q_ in pcs])
         for q in pcs:
             m = np.zeros((NPX, NPX), np.uint8); cv2.fillPoly(m, [np.array(q.exterior.coords, np.int32)], 255)
             dt = cv2.distanceTransform(m, cv2.DIST_L2, 5)
-            ys, xs = np.nonzero(dt >= 46)
+            ys, xs = np.nonzero(dt >= 28)
             if len(xs) == 0: continue
             # the tip: the deep-enough point farthest from the rings
             near = min(RG, key=lambda r_: math.hypot(r_["cx"] - xs.mean(), r_["cy"] - ys.mean()))
@@ -541,18 +591,21 @@ def build_deck(HULL0, role, sid, name, here, src):
                     kind_, pts, Q, a, rg0 = t_
                     for k_ in (1, -1):
                         P2 = pts if k_ == 1 else [(2 * C - x_, y_) for x_, y_ in pts]; QQ = Q if k_ == 1 else (2 * C - Q[0], Q[1])
-                        SPURS.append((kind_, P2, "x", None, QQ, a))
+                        SPURS.append((kind_, P2, rg0 if kind_ == "a" else "x", None, QQ, a))
                         if kind_ in ("pr", "dr"):
                             nr = {"cx": QQ[0], "cy": QQ[1], "hw": a, "hh": a, "breaks": {}, "district": True}
                             RG.append(nr); TAKEN[0] = TAKEN[0].union(ring_shape(nr, MW / 2 + 70)).union(hall(P2[0], P2[-1], w=MW + 60))
                             if kind_ == "pr": STRAIGHT.append(P2); continue
                             rgx = rg0 if (k_ == 1 or abs(rg0["cx"] - C) < 1) else next((r_ for r_ in RG if abs(r_["cx"] - (2 * C - rg0["cx"])) < 1 and abs(r_["cy"] - rg0["cy"]) < 1), rg0)
                             rgx["breaks"].setdefault(CORNER(rgx, *P2[0]), []).append(P2[0]); continue
-                        if kind_ in ("d", "b"):
+                        if kind_ in ("d", "dv", "b"):
                             rgx = rg0 if (k_ == 1 or abs(rg0["cx"] - C) < 1) else next((r_ for r_ in RG if abs(r_["cx"] - (2 * C - rg0["cx"])) < 1 and abs(r_["cy"] - rg0["cy"]) < 1), rg0)
                             rgx["breaks"].setdefault(CORNER(rgx, *P2[0]), []).append(P2[0])
+                        if kind_ in ("a", "d", "dv"):   # v13.236: an angled lane takes only its own strip (not its whole bounding box)
+                            TAKEN[0] = TAKEN[0].union(box(QQ[0] - a, QQ[1] - a, QQ[0] + a, QQ[1] + a).buffer(MW + 40)).union(LineString(P2).buffer(MW / 2 + 30, cap_style=2))
+                            continue
                         TAKEN[0] = TAKEN[0].union(box(QQ[0] - a, QQ[1] - a, QQ[0] + a, QQ[1] + a).buffer(MW + 40)).union(hall(P2[0], P2[-1], w=MW + 60))
-                        if kind_ != "d": STRAIGHT.append(P2)
+                        if kind_ not in ("d", "dv"): STRAIGHT.append(P2)
                     made = True
             if made: break
         if not made: break
@@ -580,12 +633,14 @@ def build_deck(HULL0, role, sid, name, here, src):
         R[nm] = octo(Q[0], Q[1], a, a, a * 0.3); PADS.append(nm)
         if kind == "p":
             DOORS.append((round(pts[0][0], 1), round(pts[0][1], 1), "h" if abs(pts[0][0] - pts[1][0]) < 1 else "v"))
-        if kind in ("s", "b", "p"):
+        if kind == "a":   # (v13.236: a lane at any angle, flush on the walkway side it leaves, square into the pad)
+            HALLS.append(dhall(pts[0], pts[1], w=MW, axis=o))
+        elif kind in ("s", "b", "p"):
             HALLS.append(hall(*pts, w=MW)); SEGS.append((min(pts[0][0], pts[1][0]), min(pts[0][1], pts[1][1]), max(pts[0][0], pts[1][0]), max(pts[0][1], pts[1][1]), MW))
         elif len(pts) == 4:
             r1, st1, a0, b0 = pts
             HALLS.append(hall(r1, st1, w=MW)); node(st1[0], st1[1], MW)
-            HALLS.append(dhall(a0, b0, w=MW, axis="x"))
+            HALLS.append(dhall(a0, b0, w=MW, axis="y" if kind == "dv" else "x"))
         else:
             r1, st1, a0, b0, st2, r2 = pts
             HALLS.append(hall(r1, st1, w=MW)); node(st1[0], st1[1], MW)

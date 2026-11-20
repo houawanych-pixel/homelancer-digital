@@ -4156,6 +4156,32 @@ func _run() -> void:
 			_tp(ship.global_transform * Vector3((ship.get_meta("hit_half") as Vector3).x + 120.0, 0, 0), ship.global_position)
 			await _wait(1.5)
 			_check("v13.02 (owner): at full power the shield is up: reaching the ship does NOT board it", not is_instance_valid(main.ship_deck) and main.board_power() == 100.0 and main.state == "flight")
+			# v13.236 (owner: "make it the true shape into a solid so you can manoeuvre in there"): the hull's real shape
+			if ship.has_node("FleetModel"):
+				var hb_ok: bool = ship.has_meta("hull_body") and is_instance_valid(ship.get_meta("hull_body"))
+				var hh3: Vector3 = ship.get_meta("hit_half")
+				var ss3 := sb.get_world_3d().direct_space_state
+				var ball := SphereShape3D.new()
+				ball.radius = float(Data.RETOPO_BOX_PAD) + 30.0
+				var q3 := PhysicsShapeQueryParameters3D.new()
+				q3.shape = ball
+				q3.collision_mask = SpaceSystem.HULL_LAYER
+				var gap := Vector3.INF
+				for ix in range(-4, 5):
+					for iz in range(-6, 7):
+						var lp3 := Vector3(hh3.x * ix / 5.0, 0.0, hh3.z * iz / 7.0)
+						q3.transform = Transform3D(Basis.IDENTITY, ship.global_transform * lp3)
+						if ss3.intersect_shape(q3, 1).is_empty() and absf(lp3.x) < hh3.x * 0.8 and absf(lp3.z) < hh3.z * 0.8: gap = ship.global_transform * lp3; break
+					if gap != Vector3.INF: break
+				var held := false
+				if gap != Vector3.INF:
+					_tp(gap, ship.global_position)
+					sb.vel = Vector3.ZERO
+					await _wait(0.6)
+					held = sb.player.global_position.distance_to(gap) < 30.0
+				_check("v13.236: the boarding ship is solid by its REAL shape: an open gap inside its box can be flown into (%s)" % ("gap found" if gap != Vector3.INF else "no gap in this model"), hb_ok and (gap == Vector3.INF or held), "hull %s gap %s held %s" % [hb_ok, str(gap != Vector3.INF), held])
+				_tp(ship.global_transform * Vector3(hh3.x + 120.0, 0, 0), ship.global_position)
+				await _wait(0.5)
 			# v13.10 (owner: "I couldn't board their ship"): a shot on the far end of the hull counts, and your guns fire on it
 			var bow: Vector3 = ship.global_transform * Vector3(0, 0, -(ship.get_meta("hit_half") as Vector3).z * 0.95)
 			var bn0 := MeshInstance3D.new()
@@ -4201,11 +4227,23 @@ func _run() -> void:
 			_check("v13.02 (owner): it stops at 50%: the shield is down for good", is_equal_approx(main.board_power(), 50.0) and (ship.get_node("PowerLabel") as Label3D).text.contains("SHIELD DOWN"))
 			await _shot("boardjob_shield_down", 0.4)
 			# v13.69 (owner: "I'm flying right through it"): the hull is solid; (owner: "a button like on the regular missions"): BOARD
-			_tp(ship.global_position, ship.global_position + ship.global_basis.z)
+			# (v13.236: the hull is its real shape: you are stopped where you meet it flying in, not pushed out of a box)
 			var was_in := true
-			await _until(func(): return main.board_hull_dist(sb.player.global_position) > 0.5, 2.0)
-			var pushed: float = main.board_hull_dist(sb.player.global_position)
-			_check("v13.69 (owner): the target ship is solid: flying into its middle pushes you out to the hull", was_in and not is_instance_valid(main.ship_deck) and main.state == "flight" and pushed > 0.5 and pushed < 60.0, "%.1f" % pushed)
+			var hh4: Vector3 = ship.get_meta("hit_half")
+			var hit4 := Vector3.INF
+			if ship.has_meta("hull_body"):
+				var rq4 := PhysicsRayQueryParameters3D.create(ship.global_transform * Vector3(hh4.x + 400.0, 0, 0), ship.global_position, SpaceSystem.HULL_LAYER)
+				var rh4 := sb.get_world_3d().direct_space_state.intersect_ray(rq4)
+				if not rh4.is_empty(): hit4 = rh4["position"]
+			var start4: Vector3 = ship.global_transform * Vector3(hh4.x + 400.0, 0, 0)
+			var goal4: Vector3 = ship.global_position if hit4 == Vector3.INF else hit4 + (hit4 - start4).normalized() * 60.0
+			_tp(start4, ship.global_position)
+			for i4 in 40:   # fly in toward the middle (just past the hull face)
+				sb.player.global_position = sb.player.global_position.move_toward(goal4, 25.0)
+				await get_tree().physics_frame
+				await get_tree().process_frame
+			var pushed: float = sb.player.global_position.distance_to(goal4)
+			_check("v13.69 (owner): the target ship is solid: flying into it you are stopped at its hull", was_in and not is_instance_valid(main.ship_deck) and main.state == "flight" and pushed > 20.0, "%.1f from the point past the hull (hull hit %s)" % [pushed, str(hit4 != Vector3.INF)])
 			var btn_ok := false
 			for k8 in 8:
 				_tp(ship.global_transform * Vector3((ship.get_meta("hit_half") as Vector3).x + 120.0, 0, 0), ship.global_position)

@@ -5066,6 +5066,9 @@ func _boarding_page() -> void:
 				if not GS.mission.is_empty() or not GS.bounty.is_empty(): had = " " + Missions.disengage()
 				board_job = (o as Dictionary).duplicate(true)
 				board_job["pt"] = randi() % 3
+				Packs.request("faction_fleet")   # v13.237 (owner): start loading the target ship as the job is taken
+				var mk := FleetCatalog.model_key(str(o.get("id", "")))
+				if ShipFactory.has_real_model(mk): ResourceLoader.load_threaded_request(str(ShipFactory.entry(mk)[0]))
 				status.text = "Boarding job accepted: %s.%s" % [str(o["title"]), had]
 				_note_giver()
 				if board_pick != key: read_job(o)

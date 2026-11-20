@@ -33,7 +33,7 @@ const VERSION := "v13.235"
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
 const STATION_DOOR_SPEED := 0.7   # v13.233: station doors open in ~1.4 s (ships 0.6 s), time for the next rooms to show
-const STATION_SHIP_DECK := {"st3d_veranthos_customs": "res://assets/holodeck/station_liberty_v2.json", "HL_Station_Imperium_Capital_retopo": "res://assets/holodeck/station_malachar.json", "HL_Station_Covenant_Capital_retopo": "res://assets/holodeck/station_sepheron.json", "HL_Station_Liberator_Capital_retopo": "res://assets/holodeck/station_vantara.json", "HL_Station_Savagers_Capital_retopo": "res://assets/holodeck/station_raptian_major.json", "HL_Station_Solarion_Capital_retopo": "res://assets/holodeck/station_synthari_capital.json"}
+const STATION_SHIP_DECK := {"st3d_veranthos_customs": "res://assets/holodeck/station_liberty_v2.json", "HL_Station_Imperium_Capital_retopo": "res://assets/holodeck/station_malachar.json", "HL_Station_Covenant_Capital_retopo": "res://assets/holodeck/station_sepheron.json", "HL_Station_Liberator_Capital_retopo": "res://assets/holodeck/station_vantara.json", "HL_Station_Savagers_Capital_retopo": "res://assets/holodeck/station_raptian_major.json", "HL_Station_Solarion_Capital_retopo": "res://assets/holodeck/station_synthari_capital.json", "st3d_veranthos_senate": "res://assets/holodeck/station_veranthos.json", "st3d_aurelion_citadel": "res://assets/holodeck/station_aurelion.json", "st3d_veranthos_summit": "res://assets/holodeck/station_dreadholm.json"}
 const STATION_BOARD_WALK := true   # v13.174: WALK THE STATION boards the station's own deck plan in the boarding engine
 const STATION_ATRIUM_R := 300.0   # u from the lift axis: standing in the hub's atrium (outside the lift car) brings up ENTER MAIN HUB
 const DOCK_TO_BAY := true   # v13.187 (owner: "when you dock you should be in the docking 360, then you can explore"): docking opens the hangar bay page (SUPPLIES, EXPLORE STATION, LAUNCH)
@@ -96,7 +96,7 @@ const SYSTEM_LAYOUT := {
 			{"name": "Ion Shoals", "at": [9.0, 2.0], "radius": 22000.0, "weather": "rocks", "color": Color(0.55, 0.6, 0.7)},
 			{"name": "Lantern Cloud", "at": [4.6, 6.9], "radius": 20000.0, "weather": "storm", "color": Color(0.95, 0.7, 0.4)},
 			{"name": "Crossing Rocks", "at": [4.9, 8.6], "radius": 16000.0, "weather": "rocks", "color": Color(0.6, 0.52, 0.45)},
-			{"name": "Frost Veil", "at": [2.6, 4.5], "radius": 70000.0, "weather": "storm", "color": Color(0.45, 0.7, 0.95), "disturbance": true},   # v12.6 (owner: "4B is good, put a big cloud there"): the disturbance hides here, well away from Haven Station
+			{"name": "Frost Veil", "at": [8.5, 1.5], "radius": 100000.0, "weather": "storm", "color": Color(0.45, 0.7, 0.95), "disturbance": true},   # v13.236 (owner: "put that cloud at 8.5 to 1.5 and scale it up to the size of 2 tiles"; was at [2.6, 4.5], 70 km). v12.6 (owner: "4B is good, put a big cloud there"): the disturbance hides here, well away from Haven Station
 		],
 		"junctions": {"North Choke Point": [6.9, 4.7], "Liberty Crossing": [6.6, 7.7]},
 		"lanes": [
@@ -1235,6 +1235,8 @@ const NEBULA_BACKDROPS := 3          # v12.2: huge clouds out past the system ed
 const NEBULA_BACKDROP_R := [160000.0, 260000.0]
 const NEBULA_PUFFS := 240             # smoke puffs in a full-size cloud (smaller clouds get fewer)
 const NEBULA_PUFF_ALPHA := 0.55
+const BOARD_MODEL_WAIT := 30.0   # v13.237: s a boarding target waits for its real model before it is put out (then a stand-in)
+const NEBULA_NEAR_SHIP_FOG := 0.3   # v13.237: the cloud's fog thins to this share while a big ship is close (it keeps a light haze)
 const NEBULA_SHIP_CLEAR := 2000.0   # v13.234 (owner): in a cloud, ships nearer than this (m) show their own colours, not the white haze
 const NEBULA_FOG_DENSITY := 0.005   # (v1.9z: thicker: deep inside you see a few hundred metres, not the other side)    # fog at the heart of a cloud (things ~600 m off fade into the haze)
 const NEBULA_STREAM := 40             # smoke puffs streaming past the ship inside a cloud

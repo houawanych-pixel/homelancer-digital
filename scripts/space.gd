@@ -5619,36 +5619,23 @@ func _update_weather(dt: float) -> void:
 var _fogc_t := 0.0
 var fog_clear_ships := 0
 func _fog_clear_ships(dt: float) -> void:
+	# v13.237 (owner: "I would still like to see a little bit of the cloud fogginess around this big ship"): the
+	# ship keeps the cloud's haze; the fog thins while a ship is near you, so its colours show through
 	_fogc_t -= dt
-	if _fogc_t > 0.0 or not is_instance_valid(player): return
-	_fogc_t = 0.5
-	var nodes: Array = []
-	for c in get_children():
-		if c is Node3D and str(c.get_meta("kind", "")) == "board_target": nodes.append(c)
-	for en in enemies:
-		if en is Dictionary and is_instance_valid((en as Dictionary).get("node", null)): nodes.append(en["node"])
-	var n_on := 0
-	for n0 in nodes:
-		var n := n0 as Node3D
-		var want: bool = _neb_fog_on and n.global_position.distance_to(player.global_position) < Data.NEBULA_SHIP_CLEAR
-		if want: n_on += 1
-		if bool(n.get_meta("fog_clear", false)) == want: continue
-		n.set_meta("fog_clear", want)
-		for g in n.find_children("*", "MeshInstance3D", true, false):
-			var mi := g as MeshInstance3D
-			if mi.material_override is BaseMaterial3D:
-				if not mi.has_meta("own_ovr"):
-					mi.material_override = mi.material_override.duplicate()
-					mi.set_meta("own_ovr", true)
-				(mi.material_override as BaseMaterial3D).disable_fog = want
-			elif mi.mesh != null:
-				for i in mi.mesh.get_surface_count():
-					var m := mi.get_surface_override_material(i)
-					if m == null and mi.mesh.surface_get_material(i) is BaseMaterial3D:
-						m = mi.mesh.surface_get_material(i).duplicate()
-						mi.set_surface_override_material(i, m)
-					if m is BaseMaterial3D: (m as BaseMaterial3D).disable_fog = want
-	fog_clear_ships = n_on
+	if _fogc_t <= 0.0 and is_instance_valid(player):
+		_fogc_t = 0.5
+		var near := INF
+		for c in get_children():
+			if c is Node3D and str(c.get_meta("kind", "")) == "board_target": near = minf(near, (c as Node3D).global_position.distance_to(player.global_position) - float(c.get_meta("radius", 0.0)))
+		for en in enemies:
+			if en is Dictionary and is_instance_valid((en as Dictionary).get("node", null)):
+				var nn: Node3D = en["node"]
+				if float((en as Dictionary).get("def", {}).get("hit_r", 0.0)) >= 120.0: near = minf(near, nn.global_position.distance_to(player.global_position))
+		_ship_fog_want = 1.0 if near == INF else lerpf(Data.NEBULA_NEAR_SHIP_FOG, 1.0, clampf((near - Data.NEBULA_SHIP_CLEAR * 0.5) / (Data.NEBULA_SHIP_CLEAR * 0.5), 0.0, 1.0))
+		fog_clear_ships = 1 if _ship_fog_want < 0.99 else 0
+	ship_fog_k = move_toward(ship_fog_k, _ship_fog_want, dt * 0.8)
+var _ship_fog_want := 1.0
+var ship_fog_k := 1.0   # the cloud's fog x this (thinner while a big ship is near you)
 
 func _update_nebulae(dt: float) -> void:
 	if nebulae.is_empty() or surface_mode: return
@@ -5690,7 +5677,7 @@ func _update_nebulae(dt: float) -> void:
 				e.fog_mode = Environment.FOG_MODE_EXPONENTIAL
 				e.fog_light_energy = 1.0
 				_neb_fog_on = true
-			e.fog_density = Data.NEBULA_FOG_DENSITY * pow(in_nebula, 1.5) * clear
+			e.fog_density = Data.NEBULA_FOG_DENSITY * pow(in_nebula, 1.5) * clear * ship_fog_k
 			# v6.7 (owner, Freelancer): inside it is a white, misty, smoky cloud, tinted only a little by the cloud's colour
 			e.fog_light_color = nebula_tint.lerp(Data.NEBULA_MIST, Data.NEBULA_MIST_MIX).lerp(Data.BEACON_LIGHT_COLOR, beacon_lit * 0.5).lerp(Color(0.92, 0.95, 1.0), nebula_flash * 0.7)
 			e.fog_sky_affect = clampf(in_nebula * 1.6, 0.0, 1.0) * clear   # (v1.9z: deep inside, no stars: you can't see out)
@@ -13161,6 +13148,12 @@ func board_target() -> Node3D:
 	if n == null or not is_instance_valid(n) or float(board_mission.get("power", 100.0)) <= 50.0: return null
 	return n
 ## How far a point is from the boarding target's hull box (0 = on or in it; INF = no target).
+## v13.236: only test the real hull when you're inside (or just round) its box
+func board_ship_hull_near(bs: Node3D) -> bool:
+	var hh: Vector3 = bs.get_meta("hit_half", Vector3.ONE * float(bs.get_meta("radius", 200.0)) * 0.6)
+	var lp: Vector3 = bs.global_transform.affine_inverse() * player.global_position
+	var m := float(Data.RETOPO_BOX_PAD) + 40.0
+	return absf(lp.x) < hh.x + m and absf(lp.y) < hh.y + m and absf(lp.z) < hh.z + m
 func board_hull_dist(p: Vector3) -> float:
 	var n = board_mission.get("node")
 	if n == null or not is_instance_valid(n): return INF

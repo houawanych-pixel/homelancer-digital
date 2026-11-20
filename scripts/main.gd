@@ -322,10 +322,18 @@ func _auto_dock_step() -> void:
 
 var _save_t := 0.0
 var _escape_t := 0.0
+var _hub_dark_t := 0.0
+var _board_model_wait := 0.0
 func _process(_dt: float) -> void:
 	Music.want(music_mood(_dt))
 	_mission_auto_step()
 	_board_job_step(_dt)
+	# v13.237 (owner: "this hub room is really dark"): a fade left half on by a transition that was cut short clears
+	# itself once you are standing in the station
+	if state == "hub" and is_instance_valid(fx) and fx.fade > 0.0 and fx.caption == "":
+		_hub_dark_t += _dt
+		if _hub_dark_t > 1.0: fx.fade = move_toward(fx.fade, 0.0, _dt * 1.5)
+	else: _hub_dark_t = 0.0
 	_escape_t += _dt
 	if _escape_t >= 10.0 and state != "title":   # v1.8k: a jailed pilot whose time is up breaks out
 		_escape_t = 0.0
@@ -432,6 +440,15 @@ func _board_job_step(dt: float) -> void:
 		return
 	if is_instance_valid(ship_deck) or is_instance_valid(station_deck): return
 	if not is_instance_valid(board_ship):
+		# v13.237 (owner: "it first came in as a smaller ship then grew to the big one ... start loading it as you take
+		# the mission"): the ship's model is fetched from the moment the job is taken; it is put out there only once
+		# its real model is in (a stand-in only if it never comes)
+		var bid := str(j.get("id", ""))
+		if FleetCatalog.has_model(bid) and not FleetCatalog.model_ready(bid) and _board_model_wait < Data.BOARD_MODEL_WAIT:
+			Packs.request("faction_fleet")
+			_board_model_wait += get_process_delta_time()
+			return
+		_board_model_wait = 0.0
 		_board_job_spawn(j)
 		return
 	# your laser shots that reach the hull take its power down (100% -> 50%: the shield fails and stays down)
@@ -448,8 +465,17 @@ func _board_job_step(dt: float) -> void:
 				board_damage(float(b.get("dmg", 1.0)))
 	# v13.69 (owner: "the ship is not a solid, I'm flying right through it"): its hull box pushes you out like a station's
 	if is_instance_valid(space.player) and is_instance_valid(board_ship):
-		var hh2: Vector3 = board_ship.get_meta("hit_half", Vector3.ONE * float(board_ship.get_meta("radius", 200.0)) * 0.6)
-		space._push_out_box(board_ship, AABB(-hh2, hh2 * 2.0), "station")
+		# v13.236 (owner: "make it the true shape into a solid so you can manoeuvre in there"): its real hull shape (the
+		# gaps between its arms are open), the box only while the model isn't in yet
+		if board_ship.has_node("FleetModel") and not board_ship.has_meta("hull_tried"):
+			board_ship.set_meta("hull_tried", true)
+			var fm: Node3D = board_ship.get_node("FleetModel")
+			space._hull_body(board_ship, fm, fm.find_children("*", "MeshInstance3D", true, false))
+		if board_ship.has_meta("hull_body") and is_instance_valid(board_ship.get_meta("hull_body")) and (board_ship.get_meta("hull_body") as Node).is_inside_tree():
+			if space.board_ship_hull_near(board_ship): space._push_out_hull(board_ship, "station")
+		else:
+			var hh2: Vector3 = board_ship.get_meta("hit_half", Vector3.ONE * float(board_ship.get_meta("radius", 200.0)) * 0.6)
+			space._push_out_box(board_ship, AABB(-hh2, hh2 * 2.0), "station")
 	var near: bool = is_instance_valid(space.player) and board_hull_dist(space.player.global_position) < BoardingJobs.BOARD_RANGE
 	space.board_ready = near and board_power() <= 50.0   # v13.69 (owner): a BOARD button, like the other missions (no more boarding the moment you touch it)
 	if near and _board_cd <= 0.0:
@@ -1540,6 +1566,7 @@ func _on_walk_requested(id: String) -> void:
 ## ship. "" = no plan for this station yet.
 static func station_board_path(sys_id: String) -> String:
 	var m := str((Data.RETOPO_STATIONS.get(sys_id, {}) as Dictionary).get("*", ""))
+	if m == "": m = str((Data.STATION3D.get(sys_id, {}) as Dictionary).get("*", ""))   # v13.236: the capitals on STATION3D models (Senate Station, Aurelion Citadel)
 	var sp := str(Data.STATION_SHIP_DECK.get(m, ""))   # v13.219: a station built with the ship tools (the same deck as a fleet ship)
 	if sp != "" and FileAccess.file_exists(sp): return sp
 	var p := "res://assets/stations_board/%s.json" % m
