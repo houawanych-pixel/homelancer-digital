@@ -10275,6 +10275,7 @@ func _job_v1132() -> void:
 			for v5 in fz: ab = ab.expand(v5)
 			var rq5 := PhysicsRayQueryParameters3D.create(top0, bse["node"].global_position - Vector3(0, 390, 0), 0xFFFFFFFF)
 			var rh5 := s.get_world_3d().direct_space_state.intersect_ray(rq5)
+			print("[route] solid debug4: body space ok %s, can_process %s, s.mode %d, tree paused %s, fz0 %s, rest %s" % [PhysicsServer3D.body_get_space(hb.get_rid()) == s.get_world_3d().space, hb.can_process(), s.process_mode, get_tree().paused, hb.global_transform * fz[0], str(_tri_ray(s, hb, fz))])
 			print("[route] solid debug2: faces %d local box %s body at %s node at %s scale %s inside %s layer %d ray %s" % [fz.size() / 3, ab, hb.global_position, bse["node"].global_position, bse["node"].global_basis.get_scale(), hb.is_inside_tree(), hb.collision_layer, str(rh5.get("collider", null)) + " " + str(rh5.get("position", ""))])
 		var out_d: float = s.player.global_position.distance_to(aim0)   # (held at the skin, short of the point inside it)
 		var solid_ok: bool = s.ship_bumps > b0 and out_d > 15.0 and bse["node"].has_meta("ship_box")
@@ -18796,3 +18797,13 @@ func _dump_d(d) -> Dictionary:   # (HL_SYSDUMP: the plain fields of a planet dic
 		for k in d:
 			if d[k] is String or d[k] is bool or d[k] is int or d[k] is float: o[k] = d[k]
 	return o
+
+
+func _tri_ray(s: Node3D, hb: StaticBody3D, fz: PackedVector3Array) -> String:   # (a ray straight through the centre of the shape's first triangle)
+	var a: Vector3 = hb.global_transform * fz[0]
+	var b: Vector3 = hb.global_transform * fz[1]
+	var c: Vector3 = hb.global_transform * fz[2]
+	var cen := (a + b + c) / 3.0
+	var nn := (b - a).cross(c - a).normalized()
+	var rh := s.get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(cen + nn * 5.0, cen - nn * 5.0, 1 << 19))
+	return "%s" % str(rh.get("collider", null))
