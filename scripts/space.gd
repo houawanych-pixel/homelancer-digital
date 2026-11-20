@@ -1010,10 +1010,85 @@ func building_site(want: Vector2, half: float, placed: Array) -> Vector3:
 ## their spot; a hostile one gets gun batteries and a generator beside it (the base parts). Their own pack ("bases3d").
 var planet_bases: Array = []   # (tests) the base holders on this sector
 var port_bases: Array = []     # (tests) v13.240: the bases standing on the ports' islands
+
+## v13.241 (owner: "a base should spawn when you take on a mission, planetary infiltrate base, in a random location a
+## good distance from the docking hub; it should have a shield like the ship, and enemy mechs protect it like the
+## ships"): the RAID job's base: a bunker compound at the job's spot (only while the job is yours, on its tile), its
+## SHIELD GENERATOR (the whole base is its hit area: knock the shield down, then the hull to half, and the generator is
+## gone, as a battleship's) under a shield dome, and its guard mechs. Shield down: land by it and INFILTRATE (its three
+## floors). Done, it's gone.
+var raid_base: Dictionary = {}   # the generator unit (tests)
+func raid_site_here() -> Dictionary:
+	var m: Dictionary = GS.mission
+	if m.is_empty() or str(m.get("kind", "")) != "facility" or not bool(m.get("raid", false)): return {}
+	if str(m.get("planet", "")) != planet_id or int(m.get("tile", -1)) != tile: return {}
+	var pt: Dictionary = (m.get("points", [{}]) as Array)[0]
+	return {"name": str(m["site"]), "file": "HL_Asset_BunkerPillar", "bunker": true, "faction": str(m.get("faction", "Savagers")), "side": "hostile",
+		"difficulty": int(m.get("difficulty", 1)), "tile": tile, "spot": Vector2(float(pt.get("x", 0.0)), float(pt.get("z", 0.0))), "planet": planet_id, "raid": true}
+
+func _raid_setup(h: Node3D, site: Dictionary) -> void:
+	var lv := clampi(int(site.get("difficulty", 1)), 1, 4)
+	var half := float(h.get_meta("half", 80.0))
+	var g := _ground(h.position.x, h.position.z)
+	var c := Vector3(h.position.x, g + half * 0.35, h.position.z)
+	var e := spawn_unit("raid_base", c, c, "none")
+	(e["model"] as Node3D).visible = false
+	e["def"] = (e["def"] as Dictionary).duplicate()
+	e["def"]["hit_r"] = half * 1.1
+	e["hp"] = float(Data.RAID_HP[lv]); e["max"] = e["hp"]
+	e["sh"] = float(Data.RAID_SHIELD[lv]); e["sh_max"] = e["sh"]
+	e["raid_base"] = true
+	e["walker"] = false
+	(e["node"] as Node3D).name = "%s shield generator" % str(site["name"])
+	var dome := MeshInstance3D.new()   # the shield: a dome over the base
+	var sm := SphereMesh.new()
+	sm.radius = half * 1.25
+	sm.height = half * 1.6
+	sm.radial_segments = 32
+	sm.rings = 16
+	dome.mesh = sm
+	var mat := StandardMaterial3D.new()
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mat.albedo_color = Color(0.35, 0.8, 1.0, 0.16)
+	mat.emission_enabled = true
+	mat.emission = Color(0.3, 0.7, 1.0)
+	dome.material_override = mat
+	dome.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	dome.name = "RaidShield"
+	(e["node"] as Node3D).add_child(dome)
+	dome.position = Vector3(0, -half * 0.35, 0)
+	e["raid_dome"] = dome
+	h.set_meta("raid_e", e)
+	raid_base = e
+	spawn_ground_mechs(Vector3(c.x, g, c.z), str(site.get("faction", "Savagers")), int(Data.RAID_GUARDS[lv]), -43, 1 if lv >= 3 else 0)
+	message.emit("RAID: %s. Its shield generator is up and their mechs are on guard. Knock the shield down, then land by it and INFILTRATE." % str(site["name"]))
+
+func _raid_open(e: Dictionary) -> void:
+	e["shield_broken"] = true
+	e["sh"] = 0.0
+	if is_instance_valid(e.get("raid_dome", null)): (e["raid_dome"] as Node3D).visible = false
+	_spark((e["node"] as Node3D).global_position, Color(0.4, 0.85, 1.0), 60.0, 0.6)
+	Sfx.play("explosion", -2.0, 0.7)
+	message.emit("SHIELD GENERATOR DOWN! Land by the base and INFILTRATE it.")
+
+## The job's done: the base goes (main calls it once you're paid).
+func raid_clear(site_name: String) -> void:
+	for n in tile_root.get_children() if is_instance_valid(tile_root) else []:
+		if n is Node3D and (str(n.get_meta("raid_of", "")) == site_name or (n.has_meta("facility") and str((n.get_meta("facility") as Dictionary).get("name", "")) == site_name and bool((n.get_meta("facility") as Dictionary).get("raid", false)))):
+			n.queue_free()
+	planet_bases = planet_bases.filter(func(b): return is_instance_valid(b) and not (b.has_meta("raid_e")))
+	if not raid_base.is_empty() and enemies.has(raid_base):
+		if is_instance_valid(raid_base.get("node", null)): (raid_base["node"] as Node3D).queue_free()
+		enemies.erase(raid_base)
+	raid_base = {}
 func _planet_bases() -> void:
 	planet_bases = []
 	if not is_instance_valid(tile_root) or planet_id == "": return
 	var list: Array = (Surface.facility_sites(planet_id) as Array).filter(func(st): return int(st.get("tile", 0)) == tile)   # v12.54: each on its own sector
+	var rsite := raid_site_here()   # v13.241: the raid job's own base, on its tile
+	if not rsite.is_empty(): list.append(rsite)
 	var ports: Array = []   # v13.240 (owner): the world's base on each port's floating island
 	for l in Surface.locations_in(planet_id, tile):
 		var pb := Surface.pad_base(planet_id, l)
@@ -1049,7 +1124,10 @@ func _planet_bases() -> void:
 			for pc in lay.slice(1):
 				var pp := spot + (pc[1] as Vector2)
 				var ph := _ground_prop("res://assets/bases3d/%s.glb" % str(pc[0]), float(pc[2]), pp, true, float(pc[3]), pc[4] if pc.size() > 4 else Vector3.ONE)
-				if ph != null: ph.name = "%s %s" % [str(site["name"]), str(pc[0]).trim_prefix("HL_Asset_")]
+				if ph != null:
+					ph.name = "%s %s" % [str(site["name"]), str(pc[0]).trim_prefix("HL_Asset_")]
+					if site.get("raid", false): ph.set_meta("raid_of", str(site["name"]))
+			if site.get("raid", false): _raid_setup(h, site)
 			continue
 		if _fac_side(site) == "hostile":   # its defences: gun batteries either side and a generator behind
 			for k in 3:
@@ -1659,6 +1737,9 @@ func facility_candidate() -> Dictionary:
 	for h: Node3D in planet_bases:
 		if is_instance_valid(h) and h.has_meta("facility") and Vector2(h.global_position.x - player.global_position.x, h.global_position.z - player.global_position.z).length() < Data.FACILITY_NEAR \
 				and player.global_position.y - h.global_position.y < Data.FACILITY_HIGH:   # v12.33 (owner): right by it, on the ground, not miles up in the air
+			if h.has_meta("raid_e") and not bool((h.get_meta("raid_e") as Dictionary).get("shield_broken", false)):   # v13.241: its shield first
+				if _rng.randf() < 0.01: message.emit("The base's shield is up: knock it down first.")
+				continue
 			return h.get_meta("facility")
 	return {}
 
@@ -10279,6 +10360,10 @@ func _damage_enemy(e: Dictionary, dmg: float, hit := Vector3.INF, sf := -1.0) ->
 	_spark(at, Color(1.0, 0.6, 0.25), 3.5, 0.3)
 	_popup(at + Vector3(0, 2, 0), "-%d" % roundi(to_hull), Color(1.0, 0.62, 0.3))
 	Sfx.play("hull_hit", -12.0, 1.3)
+	if e.get("raid_base", false):   # v13.241: a raid base can't be destroyed from outside: at half its shield generator goes
+		e["hp"] = maxf(float(e["hp"]), float(e["max"]) * 0.3)
+		if not e.get("shield_broken", false) and float(e["hp"]) <= float(e["max"]) * Data.BOARD_HP_OPEN: _raid_open(e)
+		return
 	if e["hp"] <= 0.0: _destroy_unit(e)
 
 ## Generic pilot reactions to being hit. Hull effects (state latch, critical, retreat) are checked once this hit

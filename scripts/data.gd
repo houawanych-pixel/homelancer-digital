@@ -2354,6 +2354,12 @@ const STATION_INFIL_LEVEL := 3   # v11.99: an alien station is infiltrated as a 
 ## v13.239: the facilities' own three floors (tools/trace/facility_v1), by difficulty; a site picks one by its name
 const FACILITY_DECKS := {1: ["res://assets/holodeck/facility_d1_a.json"], 2: ["res://assets/holodeck/facility_d2_a.json"],
 	3: ["res://assets/holodeck/facility_d3_a.json"], 4: ["res://assets/holodeck/facility_d4_a.json"]}   # (one each for now: every facility adds ~4 MB to the main download)
+const RAID_BASES := true            # v13.241 (owner): planet RAID jobs: a bunker base placed when you take the job
+const RAID_MIN_DOCK := 3000.0       # m: a raid base is at least this far from every port on the world
+const RAID_EDGE := 600.0            # m in from its tile's edges
+const RAID_HP := [0.0, 6000.0, 9000.0, 12000.0, 16000.0]        # the base's hull by level (half of it down: its shield generator is gone)
+const RAID_SHIELD := [0.0, 3000.0, 4500.0, 6000.0, 8000.0]      # its shield by level
+const RAID_GUARDS := [0, 4, 6, 8, 10]                           # its guard mechs by level (the higher levels bring a boss)
 const FACILITY_PAY := 3500      # cr x difficulty for clearing a facility
 const BASE_PART_WIDTH := 45.0    # m: a gun battery / generator beside a hostile base
 const BASE_SPOTS := [Vector2(700.0, 500.0), Vector2(-750.0, 450.0), Vector2(150.0, 900.0), Vector2(-500.0, -800.0)]   # (4: up to 4 facilities a world)   # sector-local x, z (clear of the Command Center and Hangar)
@@ -2529,6 +2535,7 @@ const ENEMIES := {
 	"ship_tower": {"name": "Shield Tower", "class": "shield generator", "model": "none", "scale": 1.0, "hull": 1600.0, "shield": 0.0, "speed": 0.0, "turn": 0.0, "damage": 0.0, "rate": 0.5, "reward": 700, "capital": true, "hit_r": 22.0, "range": 0.0, "radius": 20.0},   # v11.42
 	"ship_bridge": {"name": "Bridge", "class": "bridge and drive", "model": "none", "scale": 1.0, "hull": 1300.0, "shield": 0.0, "speed": 0.0, "turn": 0.0, "damage": 0.0, "rate": 0.5, "reward": 600, "capital": true, "hit_r": 20.0, "range": 0.0, "radius": 18.0},
 	"ship_turret": {"name": "Turret", "class": "gun turret", "model": "none", "scale": 1.0, "hull": 520.0, "shield": 0.0, "speed": 0.0, "turn": 0.0, "damage": 7.0, "rate": 1.4, "reward": 250, "capital": true, "hit_r": 13.0, "range": 1100.0, "radius": 12.0},
+	"raid_base": {"name": "Shield Generator", "class": "reactor", "model": "none", "scale": 1.0, "hull": 6000.0, "shield": 3000.0, "speed": 0.0, "turn": 0.0, "damage": 0.0, "rate": 0.5, "reward": 0, "capital": true, "hit_r": 90.0, "range": 0.0, "radius": 80.0},   # v13.241: a raid base's shield generator (the whole base is its hit area)
 	"ship_core": {"name": "Reactor Core", "class": "reactor", "model": "none", "scale": 1.0, "hull": 1800.0, "shield": 0.0, "speed": 0.0, "turn": 0.0, "damage": 0.0, "rate": 0.5, "reward": 0, "capital": true, "hit_r": 26.0, "range": 0.0, "radius": 24.0},
 	"elyza_battleship": {"name": "Elyza Battleship", "class": "battleship", "faction": "Elyza", "model": "elyza_battleship", "scale": 1.0, "hull": 5000.0, "shield": 1800.0, "speed": 14.0, "turn": 0.05, "damage": 9.0, "rate": 3.0, "reward": 3200, "capital": true, "hit_r": 153.0, "range": 2800.0, "radius": 189.0, "carrier": "battleship"},   # v11.32   # v13.169: hit_r / radius to the universal class length
 	"elyza_cruiser": {"name": "Elyza Cruiser", "class": "cruiser", "faction": "Elyza", "model": "elyza_cruiser", "scale": 1.0, "hull": 2600.0, "shield": 900.0, "speed": 24.0, "turn": 0.09, "damage": 7.5, "rate": 2.2, "reward": 1200, "capital": true, "hit_r": 76.8, "range": 2400.0, "radius": 91.2, "carrier": "cruiser"},   # v13.169: hit_r / radius to the universal class length

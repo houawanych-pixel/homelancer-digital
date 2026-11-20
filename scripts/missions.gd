@@ -195,12 +195,27 @@ static func _planet_offers(out: Array, rng: RandomNumberGenerator, sys_id: Strin
 			"title": "%sBounty sweep on %s: %d fighters, %d more coming" % ["ELITE " if hard else "", pname, int(wv[0][0]), int(wv[1][0])],
 			"brief": "Bounty board: %s fighters are holding two waypoints over %s, %s. Clear the first (%d of them) and their reinforcements at the second (%d). Paid by the head when it's done." % [enemy, pname, sector_name(pid, t2), int(wv[0][0]), int(wv[1][0])],
 			"points": [{"x": a.x, "z": a.y}, {"x": b.x, "z": b.y}], "waves": wv}))
+	# v13.241 (owner: "a base should spawn when you take on a mission, planetary infiltrate base, in a random location a
+	# good distance from the docking hub; it should have a shield like the ship, and enemy mechs protect it like the
+	# ships"; "just like Freelancer every hub has different missions"): RAID jobs, each its own bunker base, placed when
+	# you take it at a spot well away from every port on the world
+	if Data.RAID_BASES and enemy != "":
+		for k in 2:
+			var lv := clampi(1 + rng.randi() % 4, 1, 4)
+			var rs := raid_spot(rng, pid)
+			if rs.is_empty(): continue
+			var rwords := ["Deep Works", "Old Mine", "Sump Bunker", "Signal Vault", "Foundry Shaft", "Cold Store", "Relay Bunker", "Pit Station", "Ice Vault", "Deep Silo"]
+			var rname := "%s %s" % [enemy, rwords[rng.randi() % rwords.size()]]
+			out.append(base.merged({"kind": "facility", "raid": true, "slot": 2, "pay": Data.FACILITY_PAY * lv + Data.MISSION_PAY["facility"], "tile": int(rs["tile"]), "site": rname, "difficulty": lv,
+				"title": "Infiltrate the %s base (level %d)" % [enemy, lv],
+				"brief": "%s have dug in a new base on %s, %s, far out from the port. Its shield generator is up and their mechs guard it. Knock its shield down, land by it and go in: %d floors underground. Do the job inside and get out." % [enemy, pname, sector_name(pid, int(rs["tile"])), 3],
+				"points": [{"x": (rs["spot"] as Vector2).x, "z": (rs["spot"] as Vector2).y}]}))
 	# the other side's facilities on this world (the dungeons)
 	var mine := ""
 	for l in Surface.PLANETS[pid].get("locations", []): if str(l.get("id", "")) == station_id: mine = str(l.get("faction", ""))
 	var shown := 0
 	for st in Surface.facility_sites(pid):
-		if shown >= 2: break
+		if shown >= (0 if Data.RAID_BASES and enemy != "" else 2): break   # (v13.241: the raid bases take these jobs over)
 		if mine != "" and str(st.get("faction", "")) == mine: continue
 		shown += 1
 		var lv := int(st.get("difficulty", 1))
@@ -228,6 +243,25 @@ static func _planet_offers(out: Array, rng: RandomNumberGenerator, sys_id: Strin
 		"points": [{"dir": rng.randf() * TAU, "dist": float(Data.INVASION["dist"]), "y": 0.0}]}))
 
 ## v1.8n: a ground job's point: on dry land when a few tries find some, and well away from the other point.
+## v13.241: a raid base's spot: dry land, at least Data.RAID_MIN_DOCK from every port on the world (across tile
+## borders too) and Data.RAID_EDGE in from its tile's edges. {tile, spot} or {} when nowhere fits.
+static func raid_spot(rng: RandomNumberGenerator, pid: String) -> Dictionary:
+	var P: Dictionary = Surface.PLANETS.get(pid, {})
+	var g := Surface.grid(pid)
+	var world := func(t: int, p: Vector2) -> Vector2: return Vector2(float(t % g) * Surface.TILE, float(t / g) * Surface.TILE) + p
+	var docks: Array = []
+	for l in P.get("locations", []): docks.append(world.call(int(l["tile"]), l["pos"] as Vector2))
+	var lim: float = Surface.EDGE - Data.RAID_EDGE
+	for k in 60:
+		var t := rng.randi() % (g * g)
+		if str(P.get("tiles", ["x"])[t % (P.get("tiles", ["x"]) as Array).size()]) == "ocean": continue
+		var p := Vector2(rng.randf_range(-lim, lim), rng.randf_range(-lim, lim))
+		if Surface.height(pid, t, p.x, p.y) <= 3.0: continue
+		var wp: Vector2 = world.call(t, p)
+		if docks.any(func(dk): return (dk as Vector2).distance_to(wp) < Data.RAID_MIN_DOCK): continue
+		return {"tile": t, "spot": p}
+	return {}
+
 static func _dry_point(rng: RandomNumberGenerator, pid: String, tile: int, other: Vector2) -> Vector2:
 	var sp: float = Data.MISSION_GROUND_SPREAD
 	var best := Vector2.ZERO

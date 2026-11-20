@@ -1911,6 +1911,68 @@ func _run() -> void:
 		_check("v13.176: back to the docking bay: out to the station page (LAUNCH from there)", main.state == "hub" and main.hub.visible, main.state)
 		_finish_group()
 		return
+	if _flag("HL_RAID"):   # v13.241 (owner: "a base should spawn when you take on a mission ... a good distance from the docking hub ... a shield like the ship ... enemy mechs protect it")
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var offs: Array = Missions.offers("solara", "port_meridian", "", "planet")
+		var raids: Array = offs.filter(func(o): return str(o.get("kind", "")) == "facility" and bool(o.get("raid", false)))
+		var offs2: Array = Missions.offers("solara", "liberty_hub", "", "station")
+		var raids2: Array = offs2.filter(func(o): return str(o.get("kind", "")) == "facility" and bool(o.get("raid", false)))
+		var far_ok := true
+		var g := Surface.grid("new_terra")
+		for o in raids + raids2:
+			var t := int(o["tile"])
+			var wp := Vector2(float(t % g) * Surface.TILE, float(t / g) * Surface.TILE) + Vector2(float(o["points"][0]["x"]), float(o["points"][0]["z"]))
+			for l in Surface.PLANETS["new_terra"]["locations"]:
+				var lw := Vector2(float(int(l["tile"]) % g) * Surface.TILE, float(int(l["tile"]) / g) * Surface.TILE) + (l["pos"] as Vector2)
+				if lw.distance_to(wp) < Data.RAID_MIN_DOCK: far_ok = false
+		_check("v13.241: the boards offer RAID jobs on New Terra (%d + %d), each base %d m+ from every port" % [raids.size(), raids2.size(), int(Data.RAID_MIN_DOCK)], raids.size() + raids2.size() > 0 and far_ok, str(raids.map(func(o): return [o["tile"], o["points"]])))
+		if raids.is_empty(): raids = raids2
+		var job: Dictionary = raids[0].duplicate(true)
+		job["difficulty"] = 1
+		Missions.accept(job)
+		main._load_surface("new_terra", int(job["tile"]))
+		await _until(func(): return is_instance_valid(main.space) and main.space.surface_mode and not main.space.raid_base.is_empty(), 60.0)
+		await _wait(1.5)
+		var s := _sp()
+		var rb: Dictionary = s.raid_base
+		var guards: int = s.enemies.filter(func(e): return int(e.get("mission", 0)) == -43).size()
+		var hbase: Node3D = null
+		for h in s.planet_bases: if is_instance_valid(h) and h.has_meta("raid_e"): hbase = h
+		_check("v13.241: taking it puts the base on its tile: the bunker compound, its shield generator under a dome, %d guard mechs" % guards, not rb.is_empty() and hbase != null and is_instance_valid(rb.get("raid_dome", null)) and (rb["raid_dome"] as Node3D).visible and guards == int(Data.RAID_GUARDS[1]), "")
+		s.player.global_position = hbase.global_position + Vector3(120, 30, 0)
+		await _wait(0.5)
+		var shut: bool = s.facility_candidate().is_empty()
+		for i in 400:
+			if bool(rb.get("shield_broken", false)): break
+			s._damage_enemy(rb, 300.0)
+		var opened: bool = bool(rb.get("shield_broken", false)) and not (rb["raid_dome"] as Node3D).visible and s.enemies.has(rb) and float(rb["hp"]) > 0.0
+		s.player.global_position = Vector3(hbase.global_position.x + 60.0, s._ground(hbase.global_position.x + 60.0, hbase.global_position.z) + 4.0, hbase.global_position.z)
+		await _wait(0.3)
+		var can_in: bool = not s.facility_candidate().is_empty()
+		_check("v13.241: shield up, it won't let you in; shield, then hull to half: the generator goes (never destroyed from outside) and you can INFILTRATE", shut and opened and can_in, "shut %s opened %s in %s" % [shut, opened, can_in])
+		s.player.global_position = hbase.global_position + Vector3(0, 250, 500)
+		var dv: Vector3 = (hbase.global_position - s.player.global_position).normalized()
+		s.yaw = atan2(-dv.x, -dv.z)
+		s.pitch = asin(clampf(dv.y, -1.0, 1.0))
+		s.player.basis = Basis.from_euler(Vector3(s.pitch, s.yaw, 0))
+		s._update_camera(1.0, true)
+		await _wait(0.8)
+		await _capture("raid_base")
+		var cr0: int = GS.credits
+		GS.form = "mech"
+		main.enter_facility(s.facility_candidate())
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding and Boarding.INFO.has("fleet"), 90.0)
+		await _wait(1.0)
+		var inside: bool = _sp().boarding and bool(Boarding.INFO.get("facility", false))
+		main._leave_fleet_ship(true)
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and not main.space.boarding and main.space.surface_mode, 60.0)
+		await _wait(1.0)
+		var gone: bool = _sp().raid_base.is_empty() and _sp().planet_bases.all(func(b): return not is_instance_valid(b) or not b.has_meta("raid_e"))
+		_check("v13.241: in its three floors, done: paid the job (%d cr), the base is gone" % (GS.credits - cr0), inside and GS.mission.is_empty() and GS.credits > cr0 and gone, "inside %s mission %s gone %s" % [inside, GS.mission.is_empty(), gone])
+		_finish_group()
+		return
 	if _flag("HL_PORTBASE"):   # v13.240 (owner: "put a base on the floating land dock, expand the land to fit"; "an invisible ceiling I was standing on")
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)

@@ -2794,7 +2794,9 @@ func _leave_fleet_ship(won: bool) -> void:
 		GS.credits += pay
 		_load_surface(str(bf["planet"]), int(bf["tile"]))
 		await get_tree().process_frame
-		if fjob: Missions._pay(space, "%s is done. %s pays %d cr." % [str(bf["name"]), Missions.giver_name(GS.mission), int(GS.mission["pay"])])
+		if fjob:
+			Missions._pay(space, "%s is done. %s pays %d cr." % [str(bf["name"]), Missions.giver_name(GS.mission), int(GS.mission["pay"])])
+			space.raid_clear(str(bf["name"]))   # v13.241: the raid base is gone
 		space.player.global_position = (bf["pos"] as Vector3) + Vector3(0, 40.0, 0)
 		space.vel = Vector3.ZERO
 		var twf2 := create_tween()
