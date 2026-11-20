@@ -5308,6 +5308,7 @@ uniform vec2 near_fade = vec2(0.3, 1.0);
 uniform vec3 flash_pos = vec3(0.0);
 uniform float flash_amt = 0.0;
 uniform float flash_r = 600.0;
+uniform vec4 clear_ships[4];   // v13.238: big ships (xyz, radius): puffs that would cut through their hull thin out
 varying float v_fade;
 varying float v_fl;
 void vertex() {
@@ -5320,6 +5321,10 @@ void vertex() {
 	MODELVIEW_MATRIX = VIEW_MATRIX * mat4(INV_VIEW_MATRIX[0] * sc, INV_VIEW_MATRIX[1] * sc, INV_VIEW_MATRIX[2] * sc, vec4(wpos, 1.0));
 	float d = distance(wpos, INV_VIEW_MATRIX[3].xyz);
 	v_fade = smoothstep(sc * near_fade.x, sc * near_fade.y, d);
+	for (int i = 0; i < 4; i++) {
+		vec4 cs = clear_ships[i];
+		if (cs.w > 0.0) v_fade *= smoothstep(cs.w * 0.9, cs.w * 1.5, distance(wpos, cs.xyz) - sc * 0.5);
+	}
 	v_fl = flash_amt * clamp(1.0 - distance(wpos, flash_pos) / flash_r, 0.0, 1.0);
 }
 void fragment() {
@@ -5691,10 +5696,38 @@ func _fog_clear_ships(dt: float) -> void:
 			if en is Dictionary and is_instance_valid((en as Dictionary).get("node", null)):
 				var nn: Node3D = en["node"]
 				if float((en as Dictionary).get("def", {}).get("hit_r", 0.0)) >= 120.0: near = minf(near, nn.global_position.distance_to(player.global_position))
+		_puff_clear_ships()
 		_ship_fog_want = 1.0 if near == INF else lerpf(Data.NEBULA_NEAR_SHIP_FOG, 1.0, clampf((near - Data.NEBULA_SHIP_CLEAR * 0.5) / (Data.NEBULA_SHIP_CLEAR * 0.5), 0.0, 1.0))
 		fog_clear_ships = 1 if _ship_fog_want < 0.99 else 0
 	ship_fog_k = move_toward(ship_fog_k, _ship_fog_want, dt * 0.8)
 var _ship_fog_want := 1.0
+## v13.238 (owner: "something is clipping out part of the ship; from a distance it should be more transparent"): the
+## cloud puffs are flat pictures; one standing across a big ship cut it with a hard line. Puffs inside or touching the
+## nearest big ships thin out (Data.NEBULA_CLEAR_SHIPS of them); the cloud round them stays.
+var puff_clear_n := 0   # (checks)
+func _puff_clear_ships() -> void:
+	if nebulae.is_empty(): return
+	var cand: Array = []
+	var pp := player.global_position
+	for c in get_children():
+		if c is Node3D and str(c.get_meta("kind", "")) == "board_target":
+			cand.append([(c as Node3D).global_position, _ship_clear_r(c as Node3D)])
+	for en in enemies:
+		if en is Dictionary and is_instance_valid((en as Dictionary).get("node", null)) and float((en as Dictionary).get("def", {}).get("hit_r", 0.0)) >= 120.0:
+			cand.append([(en["node"] as Node3D).global_position, _ship_clear_r(en["node"])])
+	cand.sort_custom(func(a, b): return (a[0] as Vector3).distance_to(pp) < (b[0] as Vector3).distance_to(pp))
+	var arr: Array = []
+	for i in Data.NEBULA_CLEAR_SHIPS:
+		if i < cand.size(): arr.append(Vector4(cand[i][0].x, cand[i][0].y, cand[i][0].z, float(cand[i][1])))
+		else: arr.append(Vector4.ZERO)
+	puff_clear_n = mini(cand.size(), Data.NEBULA_CLEAR_SHIPS)
+	for nd in nebulae:
+		if nd.has("mat") and nd["mat"] is ShaderMaterial: (nd["mat"] as ShaderMaterial).set_shader_parameter("clear_ships", arr)
+
+func _ship_clear_r(n: Node3D) -> float:   # how far a ship reaches (its hull box, else its radius)
+	if n.has_meta("hit_half"): return (n.get_meta("hit_half") as Vector3).length()
+	return float(n.get_meta("radius", 200.0))
+
 var ship_fog_k := 1.0   # the cloud's fog x this (thinner while a big ship is near you)
 
 func _update_nebulae(dt: float) -> void:

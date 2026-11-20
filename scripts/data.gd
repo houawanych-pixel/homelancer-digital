@@ -1238,6 +1238,7 @@ const NEBULA_PUFFS := 240             # smoke puffs in a full-size cloud (smalle
 const NEBULA_PUFF_ALPHA := 0.55
 const BOARD_MODEL_WAIT := 30.0   # v13.236: s a boarding target waits for its real model before it is put out (then a stand-in)
 const NEBULA_NEAR_SHIP_FOG := 0.3   # v13.236: the cloud's fog thins to this share while a big ship is close (it keeps a light haze)
+const NEBULA_CLEAR_SHIPS := 4   # v13.238: the nearest big ships the cloud puffs thin round (no hard cut across a hull)
 const NEBULA_SHIP_CLEAR := 2000.0   # v13.234 (owner): in a cloud, ships nearer than this (m) show their own colours, not the white haze
 const NEBULA_FOG_DENSITY := 0.005   # (v1.9z: thicker: deep inside you see a few hundred metres, not the other side)    # fog at the heart of a cloud (things ~600 m off fade into the haze)
 const NEBULA_STREAM := 40             # smoke puffs streaming past the ship inside a cloud

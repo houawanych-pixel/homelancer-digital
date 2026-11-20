@@ -4228,6 +4228,15 @@ func _run() -> void:
 				_check("v13.236: the boarding ship is solid by its REAL shape: an open gap inside its box can be flown into (%s)" % ("gap found" if gap != Vector3.INF else "no gap in this model"), hb_ok and (gap == Vector3.INF or held), "hull %s gap %s held %s" % [hb_ok, str(gap != Vector3.INF), held])
 				_tp(ship.global_transform * Vector3(hh3.x + 120.0, 0, 0), ship.global_position)
 				await _wait(0.5)
+			# v13.238 (owner: "something is clipping out part of the ship"): in a cloud, the puffs round the boarding ship thin out
+			sb._fogc_t = 0.0
+			await _wait(0.7)
+			var cs_arr = (sb.nebulae[0]["mat"] as ShaderMaterial).get_shader_parameter("clear_ships") if not sb.nebulae.is_empty() and sb.nebulae[0].has("mat") else []
+			var cs_ok: bool = sb.puff_clear_n > 0 and cs_arr is Array and (cs_arr as Array).size() == Data.NEBULA_CLEAR_SHIPS and float((cs_arr as Array)[0].w) > 100.0
+			_check("v13.238 (owner): in a cloud, the cloud puffs thin out round the boarding ship (no hard cut across its hull) (%d ships)" % sb.puff_clear_n, cs_ok or sb.nebulae.is_empty(), "%s" % str(cs_arr).left(120))
+			_tp(ship.global_transform * Vector3(0, 0, -(ship.get_meta("hit_half") as Vector3).z - 900.0), ship.global_position)
+			await _wait(1.0)
+			await _capture("boardjob_cloud_ship")
 			# v13.10 (owner: "I couldn't board their ship"): a shot on the far end of the hull counts, and your guns fire on it
 			var bow: Vector3 = ship.global_transform * Vector3(0, 0, -(ship.get_meta("hit_half") as Vector3).z * 0.95)
 			var bn0 := MeshInstance3D.new()
