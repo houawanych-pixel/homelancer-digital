@@ -1911,6 +1911,48 @@ func _run() -> void:
 		_check("v13.176: back to the docking bay: out to the station page (LAUNCH from there)", main.state == "hub" and main.hub.visible, main.state)
 		_finish_group()
 		return
+	if _flag("HL_PORTBASE"):   # v13.240 (owner: "put a base on the floating land dock, expand the land to fit"; "an invisible ceiling I was standing on")
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var lp: Dictionary = Surface.location("new_terra", "port_meridian")
+		main._load_surface("new_terra", int(lp["tile"]))
+		await _until(func(): return is_instance_valid(main.space) and main.space.surface_mode and not main.space.port_bases.is_empty(), 60.0)
+		await _wait(2.0)
+		var s := _sp()
+		var pb: Dictionary = Surface.pad_base("new_terra", lp)
+		var hb: Node3D = s.port_bases[0] if not s.port_bases.is_empty() else null
+		var isl: Array = Surface.island_at("new_terra", int(lp["tile"]), float(pb["at"].x), float(pb["at"].y)) if not pb.is_empty() else []
+		var pad_isl: Array = Surface.island_at("new_terra", int(lp["tile"]), float(lp["pos"].x), float(lp["pos"].y))
+		var on_top: bool = hb != null and not isl.is_empty() and absf(s._ground(hb.position.x, hb.position.z) - float(isl[0])) < 1.0
+		_check("v13.240: Port Meridian's island carries the world's base (%s) beside the pad, the island grown to hold both" % (hb.name if hb else "-"), hb != null and not isl.is_empty() and not pad_isl.is_empty() and on_top, "base %s island %s pad %s" % [hb != null, isl, pad_isl])
+		s.player.global_position = hb.global_position + Vector3(0, 150, 0) if hb else s.player.global_position
+		await get_tree().process_frame
+		await get_tree().physics_frame
+		await get_tree().physics_frame
+		var real: bool = hb != null and hb.has_meta("hull_body")
+		var open_n := 0
+		var hit_n := 0
+		if real:
+			var half: float = float(hb.get_meta("half", 100.0))
+			var top: float = 0.0
+			for bx in s.surf_boxes:
+				if bx[0] == hb: top = (hb.global_transform * (bx[1] as AABB)).end.y
+			var ss: PhysicsDirectSpaceState3D = s.get_world_3d().direct_space_state
+			for i in 7:
+				for j in 7:
+					var o := Vector3(lerpf(-half * 0.8, half * 0.8, i / 6.0), 0, lerpf(-half * 0.8, half * 0.8, j / 6.0))
+					var rh := ss.intersect_ray(PhysicsRayQueryParameters3D.create(hb.global_position + o + Vector3(0, top - hb.global_position.y + 30.0, 0), hb.global_position + o - Vector3(0, 5, 0), s.HULL_LAYER))
+					if rh.is_empty() or float(rh["position"].y) < top - 15.0: open_n += 1
+					if not rh.is_empty(): hit_n += 1
+		_check("v13.240: the base is solid by its own shape, not its box: %d of 49 spots under the box's roof are open air (no invisible ceiling), %d hit the model" % [open_n, hit_n], real and open_n > 5 and hit_n > 5, "real %s" % real)
+		s.player.global_position = hb.global_position + Vector3(0, 600, 900) if hb else s.player.global_position
+		s.player.look_at(hb.global_position if hb else Vector3.ZERO, Vector3.UP)
+		s._update_camera(1.0, true)
+		await _wait(1.5)
+		await _capture("portbase")
+		_finish_group()
+		return
 	if _flag("HL_FACILITY"):   # v13.239 (owner: "planetary maps ... randomizer using the library ... 3 to 4 key method"): a facility's own three floors
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)

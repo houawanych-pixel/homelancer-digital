@@ -1009,15 +1009,31 @@ func building_site(want: Vector2, half: float, placed: Array) -> Vector3:
 ## (Data.PLANET_BASES: system -> [[file, name, side]]), named, round the sector centre on the flattest ground near
 ## their spot; a hostile one gets gun batteries and a generator beside it (the base parts). Their own pack ("bases3d").
 var planet_bases: Array = []   # (tests) the base holders on this sector
+var port_bases: Array = []     # (tests) v13.240: the bases standing on the ports' islands
 func _planet_bases() -> void:
 	planet_bases = []
 	if not is_instance_valid(tile_root) or planet_id == "": return
 	var list: Array = (Surface.facility_sites(planet_id) as Array).filter(func(st): return int(st.get("tile", 0)) == tile)   # v12.54: each on its own sector
-	if list.is_empty(): return
+	var ports: Array = []   # v13.240 (owner): the world's base on each port's floating island
+	for l in Surface.locations_in(planet_id, tile):
+		var pb := Surface.pad_base(planet_id, l)
+		if not pb.is_empty(): ports.append([l, pb])
+	if list.is_empty() and ports.is_empty(): return
 	if not Packs.is_ready("bases3d"):
 		if not Packs.pack_ready.is_connected(_on_bases_pack): Packs.pack_ready.connect(_on_bases_pack)
 		Packs.request("bases3d")
 		return
+	port_bases = []
+	for lp in ports:
+		var l0: Dictionary = lp[0]
+		var pb0: Dictionary = lp[1]
+		var at0: Vector2 = pb0["at"]
+		var to_pad: Vector2 = (l0["pos"] as Vector2) - at0
+		var hb := _ground_prop("res://assets/bases3d/%s.glb" % str(pb0["file"]), Data.PAD_BASE_WIDTH, at0, true, atan2(to_pad.x, to_pad.y))   # (its front to the pad)
+		if hb == null: continue
+		hb.name = "%s (%s)" % [str(pb0["name"]), str(l0["name"])]
+		hb.set_meta("port_base", str(l0["id"]))
+		port_bases.append(hb)
 	for i in list.size():
 		var site: Dictionary = list[i]
 		var lay: Array = Surface.compound(site) if site.get("bunker", false) else []   # v12.1: a bunker is a compound of 3-6 parts
@@ -1138,6 +1154,21 @@ func _on_bases_pack(pk: String) -> void:
 	_planet_bases()
 
 ## One model stood on the ground at (sector-local) `want`, `width` m across, with a box to bump into. Null if missing.
+## v13.240 (owner: "there was an invisible ceiling I was standing on"): a base model is solid by its own shape (made
+## when you come near), not its box (the box roofed over its arches and dome); other buildings keep their box.
+var surf_hulls := 0   # (checks)
+func _surf_push(bx: Array) -> void:
+	var h: Node3D = bx[0]
+	if Data.HULL_SHAPES and h.has_meta("real_shape"):
+		if not h.has_meta("hull_tried") and h.global_position.distance_to(player.global_position) < float(h.get_meta("half", 100.0)) * 3.0 + 300.0:
+			h.set_meta("hull_tried", true)
+			_hull_body(h, h, h.find_children("*", "MeshInstance3D", true, false))
+			if h.has_meta("hull_body"): surf_hulls += 1
+		if h.has_meta("hull_body"):
+			_push_out_hull(h, "ground")
+			return
+	_push_out_box(h, bx[1], "ground")
+
 func _ground_prop(path: String, width: float, want: Vector2, exact := false, rot := 0.0, stretch := Vector3.ONE) -> Node3D:
 	if not ResourceLoader.exists(path): return null
 	var ps := load(path) as PackedScene
@@ -1153,6 +1184,7 @@ func _ground_prop(path: String, width: float, want: Vector2, exact := false, rot
 	holder.rotation.y = rot
 	holder.position = Vector3(site.x, site.y - Data.BUILDING_SINK - bb.position.y * w, site.z)
 	holder.set_meta("half", half)
+	if path.contains("/bases3d/"): holder.set_meta("real_shape", true)   # v13.240
 	tile_root.add_child(holder)
 	surf_boxes.append([holder, bb])
 	return holder
@@ -15353,7 +15385,8 @@ func _surface_update(_dt: float) -> void:
 		if vel.y < 0.0: vel.y = 0.0
 		if not ground_mode: collision_damage("ground", impact)   # Job L (was: > 20 m/s, 0.25 x impact through the shields); v1.8r: GROUND mode lands without a scratch
 	for bx: Array in surf_boxes:   # v1.9q: the faction buildings are solid
-		if is_instance_valid(bx[0]): _push_out_box(bx[0], bx[1], "ground")
+		if is_instance_valid(bx[0]): _surf_push(bx)
+	_hull_prev = player.global_position
 	for fl in _fields(): (fl as BlockField).fluid_update(_dt, player.global_position)   # v1.6b: water and lava move near you
 	_update_light(_dt, bfp, p)   # v1.7m
 	if bfp:   # lava burns

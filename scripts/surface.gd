@@ -563,6 +563,29 @@ static func _biome_col(b: Dictionary, h: float) -> Color:
 	c.a = float(b.get("detail", 0.0))
 	return c
 
+## v13.240 (owner: "let's put a base on the floating land dock, expand the land to fit"): a port's floating island also
+## carries the world's base (Data.PLANET_BASES, the first that isn't hostile), beside the pad; the island grows to hold
+## both. pad_base(): {file, at (tile-local x/z of the base's middle)} or {}; island_shape(): [centre, radius].
+static func pad_base(planet_id: String, l: Dictionary) -> Dictionary:
+	if not Data.PAD_ISLAND_BASE: return {}
+	var sys := str(PLANETS.get(planet_id, {}).get("system", ""))
+	var list: Array = Data.PLANET_BASES.get(sys, [])
+	var pick: Array = []
+	for b in list:
+		if str(b[2]) != "hostile":
+			pick = b
+			break
+	if pick.is_empty(): return {}
+	var a := float(absi(hash(str(l.get("id", ""))) % 360)) * PI / 180.0   # (each port its own side)
+	var off := Data.PAD_RADIUS + Data.PAD_BASE_GAP + Data.PAD_BASE_WIDTH * 0.5
+	return {"file": str(pick[0]), "name": str(pick[1]), "at": (l["pos"] as Vector2) + Vector2(cos(a), sin(a)) * off}
+static func island_shape(planet_id: String, l: Dictionary) -> Array:
+	var p2: Vector2 = l["pos"]
+	var pb := pad_base(planet_id, l)
+	if pb.is_empty(): return [p2, Data.PAD_ISLAND_RADIUS]
+	var q: Vector2 = pb["at"]
+	return [(p2 + q) * 0.5, p2.distance_to(q) * 0.5 + maxf(Data.PAD_RADIUS, Data.PAD_BASE_WIDTH * 0.5) + Data.PAD_ISLAND_RIM]
+
 static var _pad_cache := {}
 ## v1.7c: the top of the floating island the landing pads stand on: a clear PAD_ISLAND_CLEAR over the highest ground
 ## under any pad on the tile (the old flat-ground pad height when blocks are off).
@@ -575,8 +598,9 @@ static func pad_top(planet_id: String, tile: int) -> float:
 	var ox := float(tile % g) * TILE
 	var oz := float(tile / g) * TILE
 	for l in locations_in(planet_id, tile):
-		var p2: Vector2 = l["pos"]
-		var r := Data.PAD_ISLAND_RADIUS + 40.0
+		var sh := island_shape(planet_id, l)
+		var p2: Vector2 = sh[0]
+		var r := float(sh[1]) + 40.0
 		for j in 13:
 			for i in 13:
 				var q := p2 + Vector2(-r + i * r / 6.0, -r + j * r / 6.0)
@@ -587,19 +611,20 @@ static func pad_top(planet_id: String, tile: int) -> float:
 	return top
 
 ## How far the island's underside hangs at distance d from its middle (0 outside it).
-static func island_depth(d: float) -> float:
-	if d >= Data.PAD_ISLAND_RADIUS: return 0.0
-	var k := d / Data.PAD_ISLAND_RADIUS
-	return 6.0 + Data.PAD_ISLAND_DEPTH * (1.0 - k * k)
+static func island_depth(d: float, rad := Data.PAD_ISLAND_RADIUS) -> float:
+	if d >= rad: return 0.0
+	var k := d / rad
+	return 6.0 + Data.PAD_ISLAND_DEPTH * (rad / Data.PAD_ISLAND_RADIUS) * (1.0 - k * k)
 
 ## The floating pad island over a tile-local point: [top, bottom], or [] where there is none.
 static func island_at(planet_id: String, tile: int, x: float, z: float) -> Array:
 	if not BlockField.enabled(): return []
 	for l in locations_in(planet_id, tile):
-		var d := Vector2(x, z).distance_to(l["pos"])
-		if d < Data.PAD_ISLAND_RADIUS:
+		var sh := island_shape(planet_id, l)
+		var d := Vector2(x, z).distance_to(sh[0])
+		if d < float(sh[1]):
 			var top := pad_top(planet_id, tile)
-			return [top, top - island_depth(d)]
+			return [top, top - island_depth(d, float(sh[1]))]
 	return []
 
 static func pad_height(planet_id: String, tile: int) -> float:
@@ -977,16 +1002,16 @@ static func _prims() -> void:
 ## v1.7c: the floating island under a landing pad: 10 m block columns, ground-coloured on top, rock below, hanging
 ## deepest in the middle like a chunk of ground torn up into the air (one MultiMesh).
 @warning_ignore("integer_division")
-static func _pad_island(root: Node3D, planet_id: String, tile: int, p2: Vector2, gy: float) -> void:
+static func _pad_island(root: Node3D, planet_id: String, tile: int, p2: Vector2, gy: float, rad := Data.PAD_ISLAND_RADIUS) -> void:
 	var cell: float = Data.PAD_ISLAND_CELL
-	var nr := int(ceil(Data.PAD_ISLAND_RADIUS / cell))
+	var nr := int(ceil(rad / cell))
 	var g := grid(planet_id)
 	var top_c: Color = sample(planet_id, float(tile % g) * TILE + p2.x, float(tile / g) * TILE + p2.y)[1]
 	var cols: Array = []
 	for j in range(-nr, nr):
 		for i in range(-nr, nr):
 			var c := Vector2((i + 0.5) * cell, (j + 0.5) * cell)
-			var dep := island_depth(c.length())
+			var dep := island_depth(c.length(), rad)
 			if dep <= 0.0: continue
 			dep += fposmod(sin(i * 12.9898 + j * 78.233) * 43758.5453, 1.0) * 8.0   # a ragged underside
 			dep = ceilf(dep / 5.0) * 5.0
@@ -1021,7 +1046,9 @@ static func _settlement(root: Node3D, planet_id: String, tile: int, l: Dictionar
 	_prims()
 	var p2: Vector2 = l["pos"]
 	var gy := pad_top(planet_id, tile)
-	if BlockField.enabled(): _pad_island(root, planet_id, tile, p2, gy)
+	if BlockField.enabled():
+		var sh := island_shape(planet_id, l)   # v13.240: the island holds the port's base too
+		_pad_island(root, planet_id, tile, sh[0], gy, float(sh[1]))
 	# the landing pad: flat disc with green guide lights
 	var pad := MeshInstance3D.new()
 	pad.mesh = _cyl
