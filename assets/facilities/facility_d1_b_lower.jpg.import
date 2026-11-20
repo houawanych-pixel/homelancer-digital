@@ -15,9 +15,9 @@ dest_files=["res://.godot/imported/facility_d1_b_lower.jpg-0097d42261b0f0f44fa14
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
-compress/lossy_quality=0.7
+compress/lossy_quality=0.8
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
