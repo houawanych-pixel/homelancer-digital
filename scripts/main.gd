@@ -2443,8 +2443,75 @@ func infiltrate_station(n: Node3D) -> void:
 ## v11.96 (owner: Armored Core facilities under every world's bases): go in as a mech; the facility is generated from
 ## its world and slot (Boarding.facility): deeper, bigger and better guarded the harder it is. Blow the reactor, get out
 ## of the exit shaft: you come up beside it on the surface and are paid. The base stays; you can run it again.
+## v13.239 (owner: "planetary maps ... a randomizer using the library, mech rooms and smaller pilot rooms, 3 to 4 key
+## method"; "underground ... same three missions"; 3 floors): the facility's own three floors (tools/trace/facility_v1,
+## Data.FACILITY_DECKS by difficulty, one picked by the site), played in the boarding engine like a fleet ship. ""
+## = none (the older generated maze).
+var facility_decks_on := true   # (the older facility tests turn it off)
+func facility_deck(site: Dictionary) -> String:
+	if not facility_decks_on: return ""
+	var arr: Array = Data.FACILITY_DECKS.get(clampi(int(site.get("difficulty", 1)), 1, 4), [])
+	if arr.is_empty(): return ""
+	var p := str(arr[absi(hash("%s:%s" % [str(site.get("planet", "")), str(site.get("name", ""))])) % arr.size()])
+	return p if FileAccess.file_exists(p) else ""
+
+func _enter_facility_deck(site: Dictionary, path: String) -> void:
+	var L := Boarding.fleet_layout(path)
+	if L.is_empty():
+		hud.flash_message("No map for that facility yet.")
+		return
+	state = "boarding"
+	var fac := str(Data.SYSTEMS.get(space.sys_id, {}).get("faction", "Enemy"))
+	if Factions.rival(fac) != "": fac = Factions.rival(fac)
+	if not Factions.has(fac): fac = "Savagers"
+	var nm := str(site["name"])
+	var kind: String = ["sabotage", "capture", "rescue"][absi(hash("mission:%s:%s" % [str(site.get("planet", "")), nm])) % 3]   # (the same three missions: each site has its own)
+	board_from = {"sys": space.sys_id, "pos": space.player.global_position, "ship_at": Vector3.ZERO, "name": nm, "faction": fac, "facility": true,
+		"planet": str(space.planet_id), "tile": int(space.tile), "difficulty": int(site.get("difficulty", 1)), "form": GS.form,
+		"fleet_deck": "facility:" + path.get_file().get_basename(), "job": false, "kind": kind, "from": "facility"}
+	space.controls = false
+	hud.visible = false
+	fx.caption = "FACILITY"
+	fx.sub = "%s  ·  LEVEL %d" % [nm.to_upper(), int(site.get("difficulty", 1))]
+	Sfx.play("whoosh", -2.0, 0.7)
+	var tw := create_tween()
+	tw.tween_property(fx, "fade", 1.0, 0.5)
+	await tw.finished
+	await Packs.wait(PilotRig.PACK, 60.0)
+	var gpk := "crowd3d_orion" if fac.to_lower().begins_with("orion") else "crowd3d"
+	Packs.request(gpk)
+	await Packs.wait(gpk, 30.0)
+	GS.form = "mech"
+	if Data.FLEET_MECH:
+		Packs.request("mechs")
+		await Packs.wait("mechs", 60.0)
+	Boarding.use(L)
+	Boarding.INFO["name"] = nm
+	var dm := {}
+	for dn in (Boarding.INFO.get("deck_maps", {}) as Dictionary):
+		var mp := path.get_base_dir().path_join(str(Boarding.INFO["deck_maps"][dn]))
+		if ResourceLoader.exists(mp): dm[dn] = mp
+	Boarding.INFO["plan_tex"] = str(dm.get("ENTRY LEVEL", ""))
+	Boarding.INFO["plan_tex_decks"] = dm
+	_new_space("Boarding")
+	space.escape_pilot = not (Data.FLEET_MECH and Packs.is_ready("mechs"))
+	space.setup_boarding({"sys": board_from["sys"], "faction": fac, "name": nm, "escape": true, "mission": kind, "ship_id": ""})
+	_connect_space()
+	var tw2 := create_tween()
+	tw2.tween_property(fx, "fade", 0.0, 0.6)
+	await tw2.finished
+	fx.caption = ""
+	fx.sub = ""
+	space.controls = true
+	hud.visible = true
+	state = "flight"
+
 func enter_facility(site: Dictionary) -> void:
 	if state != "flight" or not is_instance_valid(space) or not space.surface_mode: return
+	var fpath := facility_deck(site)
+	if fpath != "":
+		_enter_facility_deck(site, fpath)
+		return
 	state = "boarding"
 	var fac := str(Data.SYSTEMS.get(space.sys_id, {}).get("faction", "Enemy"))   # (a hostile site is the rival's; a friendly one's guards are squatters)
 	if Factions.rival(fac) != "": fac = Factions.rival(fac)
@@ -2720,6 +2787,28 @@ func _leave_fleet_ship(won: bool) -> void:
 	var bf := board_from
 	board_from = {}
 	var done: bool = won and str(bf.get("kind", "")) != ""
+	if bool(bf.get("facility", false)):   # v13.239: out of a facility's floors: back up on the world beside it, paid
+		var pay := Data.FACILITY_PAY * int(bf.get("difficulty", 1)) if won else 0
+		var fjob: bool = won and str(GS.mission.get("kind", "")) == "facility" and str(GS.mission.get("site", "")) == str(bf["name"])
+		if fjob: pay = 0
+		GS.credits += pay
+		_load_surface(str(bf["planet"]), int(bf["tile"]))
+		await get_tree().process_frame
+		if fjob: Missions._pay(space, "%s is done. %s pays %d cr." % [str(bf["name"]), Missions.giver_name(GS.mission), int(GS.mission["pay"])])
+		space.player.global_position = (bf["pos"] as Vector3) + Vector3(0, 40.0, 0)
+		space.vel = Vector3.ZERO
+		var twf2 := create_tween()
+		twf2.tween_property(fx, "fade", 0.0, 0.6)
+		await twf2.finished
+		fx.caption = ""
+		fx.sub = ""
+		space.controls = true
+		hud.visible = true
+		state = "flight"
+		_board_cd = 6.0
+		if won: hud.flash_message("COMMAND: %s is done. Good work, pilot: %d credits." % [str(bf["name"]), pay])
+		else: hud.flash_message("You got out of %s with the job unfinished." % str(bf["name"]))
+		return
 	if bool(bf.get("alarm", false)):   # v13.237: out of the station's alarm: into your ship and away, their ships after you
 		_load_system(str(bf["sys"]), "station")
 		space.visible = false

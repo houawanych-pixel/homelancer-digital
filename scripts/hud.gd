@@ -3379,7 +3379,7 @@ func _fleet_map3d(inner: Rect2) -> void:
 	for i in steps.size():
 		sy += 18.0
 		_text(Vector2(lx, sy), "%s  %s" % [char(65 + i), str(steps[i]["label"])], 11, steps[i].get("col", WHITE))
-	for k in range(1, 4):   # the cards you carry
+	for k in range(1, maxi(4, (fl.get("cards", []) as Array).size())):   # the cards you carry (v13.239: purple too, where there is one)
 		var has: bool = (fl.get("cards", []) as Array).size() > k and bool(fl["cards"][k])
 		var cr := Rect2(Vector2(inner.position.x + (k - 1) * 68, inner.end.y - 28), Vector2(60, 22))
 		draw_rect(cr, Color(ShipInterior.KEY_COL[k], 0.9 if has else 0.15))
@@ -3557,7 +3557,7 @@ func _fleet_map(mr: Rect2) -> void:
 	var fv := Vector2(f3.x, f3.z).normalized() if Vector2(f3.x, f3.z).length() > 0.01 else Vector2(0, -1)
 	draw_colored_polygon(PackedVector2Array([yv + fv * 12.0, yv + fv.orthogonal() * 7.0 - fv * 6.0, yv - fv.orthogonal() * 7.0 - fv * 6.0]), WHITE)
 	draw_arc(yv, 14.0, 0, TAU, 20, Color(CYAN_HI, 0.9), 2.0)
-	for k in range(1, 4):   # the cards you carry (bottom left, clear of CLOSE)
+	for k in range(1, maxi(4, (fl.get("cards", []) as Array).size())):   # the cards you carry (bottom left, clear of CLOSE)
 		var has: bool = (fl.get("cards", []) as Array).size() > k and bool(fl["cards"][k])
 		var cr := Rect2(Vector2(mr.position.x + 18 + (k - 1) * 68, mr.end.y - 40), Vector2(60, 22))
 		draw_rect(cr, Color(ShipInterior.KEY_COL[k], 0.9 if has else 0.15))

@@ -87,6 +87,8 @@ def formula(sid):
             pairs = sorted(itertools.permutations(others, 2), key=lambda ab: -(dist(*ab) + 0.5 * (dist(ab[0], C) + dist(ab[1], C))))[:12 if relax == 0 else 60]
             head = pairs[:6]; rng.shuffle(head); pairs = head + pairs[6:]
             if ov.get("entry") in R: pairs = [ab for ab in pairs if ab[0] == ov["entry"]] or [(ov["entry"], b) for b in others if b != ov["entry"]]
+            if ov.get("exit") in R and ov["exit"] != C:   # v13.239 (a facility: its EXIT SHAFT is the way out)
+                pairs = [ab for ab in pairs if ab[1] == ov["exit"]] or [(a_, ov["exit"]) for a_ in ([ov["entry"]] if ov.get("entry") in R else others) if a_ != ov["exit"]]
             for entry, exit_ in pairs:
                 sA = -side(exit_) if side(exit_) != 0 else int(rng.choice([-1, 1]))   # (A across the ship from the way out)
                 lat = lambda k: abs(pt[k].x - AX)

@@ -2095,6 +2095,8 @@ const FLEET_MISSION_TEXT := {"sabotage": "blow the GENERATOR", "capture": "take 
 func _fleet_setup(root: Node3D, info: Dictionary, fac: String) -> void:
 	var F: Dictionary = Boarding.INFO["fleet"]
 	var fl := {"cards": [true, false, false, false], "kind": str(info.get("mission", "")), "done": false}
+	for c0 in F.get("cards", []):   # v13.239: a fourth card (PURPLE: a hard facility) gets its own slot
+		while (fl["cards"] as Array).size() <= int(c0["key"]): (fl["cards"] as Array).append(false)
 	board["fleet"] = fl
 	for l in F.get("locks", []):
 		for d in board_doors:
@@ -2204,7 +2206,7 @@ func _fleet_setup(root: Node3D, info: Dictionary, fac: String) -> void:
 		_fleet_decks(root)
 		_fleet_show_deck()   # v13.187: only the deck you are on is drawn from the start (all five at once blacked out phones)
 	if OS.get_environment("HL_BTIME") != "": print("BTIME decks %d" % (Time.get_ticks_msec() - _t2))
-	if bool(Boarding.INFO.get("station", false)) and is_instance_valid(env):   # v13.187: no room lamps on a station: a brighter deck light
+	if (bool(Boarding.INFO.get("station", false)) or bool(Boarding.INFO.get("facility", false))) and is_instance_valid(env):   # v13.187: no room lamps on a station (v13.239: or a facility): a brighter deck light
 		env.environment.ambient_light_energy = 1.25
 	var _t3 := Time.get_ticks_msec()
 	_crew_walkers(fac, kind, str(info.get("ship_id", "")))   # v13.148
@@ -2717,7 +2719,7 @@ func _fleet_cutter_find(root: Node3D, rr: RandomNumberGenerator, used: Array) ->
 func _fleet_line(where: String) -> String:
 	var fl: Dictionary = board["fleet"]
 	var cards := ""
-	for k in range(1, 4):
+	for k in range(1, (fl["cards"] as Array).size()):
 		if _fleet_has(k): cards += "  ·  %s card" % ShipInterior.KEY_NAME[k]
 	var kind := str(fl["kind"])
 	var alert := "ALERT  ·  " if bool(board.get("alerted", false)) else ""
@@ -3354,7 +3356,7 @@ func _stealth_setup(root: Node3D, visit: bool) -> void:
 	door_codes = {}
 	var rr := RandomNumberGenerator.new()
 	rr.randomize()
-	for lv in range(1, 4): door_codes[lv] = "%04d" % rr.randi_range(0, 9999)
+	for lv in range(1, 5): door_codes[lv] = "%04d" % rr.randi_range(0, 9999)   # (v13.239: + purple)
 	for e in enemies:   # the carriers know their own level's code
 		if e.has("card"): e["code"] = str(door_codes[int(e["card"])])
 	for d in board_doors:   # a floor pad and a little panel by every card door, on both sides

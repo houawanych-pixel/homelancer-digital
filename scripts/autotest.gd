@@ -1911,6 +1911,53 @@ func _run() -> void:
 		_check("v13.176: back to the docking bay: out to the station page (LAUNCH from there)", main.state == "hub" and main.hub.visible, main.state)
 		_finish_group()
 		return
+	if _flag("HL_FACILITY"):   # v13.239 (owner: "planetary maps ... randomizer using the library ... 3 to 4 key method"): a facility's own three floors
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var fl_ok := true
+		for dd in [1, 2, 3, 4]:
+			var p0: String = main.facility_deck({"planet": "new_terra", "name": "Test Site", "difficulty": dd})
+			fl_ok = fl_ok and p0 != "" and FileAccess.file_exists(p0)
+		_check("v13.239: a facility map for every level (1-4)", fl_ok, str(Data.FACILITY_DECKS))
+		main._load_surface("new_terra", 0)
+		await _wait(1.5)
+		GS.form = "mech"
+		var cr0: int = GS.credits
+		var site := {"planet": "new_terra", "name": "Deep Works", "difficulty": 3}
+		main.enter_facility(site)
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding and Boarding.INFO.has("fleet"), 90.0)
+		await _wait(2.0)
+		var s := _sp()
+		var F: Dictionary = Boarding.INFO.get("fleet", {})
+		var fl: Dictionary = s.board.get("fleet", {})
+		var names: Array = (Boarding.INFO.get("deck_names", []) as Array).map(func(x): return str(x[1]))
+		_check("v13.239: INFILTRATE: the facility's three floors in the boarding engine (%s), one of the three missions (%s), in at the %s" % [", ".join(names), str(fl.get("kind", "")), Boarding.room_at(s.player.global_position)],
+			bool(Boarding.INFO.get("facility", false)) and names.size() == 3 and str(fl.get("kind", "")) in ["sabotage", "capture", "rescue"] and Boarding.ROOMS.size() > 300, "%d rooms" % Boarding.ROOMS.size())
+		var purple_card: bool = (fl.get("cards", []) as Array).size() == 5 and (F.get("cards", []) as Array).any(func(c): return int(c["key"]) == 4)
+		var tg: Dictionary = (F.get("targets", {}) as Dictionary).get(str(fl.get("kind", "")), {})
+		var deep_obj: bool = str(tg.get("room", "")).begins_with("l2_") and int(tg.get("key", 0)) == 4
+		var lift_need := false
+		for e in F.get("elev", []):
+			for k in (e.get("need", {}) as Dictionary): if str(k).begins_with("l2_") and int(e["need"][k]) == 4: lift_need = true
+		_check("v13.239: a level 3 facility has FOUR cards: purple opens the lift down to SUB-LEVEL 2, where the objective is (%s)" % str(tg.get("room", "")), purple_card and deep_obj and lift_need, "cards %s deep %s lift %s" % [purple_card, deep_obj, lift_need])
+		await _capture("facility_in")
+		main.hud.planet_map = true
+		await _wait(0.6)
+		await _capture("facility_map")
+		main.hud.planet_map = false
+		main._leave_fleet_ship(true)
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and not main.space.boarding and main.space.surface_mode, 60.0)
+		await _wait(1.0)
+		_check("v13.239: out: back on the world beside it, paid (%d cr)" % (GS.credits - cr0), main.state == "flight" and _sp().surface_mode and not _sp().boarding and GS.credits - cr0 == Data.FACILITY_PAY * 3, main.state)
+		var site1 := {"planet": "new_terra", "name": "Shallow Works", "difficulty": 1}
+		main.enter_facility(site1)
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding and Boarding.INFO.has("fleet"), 90.0)
+		await _wait(1.0)
+		var fl1: Dictionary = _sp().board.get("fleet", {})
+		_check("v13.239: a level 1 facility has three cards (no purple)", (fl1.get("cards", []) as Array).size() == 4 and not (Boarding.INFO["fleet"].get("cards", []) as Array).any(func(c): return int(c["key"]) == 4), str(fl1.get("cards", [])))
+		_finish_group()
+		return
 	if _flag("HL_STHOSTILE"):   # v13.237 (owner: "Yes 5 deck maps instead"): an enemy station's infiltration and a station's alarm run on its five decks
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)

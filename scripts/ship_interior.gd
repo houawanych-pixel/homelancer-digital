@@ -862,8 +862,8 @@ func _deck_tick() -> void:
 ## your current access can reach. Which doors are locked and where the guards stand is PROPOSED gameplay
 ## (tools/holodeck/decks_<ship>.py), not something the blueprint shows.
 ## The leaves are graybox stand-ins shaped to take the owner's door models later (one closed model per leaf pair).
-const KEY_COL := [Color(0.25, 1.0, 0.4), Color(1.0, 0.9, 0.15), Color(1.0, 0.55, 0.1), Color(1.0, 0.2, 0.2)]
-const KEY_NAME := ["GREEN", "YELLOW", "ORANGE", "RED"]
+const KEY_COL := [Color(0.25, 1.0, 0.4), Color(1.0, 0.9, 0.15), Color(1.0, 0.55, 0.1), Color(1.0, 0.2, 0.2), Color(0.8, 0.3, 0.9)]   # (v13.239: + PURPLE, the hard facilities' and stations' fourth card)
+const KEY_NAME := ["GREEN", "YELLOW", "ORANGE", "RED", "PURPLE"]
 const DOOR_H := 3.6
 const DOOR_PAD := 0.45    # the leaves reach this far into the wall each side (no gap round a shut door)
 

@@ -2346,6 +2346,9 @@ const BORDER_GLITCH_BACK := 1.1   # the static comes back and the picture fixes 
 const BORDER_MARGIN := 0.25   # v12.3: map squares kept clear inside the border squares (nothing but clouds out there)
 const UNKNOWN_KAIJU_MULT := 3.0   # v12.3 (owner: "high level areas ... like level 3 fighters"): Kaijurai in the uncharted areas are 3x as tough
 const STATION_INFIL_LEVEL := 3   # v11.99: an alien station is infiltrated as a level 3 facility
+## v13.239: the facilities' own three floors (tools/trace/facility_v1), by difficulty; a site picks one by its name
+const FACILITY_DECKS := {1: ["res://assets/holodeck/facility_d1_a.json"], 2: ["res://assets/holodeck/facility_d2_a.json"],
+	3: ["res://assets/holodeck/facility_d3_a.json"], 4: ["res://assets/holodeck/facility_d4_a.json"]}   # (one each for now: every facility adds ~4 MB to the main download)
 const FACILITY_PAY := 3500      # cr x difficulty for clearing a facility
 const BASE_PART_WIDTH := 45.0    # m: a gun battery / generator beside a hostile base
 const BASE_SPOTS := [Vector2(700.0, 500.0), Vector2(-750.0, 450.0), Vector2(150.0, 900.0), Vector2(-500.0, -800.0)]   # (4: up to 4 facilities a world)   # sector-local x, z (clear of the Command Center and Hangar)
