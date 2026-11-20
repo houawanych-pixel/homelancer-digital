@@ -50,3 +50,8 @@ walls; every room-hall / room-room contact becomes ONE flat door face (snapped t
 `room_library/lego.py`: the library as LEGO pieces - `kit.json` (rooms in metres, every door a connector: position,
 outward direction in 45-degree steps, size S/M/L) and a randomizer that snaps rooms door to door with no overlap
 (`random_<seed>.json/.png`). Metres per grid cell is a guess (2 m) until the owner sets it.
+`room_library/game_kit.py` (Nov 19 2026): the same pieces the station v2 builder fits (outer wall, no spindly shapes),
+scaled to -1..1, written to `assets/holodeck/room_kit.json` for the game: every planetary facility hall
+(`scripts/boarding.gd`, `Boarding.facility`) takes its outline from a library piece picked by the facility's own seed
+(world + site), so each world's facilities are laid out from different library rooms and the same world always builds
+the same ones. Rerun it after `lego.py` rebuilds `kit.json`.

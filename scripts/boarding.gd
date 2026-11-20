@@ -278,6 +278,7 @@ static func facility(seed_key: String, difficulty: int, name := "Facility") -> D
 	tunnel.call(prev, pc, "sbay", xq, n)
 	route_out.append("t%d" % n)
 	route_out.append("sbay")
+	var lib := _library_outlines(rooms, rng)
 	_outlines(rooms, rng)
 	var lb: Array = rooms["lbay"]["r"]
 	var sb: Array = rooms["sbay"]["r"]
@@ -287,7 +288,7 @@ static func facility(seed_key: String, difficulty: int, name := "Facility") -> D
 	return {"rooms": rooms, "start": Vector3(float(lb[0]) + 40.0, 0.0, (float(lb[2]) + float(lb[3])) * 0.5), "core": core,
 		"boss": core + Vector3(0, 0, 100.0), "exit_x": float(sb[1]) - 8.0, "entry_x": float(lb[0]) + 4.0, "seal": seal, "escape": esc,
 		"route_in": route_in, "route_out": route_out,
-		"info": {"name": name, "difficulty": d, "halls": main_len, "levels": int(round(-level["reactor"] / drop)), "rooms": rooms.size()}}
+		"info": {"name": name, "difficulty": d, "halls": main_len, "levels": int(round(-level["reactor"] / drop)), "rooms": rooms.size(), "library_rooms": lib}}
 
 ## v12.18 (owner: enemy battleships and stations as dungeons "like this", with deck-plan pictures for reference): a
 ## generated deck plan, different for every ship or station (seeded by its name), on the same 360 m grid and room schema
@@ -728,6 +729,96 @@ static func _outlines(rooms: Dictionary, rng: RandomNumberGenerator) -> void:
 			R["poly"] = _make_poly(rng, ds, mirror)
 		for kk in [k, mate]:
 			if kk != "" and str(rooms[kk].get("shape", "")) in ["oct", "cross", "hex", "rect"]: rooms[kk]["shape"] = "poly"
+
+## (owner, Nov 19 2026: "wire the existing room library randomizer into the planetary facility map generator so each
+## planet gets a different randomized facility layout"): a facility's halls take their outlines from the owner's room
+## library (tools/trace/room_library/kit.json, the pieces the station v2 decks use; the game's copy is
+## assets/holodeck/room_kit.json, written by tools/trace/room_library/game_kit.py). The facility's own seed (its world
+## and site, Boarding.facility) picks each hall's piece, its turn and its mirror, so every world builds its facilities
+## from different library rooms and the same world always builds the same ones. A piece is only used when its shape
+## fits the hall (within 1.35x of its width / depth) and keeps every tunnel mouth open and the hall walkable door to
+## door; otherwise the hall keeps its drawn outline (_outlines). The entry bay, exit shaft and reactor stay as they are.
+const ROOM_KIT := "res://assets/holodeck/room_kit.json"
+static var _room_kit: Array = []
+
+static func room_kit() -> Array:
+	if _room_kit.is_empty() and FileAccess.file_exists(ROOM_KIT):
+		var d = JSON.parse_string(FileAccess.get_file_as_string(ROOM_KIT))
+		if d is Dictionary:
+			for p in (d as Dictionary).get("pieces", []):
+				var pv := PackedVector2Array()
+				for q in p["poly"]: pv.append(Vector2(float(q[0]), float(q[1])))
+				_room_kit.append({"id": str(p["id"]), "ar": float(p["ar"]), "poly": pv})
+	return _room_kit
+
+static func _library_outlines(rooms: Dictionary, rng: RandomNumberGenerator) -> int:
+	var kit := room_kit()
+	if kit.is_empty(): return 0
+	var keys := rooms.keys()
+	keys.sort()
+	var used := 0
+	for k in keys:
+		var R: Dictionary = rooms[k]
+		if bool(R["hex"]) or k == "reactor" or k == "lbay" or k == "sbay" or R.has("poly"): continue
+		var r: Array = R["r"]
+		var hx := (float(r[1]) - float(r[0])) * 0.5
+		var hz := (float(r[3]) - float(r[2])) * 0.5
+		var fits: Array = []   # [piece, turned 90 degrees]
+		for p in kit:
+			for turn in [false, true]:
+				var f: float = (1.0 / float(p["ar"]) if turn else float(p["ar"])) / (hx / hz)
+				if f >= 1.0 / 1.35 and f <= 1.35: fits.append([p, turn])
+		if fits.is_empty(): continue
+		var ds := _door_sides(rooms, k)
+		for attempt in 16:
+			var c: Array = fits[rng.randi() % fits.size()]
+			var fx := rng.randf() < 0.5
+			var fz := rng.randf() < 0.5
+			var poly := PackedVector2Array()
+			for q: Vector2 in c[0]["poly"]:
+				var v := Vector2(-q.y, q.x) if bool(c[1]) else q
+				poly.append(Vector2(-v.x if fx else v.x, -v.y if fz else v.y))
+			if fx != fz: poly.reverse()   # (one mirror turns the corners round: keep _make_poly's order)
+			if not _walkable(poly, ds, 34.0 / hx, 34.0 / hz, int(R.get("grid", 12))): continue
+			R["poly"] = poly
+			R["lib"] = str(c[0]["id"])
+			if str(R.get("shape", "")) in ["oct", "cross", "hex", "rect"]: R["shape"] = "poly"
+			used += 1
+			break
+	return used
+
+## A library outline in a hall: every tunnel mouth (half width wx along x, wz along z, in -1..1 room space) lies on a
+## straight edge of the outline on the box's side (so _poly_walls leaves it open), and on the hall's solid grid every
+## mouth cell and the middle are open and join up through open cells.
+static func _walkable(poly: PackedVector2Array, doors: Dictionary, wx: float, wz: float, G: int) -> bool:
+	var need: Array = [Vector2i(G / 2, G / 2)]
+	for side in doors:
+		var along_x := str(side).begins_with("x")
+		var w: float = wz if along_x else wx
+		var sgn := -1.0 if str(side).ends_with("n") else 1.0
+		for i in 9:
+			var t := -w + 2.0 * w * i / 8.0
+			if not Geometry2D.is_point_in_polygon(Vector2(sgn * 0.998, t) if along_x else Vector2(t, sgn * 0.998), poly): return false
+		var edge := 0 if sgn < 0.0 else G - 1
+		for gi in G:
+			if absf(-1.0 + (gi + 0.5) * 2.0 / G) - 1.0 / G >= w: continue
+			need.append(Vector2i(edge, gi) if along_x else Vector2i(gi, edge))
+	var open := {}
+	for gz in G:
+		for gx in G:
+			if Geometry2D.is_point_in_polygon(Vector2(-1.0 + (gx + 0.5) * 2.0 / G, -1.0 + (gz + 0.5) * 2.0 / G), poly): open[Vector2i(gx, gz)] = true
+	for c in need: if not open.has(c): return false
+	var seen := {need[0]: true}
+	var todo: Array = [need[0]]
+	while not todo.is_empty():
+		var c: Vector2i = todo.pop_back()
+		for dv in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var nb: Vector2i = c + dv
+			if open.has(nb) and not seen.has(nb):
+				seen[nb] = true
+				todo.append(nb)
+	for c in need: if not seen.has(c): return false
+	return true
 
 static func _door_sides(rooms: Dictionary, k: String) -> Dictionary:
 	var r: Array = rooms[k]["r"]
