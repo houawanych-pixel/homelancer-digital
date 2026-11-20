@@ -328,7 +328,7 @@ func _process(_dt: float) -> void:
 	Music.want(music_mood(_dt))
 	_mission_auto_step()
 	_board_job_step(_dt)
-	# v13.237 (owner: "this hub room is really dark"): a fade left half on by a transition that was cut short clears
+	# v13.236 (owner: "this hub room is really dark"): a fade left half on by a transition that was cut short clears
 	# itself once you are standing in the station
 	if state == "hub" and is_instance_valid(fx) and fx.fade > 0.0 and fx.caption == "":
 		_hub_dark_t += _dt
@@ -440,7 +440,7 @@ func _board_job_step(dt: float) -> void:
 		return
 	if is_instance_valid(ship_deck) or is_instance_valid(station_deck): return
 	if not is_instance_valid(board_ship):
-		# v13.237 (owner: "it first came in as a smaller ship then grew to the big one ... start loading it as you take
+		# v13.236 (owner: "it first came in as a smaller ship then grew to the big one ... start loading it as you take
 		# the mission"): the ship's model is fetched from the moment the job is taken; it is put out there only once
 		# its real model is in (a stand-in only if it never comes)
 		var bid := str(j.get("id", ""))

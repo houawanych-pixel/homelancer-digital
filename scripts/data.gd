@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.235"
+const VERSION := "v13.236"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -1235,8 +1235,8 @@ const NEBULA_BACKDROPS := 3          # v12.2: huge clouds out past the system ed
 const NEBULA_BACKDROP_R := [160000.0, 260000.0]
 const NEBULA_PUFFS := 240             # smoke puffs in a full-size cloud (smaller clouds get fewer)
 const NEBULA_PUFF_ALPHA := 0.55
-const BOARD_MODEL_WAIT := 30.0   # v13.237: s a boarding target waits for its real model before it is put out (then a stand-in)
-const NEBULA_NEAR_SHIP_FOG := 0.3   # v13.237: the cloud's fog thins to this share while a big ship is close (it keeps a light haze)
+const BOARD_MODEL_WAIT := 30.0   # v13.236: s a boarding target waits for its real model before it is put out (then a stand-in)
+const NEBULA_NEAR_SHIP_FOG := 0.3   # v13.236: the cloud's fog thins to this share while a big ship is close (it keeps a light haze)
 const NEBULA_SHIP_CLEAR := 2000.0   # v13.234 (owner): in a cloud, ships nearer than this (m) show their own colours, not the white haze
 const NEBULA_FOG_DENSITY := 0.005   # (v1.9z: thicker: deep inside you see a few hundred metres, not the other side)    # fog at the heart of a cloud (things ~600 m off fade into the haze)
 const NEBULA_STREAM := 40             # smoke puffs streaming past the ship inside a cloud
@@ -2055,9 +2055,9 @@ const ESCAPE_FILM_RAYS_AT := 4.4        # s: beams of light break out through th
 const ESCAPE_FILM_BOOM_AT := 6.0        # s: the reactor goes: flash, fireball, shock rings
 const ESCAPE_FILM_RAYS := 12
 const ESCAPE_FILM_RING_R := 14.0        # the shock ring races out to this many ship radii
-const ESCAPE_FILM_SCATTER := 36       # v13.237: fireballs flung out in every direction at the big blast
+const ESCAPE_FILM_SCATTER := 36       # v13.236: fireballs flung out in every direction at the big blast
 const ESCAPE_FILM_RING_TILT := 55.0   # v13.236: degrees the fire rings lean off face-on to the camera
-const ESCAPE_FILM_FIRE_RING := 28     # v13.237: fire blasts round each step of the ring of fire
+const ESCAPE_FILM_FIRE_RING := 28     # v13.236: fire blasts round each step of the ring of fire
 const ESCAPE_FILM_RING_S := 3.5         # s: how long the ring takes to fade out
 const ESCAPE_FILM_CAM := 30.0         # m: the camera riding ahead of your ship, looking back at it
 const ESCAPE_FILM_AWAY := 9000.0       # m from the station when there is no boarded ship out there (tests)
@@ -2350,7 +2350,7 @@ const BUILDING_GAP := 40.0            # m kept clear between the two buildings
 const BUILDING_PROBES := [Vector2.ZERO, Vector2(1, 1), Vector2(-1, 1), Vector2(1, -1), Vector2(-1, -1), Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]   # footprint samples (x half-width)
 const BUILDING_FLAT_OK := 45.0        # m: the test accepts this much rise under a footprint (hilly worlds)
 const STATION_WALK := true         # v13.167: WALK THE STATION on every station (its calm deck; the alarm flips the same deck)
-const HULL_MAX_TRIS := 120000   # v13.237: a real-shape hull takes up to this many triangles (a heavier model uses its lighter LOD)
+const HULL_MAX_TRIS := 120000   # v13.236: a real-shape hull takes up to this many triangles (a heavier model uses its lighter LOD)
 const HULL_SHAPES := true          # v13.167: stations and fleet ships collide by their real shape (false: the old outer box)
 const RETOPO_BOX_PAD := 8.0           # m: the ship's own size added to a model's collision box
 static func is_st3d(model: Variant) -> bool:

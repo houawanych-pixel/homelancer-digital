@@ -624,7 +624,7 @@ func _set_box(n: Node3D, holder: Node3D) -> void:
 	n.set_meta("box_holder", holder)
 	n.set_meta("box_aabb", mi.transform * mi.mesh.get_aabb())
 	if n.has_meta("front_z"): n.remove_meta("front_z")
-	var hm: MeshInstance3D = mi   # v13.237 (owner: "they should all have the new object"): the hull is the model you see (LOD0), not the lighter copy
+	var hm: MeshInstance3D = mi   # v13.236 (owner: "they should all have the new object"): the hull is the model you see (LOD0), not the lighter copy
 	if hm.mesh.get_faces().size() / 3 > Data.HULL_MAX_TRIS: hm = holder.get_meta("lod1", mi)   # (a very heavy model: its lighter LOD)
 	_hull_body(n, holder, [hm])
 
@@ -758,7 +758,7 @@ func _ship_box(node: Node3D, model: Node3D) -> void:
 	node.set_meta("box_aabb", box)
 	node.set_meta("ship_box", true)
 
-## v13.237 (owner: "the spaceships, the space stations should not have the old object, they should have the new
+## v13.236 (owner: "the spaceships, the space stations should not have the old object, they should have the new
 ## object"): every ship collides by its real shape, not its outer box. Built the first time you come near; the shape
 ## follows the ship as it flies. Effect meshes (shields, flames, glows, see-through parts) are left out.
 const _HULL_SKIP := ["shield", "flame", "glow", "trail", "thrust", "halo", "bolt", "beam", "fx", "light", "label", "ring", "bubble", "plume", "exhaust"]
@@ -5678,7 +5678,7 @@ func _update_weather(dt: float) -> void:
 var _fogc_t := 0.0
 var fog_clear_ships := 0
 func _fog_clear_ships(dt: float) -> void:
-	# v13.237 (owner: "I would still like to see a little bit of the cloud fogginess around this big ship"): the
+	# v13.236 (owner: "I would still like to see a little bit of the cloud fogginess around this big ship"): the
 	# ship keeps the cloud's haze; the fog thins while a ship is near you, so its colours show through
 	_fogc_t -= dt
 	if _fogc_t <= 0.0 and is_instance_valid(player):
@@ -9704,7 +9704,7 @@ func _update_blasts(dt: float) -> void:
 		if q["t"] > 0.0: continue
 		blast_pending.remove_at(i)
 		var at: Vector3 = q["at"]
-		if bool(q.get("full", false)):   # v13.237: a full fire blast (the fighters' own explosion), for the big finale
+		if bool(q.get("full", false)):   # v13.236: a full fire blast (the fighters' own explosion), for the big finale
 			_blast(at, [float(q["size"]), 6, 0, 0, 0.0], "film")
 			continue
 		_spark(at, Color(1.0, 0.95, 0.8) if not bool(q.get("fire", false)) else Color(1.0, 0.8, 0.4), float(q["size"]), 0.12)
@@ -11809,7 +11809,7 @@ func _film_finale(F: Dictionary, t: float, at: Vector3, r: float) -> void:
 		if is_instance_valid(F.get("glow", null)): (F["glow"] as Node).queue_free()
 		_blast(at, [r * 2.2, 40, 60, 8, 0.2])
 		_burst_fx(at, r * 2.0, 3.0)
-		# v13.237 (owner: "not a white vague: the Death Star explosion that scatters outward, then the ring that blew up in
+		# v13.236 (owner: "not a white vague: the Death Star explosion that scatters outward, then the ring that blew up in
 		# fire ... like a fighter blowing up but more massive"): fire flung out in every direction ...
 		for k3 in Data.ESCAPE_FILM_SCATTER:
 			var dir3 := Vector3(_rng.randfn(0, 1), _rng.randfn(0, 0.5), _rng.randfn(0, 1)).normalized()

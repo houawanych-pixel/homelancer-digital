@@ -10242,7 +10242,7 @@ func _job_v1132() -> void:
 		s.process_mode = Node.PROCESS_MODE_INHERIT   # (a paused space takes its bodies out of physics: this step had left it paused)
 		await get_tree().physics_frame
 		s.player.global_position = bse["node"].global_position + Vector3(0, 390, 0)   # (come near first: its real shape is made then)
-		s._bump_ships()   # (v13.237: its real shape is made as you come near)
+		s._bump_ships()   # (v13.236: its real shape is made as you come near)
 		await get_tree().physics_frame   # (the new hull joins the physics world on the next physics step)
 		await get_tree().physics_frame
 		var top0: Vector3 = bse["node"].global_position + Vector3(0, 390, 0)
