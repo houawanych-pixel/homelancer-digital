@@ -2846,6 +2846,8 @@ func _run() -> void:
 				await _until(func(): return main.film_runs > films0 and is_instance_valid(main.space) and not main.space.esc_film.is_empty(), 12.0)
 				main.space.film_fx_seen = {}
 				await _wait(1.5)
+				var film_fog: float = main.space.ship_fog_k
+				_check("%s sabotage: the cloud thins right out for the film (fog x %.2f, in a cloud %.2f) (v13.238)" % [fid, film_fog, main.space.in_nebula], film_fog <= Data.NEBULA_FILM_FOG + 0.05, "")
 				await _capture("fb_%s_film_a" % fid)   # (the little blasts)
 				await _wait(3.6)
 				await _capture("fb_%s_film_b" % fid)   # (v13.234: the light rays)

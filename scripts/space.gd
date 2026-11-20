@@ -5698,6 +5698,7 @@ func _fog_clear_ships(dt: float) -> void:
 				if float((en as Dictionary).get("def", {}).get("hit_r", 0.0)) >= 120.0: near = minf(near, nn.global_position.distance_to(player.global_position))
 		_puff_clear_ships()
 		_ship_fog_want = 1.0 if near == INF else lerpf(Data.NEBULA_NEAR_SHIP_FOG, 1.0, clampf((near - Data.NEBULA_SHIP_CLEAR * 0.5) / (Data.NEBULA_SHIP_CLEAR * 0.5), 0.0, 1.0))
+		if not esc_film.is_empty(): _ship_fog_want = Data.NEBULA_FILM_FOG   # v13.238 (owner: "on the final explosion the ship was hard to see"): the cloud thins right out for the film
 		fog_clear_ships = 1 if _ship_fog_want < 0.99 else 0
 	ship_fog_k = move_toward(ship_fog_k, _ship_fog_want, dt * 0.8)
 var _ship_fog_want := 1.0
@@ -5715,6 +5716,8 @@ func _puff_clear_ships() -> void:
 	for en in enemies:
 		if en is Dictionary and is_instance_valid((en as Dictionary).get("node", null)) and float((en as Dictionary).get("def", {}).get("hit_r", 0.0)) >= 120.0:
 			cand.append([(en["node"] as Node3D).global_position, _ship_clear_r(en["node"])])
+	if not esc_film.is_empty():   # the ship going up in the film: the puffs clear well round it (the blast fills that space)
+		cand.append([esc_film["at"], float(esc_film["r"]) * Data.NEBULA_FILM_CLEAR])
 	cand.sort_custom(func(a, b): return (a[0] as Vector3).distance_to(pp) < (b[0] as Vector3).distance_to(pp))
 	var arr: Array = []
 	for i in Data.NEBULA_CLEAR_SHIPS:
@@ -11766,6 +11769,9 @@ func start_escape_film(ship: Node3D) -> void:
 	var away := Vector3(sin(yaw + 1.2), 0.12, cos(yaw + 1.2)).normalized()
 	var side := away.cross(Vector3.UP).normalized()
 	esc_film = {"t": 0.0, "ship": ship, "at": at, "r": r, "away": away, "side": side, "boom": false}
+	_ship_fog_want = Data.NEBULA_FILM_FOG   # v13.238: thin the cloud at once (not over a second)
+	ship_fog_k = Data.NEBULA_FILM_FOG
+	_fogc_t = 0.0
 	player.global_position = at + away * r * 0.55
 	SpaceSystem.face(player, away)
 	yaw = player.rotation.y
