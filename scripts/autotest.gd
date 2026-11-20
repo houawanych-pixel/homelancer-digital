@@ -4260,6 +4260,9 @@ func _run() -> void:
 				await get_tree().process_frame
 				main._on_hud("board")
 				await _wait(0.5)
+			for k10 in 60:   # (the deck loads after BOARD: state "boarding" until it is up)
+				if main.state != "boarding": break
+				await _wait(0.5)
 			var sd2: ShipInterior = main.ship_deck
 			_check("v13.02: BOARD at the hull puts you aboard its deck plan with the job's mission running", is_instance_valid(sd2) and main.state == "ship_deck" and sd2.mission == str(jb["kind"]) and sd2.m_stage == 0, main.state)
 			if is_instance_valid(sd2):
