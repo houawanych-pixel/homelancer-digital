@@ -1497,6 +1497,16 @@ func _fighters_l2l3() -> void:
 	_check("Bases: the 15 approved faction bases stand on their factions' worlds (own pack), with the 3 base parts", bases_ok and nb == 15, "ok %s bases %d" % [bases_ok, nb])
 	var fc := _facility_check()
 	_check("Facilities: levels 1-4 each build a maze of shaped halls and hex / pentagon tunnels, joined in and out, deeper and bigger with the level, out the east exit shaft", fc["ok"], fc["txt"])
+	# (owner, Nov 19 2026): the halls are rooms from the room library, picked by the world's seed: another world, another
+	# layout; the same world, the same one every time
+	var lay := func(key: String) -> Array:
+		var L: Dictionary = Boarding.facility(key, 2, "Test")
+		return [var_to_str((L["rooms"] as Dictionary).keys().map(func(k): return [k, L["rooms"][k]["r"], L["rooms"][k].get("poly", []), L["rooms"][k].get("lib", "")])), int(L["info"].get("library_rooms", 0))]
+	var fa: Array = lay.call("new_terra:Test Site")
+	var fb: Array = lay.call("new_terra:Test Site")
+	var fo: Array = lay.call("eden_prime:Test Site")
+	_check("Facilities (room library): halls built from library rooms; two worlds get different layouts, the same world the same one", fa[0] == fb[0] and fa[0] != fo[0] and int(fa[1]) >= 4 and int(fo[1]) >= 4,
+		"same world same %s, other world differs %s, library halls %d / %d, kit %d" % [fa[0] == fb[0], fa[0] != fo[0], int(fa[1]), int(fo[1]), Boarding.room_kit().size()])
 	var sites: Array = Surface.facility_sites("new_terra")
 	_check("Facilities (v12.54): New Terra (3x3) has 6, three for each side (its Research Dome first), levels 1 upward", sites.size() == 6 and int(sites[0]["difficulty"]) == 1, "%d sites: %s" % [sites.size(), sites.map(func(x): return "%s L%d" % [x["name"], x["difficulty"]])])
 	# v11.97 (owner): a level 6 bounty: far out, 20 elites at the first point (15 at once, 5 jump in later), L3 ships armed
