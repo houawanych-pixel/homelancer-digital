@@ -624,7 +624,8 @@ func _set_box(n: Node3D, holder: Node3D) -> void:
 	n.set_meta("box_holder", holder)
 	n.set_meta("box_aabb", mi.transform * mi.mesh.get_aabb())
 	if n.has_meta("front_z"): n.remove_meta("front_z")
-	var hm: MeshInstance3D = holder.get_meta("lod1", mi)   # v13.164: the hull's real shape (the lighter LOD is close enough)
+	var hm: MeshInstance3D = mi   # v13.237 (owner: "they should all have the new object"): the hull is the model you see (LOD0), not the lighter copy
+	if hm.mesh.get_faces().size() / 3 > Data.HULL_MAX_TRIS: hm = holder.get_meta("lod1", mi)   # (a very heavy model: its lighter LOD)
 	_hull_body(n, holder, [hm])
 
 # ---------------------------------------------------------------- v13.164 (owner: "I'm not even touching the space
@@ -757,6 +758,64 @@ func _ship_box(node: Node3D, model: Node3D) -> void:
 	node.set_meta("box_aabb", box)
 	node.set_meta("ship_box", true)
 
+## v13.237 (owner: "the spaceships, the space stations should not have the old object, they should have the new
+## object"): every ship collides by its real shape, not its outer box. Built the first time you come near; the shape
+## follows the ship as it flies. Effect meshes (shields, flames, glows, see-through parts) are left out.
+const _HULL_SKIP := ["shield", "flame", "glow", "trail", "thrust", "halo", "bolt", "beam", "fx", "light", "label", "ring", "bubble", "plume", "exhaust"]
+func _ship_hull(n: Node3D) -> StaticBody3D:
+	if not Data.HULL_SHAPES: return null
+	if n.has_meta("hull_dyn"):
+		var sb0 = n.get_meta("hull_dyn")
+		if is_instance_valid(sb0):
+			(sb0 as StaticBody3D).global_transform = Transform3D(n.global_basis.orthonormalized(), n.global_position)
+			return sb0
+		return null
+	if n.has_meta("hull_dyn_tried"): return null
+	n.set_meta("hull_dyn_tried", true)
+	var sk := Basis.from_scale(n.global_basis.get_scale())
+	var faces := PackedVector3Array()
+	for g in n.find_children("*", "MeshInstance3D", true, false):
+		var mi := g as MeshInstance3D
+		if mi.mesh == null or not mi.is_visible_in_tree(): continue
+		var low := str(mi.name).to_lower()
+		var skip := false
+		for w in _HULL_SKIP: if low.contains(w): skip = true
+		var mo := mi.material_override
+		if mo is ShaderMaterial or (mo is BaseMaterial3D and (mo as BaseMaterial3D).transparency != BaseMaterial3D.TRANSPARENCY_DISABLED): skip = true
+		if skip: continue
+		var xf := Transform3D.IDENTITY
+		var c: Node = mi
+		while c != null and c != n:
+			if c is Node3D: xf = (c as Node3D).transform * xf
+			c = c.get_parent()
+		var full := Transform3D(sk, Vector3.ZERO) * xf
+		for v in mi.mesh.get_faces(): faces.append(full * v)
+		if faces.size() / 3 > Data.HULL_MAX_TRIS: break
+	if faces.is_empty(): return null
+	var sh := ConcavePolygonShape3D.new()
+	sh.set_faces(faces)
+	sh.backface_collision = true
+	var sb := StaticBody3D.new()
+	sb.name = "HullShape"
+	sb.collision_layer = HULL_LAYER
+	sb.collision_mask = 0
+	sb.top_level = true
+	var cs := CollisionShape3D.new()
+	cs.shape = sh
+	sb.add_child(cs)
+	n.add_child(sb)
+	sb.global_transform = Transform3D(n.global_basis.orthonormalized(), n.global_position)
+	n.set_meta("hull_dyn", sb)
+	n.set_meta("hull_body", sb)
+	ship_hulls += 1
+	return sb
+var ship_hulls := 0   # (checks) ships given their real shape
+## Push the player out of a ship: its real shape when it has one (else its box). True when it touched.
+func _bump_ship_shape(n: Node3D, kind: String) -> bool:
+	if _ship_hull(n) != null: return _push_out_hull(n, kind)
+	if n.has_meta("ship_box"): return _push_out_box(n.get_meta("box_holder"), n.get_meta("box_aabb"), kind)
+	return false
+
 var ship_bumps := 0   # (checks)
 func _bump_ships() -> void:
 	if not is_instance_valid(player): return   # v11.99 (owner: "all ships should be solid"): at warp too
@@ -766,7 +825,7 @@ func _bump_ships() -> void:
 		if not is_instance_valid(n): continue
 		if not n.has_meta("ship_box"): _solid_box(n)
 		if n.global_position.distance_to(p) > maxf(float(e["def"].get("hit_r", 60.0)) * 4.0 + 200.0, _box_reach(n)): continue   # v13.71: a battleship's far end counts too
-		if n.has_meta("ship_box") and _push_out_box(n.get_meta("box_holder"), n.get_meta("box_aabb"), "ship"): ship_bumps += 1
+		if n.has_meta("ship_box") and _bump_ship_shape(n, "ship"): ship_bumps += 1
 	# v11.99 (owner: "I went through a cargo ship ... everything should be a solid"): freighters, traffic, patrols
 	for lst in [freighters, traffic, fleet_patrols]:
 		for f in lst:
@@ -776,7 +835,7 @@ func _bump_ships() -> void:
 			if not fn.visible: continue
 			if not fn.has_meta("ship_box"): _solid_box(fn)
 			if fn.global_position.distance_to(p) > maxf(1600.0, _box_reach(fn)): continue   # v13.71 (owner: "all ships should be solid"): big ones are longer than 1.6 km
-			if fn.has_meta("ship_box") and _push_out_box(fn.get_meta("box_holder"), fn.get_meta("box_aabb"), "ship"): ship_bumps += 1
+			if fn.has_meta("ship_box") and _bump_ship_shape(fn, "ship"): ship_bumps += 1
 	for v in fleet_visitors:   # v13.71 (owner: "all ship should be solid"): the faction fleet catalog ships, by their hull box
 		var vn: Node3D = v.get("node", null)
 		if vn == null or not is_instance_valid(vn) or not vn.has_meta("hit_half"): continue
@@ -799,7 +858,7 @@ func _bump_ships() -> void:
 	for n in fleet_guard:
 		if not is_instance_valid(n) or not n.has_meta("ship_box"): continue
 		if n.global_position.distance_to(p) > float(n.get_meta("radius", 60.0)) * 4.0 + 200.0: continue
-		if _push_out_box(n.get_meta("box_holder"), n.get_meta("box_aabb"), "station"): ship_bumps += 1
+		if _bump_ship_shape(n, "station"): ship_bumps += 1
 
 ## v13.71: how far from a ship's middle its solid box can reach (0 when it has none)
 func _box_reach(n: Node3D) -> float:

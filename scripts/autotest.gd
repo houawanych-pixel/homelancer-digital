@@ -10238,6 +10238,8 @@ func _job_v1132() -> void:
 		# v11.37: solid: flown into the middle, you are pushed out of its hull
 		var b0: int = s.ship_bumps
 		var pp0: Vector3 = s.player.global_position
+		s._bump_ships()   # (v13.237: its real shape is made as you come near)
+		s._hull_prev = bse["node"].global_position + Vector3(0, 390, 0)   # (flown in from above: a real-shape hull stops you at its skin)
 		s.player.global_position = bse["node"].global_position + Vector3(0, 2, 0)
 		s._bump_ships()
 		var out_d: float = s.player.global_position.distance_to(bse["node"].global_position)
