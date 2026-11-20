@@ -1082,6 +1082,7 @@ func facility_base_at(site_name: String) -> Array:
 
 ## v13.242: a fixed facility you blew stays down while you're here (it's rebuilt when you come back).
 func base_blown(site_name: String) -> void:
+	if not raid_base.is_empty() and is_instance_valid(raid_base.get("raid_dome", null)): (raid_base["raid_dome"] as Node3D).visible = false
 	for n in tile_root.get_children() if is_instance_valid(tile_root) else []:
 		if n is Node3D and (str(n.get_meta("raid_of", "")) == site_name or (n.has_meta("facility") and str((n.get_meta("facility") as Dictionary).get("name", "")) == site_name)):
 			(n as Node3D).visible = false
@@ -11949,6 +11950,7 @@ func start_nuke_film(at: Vector3, r: float) -> void:
 		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+		m.billboard_keep_scale = true   # (a facing quad drops its scale without this)
 		m.albedo_texture = SpaceSystem.puff_texture()
 		m.albedo_color = Color(1.0, 0.6, 0.2, 0.0)
 		mi.material_override = m
