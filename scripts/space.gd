@@ -1073,6 +1073,20 @@ func _raid_open(e: Dictionary) -> void:
 	Sfx.play("explosion", -2.0, 0.7)
 	message.emit("SHIELD GENERATOR DOWN! Land by the base and INFILTRATE it.")
 
+## v13.242: where a facility's base stands on this tile (its main building), and how big; Vector3.INF if not here.
+func facility_base_at(site_name: String) -> Array:
+	for h in planet_bases:
+		if is_instance_valid(h) and h.has_meta("facility") and str((h.get_meta("facility") as Dictionary).get("name", "")) == site_name:
+			return [Vector3(h.global_position.x, _ground(h.global_position.x, h.global_position.z), h.global_position.z), float(h.get_meta("half", 80.0))]
+	return [Vector3.INF, 0.0]
+
+## v13.242: a fixed facility you blew stays down while you're here (it's rebuilt when you come back).
+func base_blown(site_name: String) -> void:
+	for n in tile_root.get_children() if is_instance_valid(tile_root) else []:
+		if n is Node3D and (str(n.get_meta("raid_of", "")) == site_name or (n.has_meta("facility") and str((n.get_meta("facility") as Dictionary).get("name", "")) == site_name)):
+			(n as Node3D).visible = false
+			surf_boxes = surf_boxes.filter(func(bx): return bx[0] != n)
+
 ## The job's done: the base goes (main calls it once you're paid).
 func raid_clear(site_name: String) -> void:
 	for n in tile_root.get_children() if is_instance_valid(tile_root) else []:
@@ -11903,6 +11917,111 @@ func start_escape_film(ship: Node3D) -> void:
 		var o := Vector3(_rng.randf_range(-1, 1), _rng.randf_range(-0.3, 0.3), _rng.randf_range(-1, 1)) * r * 0.55
 		blast_pending.append({"t": 0.3 + (Data.ESCAPE_FILM_RAYS_AT - 0.4) * pow(f, 0.8), "at": at + o, "size": r * lerpf(0.3, 0.75, f)})
 
+## v13.242 (owner: "a different explosion, like a mushroom cloud explosion when you destroy the base; use similar
+## effects"): the base you blew goes up as a mushroom cloud: the flash and the fireball on the ground, a column of fire
+## rising, the cap rolling out at the top, a shock ring racing out over the ground and a ring round the cap; the camera
+## holds well back and tilts up with it. The same pieces as the ship finale (_blast, _film_fx, the blast queue).
+var nuke_film := {}   # {t, at, r, view, flash, rings}
+signal nuke_film_done
+var nuke_films := 0   # (checks)
+func start_nuke_film(at: Vector3, r: float) -> void:
+	var d := Vector3(player.global_position.x - at.x, 0, player.global_position.z - at.z)
+	d = d.normalized() if d.length() > 1.0 else Vector3(0, 0, 1)
+	var view := at + d * r * Data.NUKE_FILM_BACK + Vector3.UP * r * 1.2
+	nuke_film = {"t": 0.0, "at": at, "r": r, "view": view, "d": d, "boom": false}
+	nuke_films += 1
+	player.global_position = view
+	SpaceSystem.face(player, at - view)
+	yaw = player.rotation.y
+	pitch = player.rotation.x
+	vel = Vector3.ZERO
+	controls = false
+	var H := r * Data.NUKE_FILM_HEIGHT
+	var S := Data.NUKE_FILM_S
+	for k in 14:   # the skirt: fire and dust rolling out along the ground
+		var a := TAU * float(k) / 14.0
+		for st in 3:
+			var f := float(st) / 2.0
+			blast_pending.append({"t": 0.15 + f * 0.9, "at": at + Vector3(cos(a), 0.05, sin(a)) * r * lerpf(0.6, 2.4, f), "size": r * lerpf(0.55, 0.3, f), "fire": true, "full": st == 0 and k % 3 == 0})
+	var nst := 16
+	for st in nst:   # the column: fire rising, faster at first
+		var f := float(st) / float(nst - 1)
+		var y := H * (1.0 - pow(1.0 - f, 1.6))
+		for j in 3:
+			var o := Vector3(_rng.randf_range(-1, 1), 0, _rng.randf_range(-1, 1)) * r * 0.35
+			blast_pending.append({"t": 0.3 + f * S * 0.4, "at": at + Vector3(0, y, 0) + o, "size": r * lerpf(0.75, 0.5, f), "fire": true, "full": j == 0 and st % 4 == 0})
+	for st in 5:   # the cap: a ring of fire rolling out and over at the top
+		var f := float(st) / 4.0
+		var cr := r * lerpf(0.9, 2.4, f)
+		var na := 10 + st * 3
+		for k in na:
+			var a := TAU * (float(k) + 0.5 * float(st % 2)) / float(na)
+			var roll := sin(a * 3.0 + f * 4.0) * r * 0.35
+			blast_pending.append({"t": S * 0.32 + f * S * 0.3, "at": at + Vector3(cos(a) * cr, H + r * 0.5 * f + roll, sin(a) * cr), "size": r * lerpf(0.8, 0.55, f), "fire": true, "full": k % 5 == 0 and st < 3})
+		blast_pending.append({"t": S * 0.32 + f * S * 0.3, "at": at + Vector3(0, H + r * 0.4, 0), "size": r * 1.1, "fire": true, "full": true})
+
+func _nuke_film(dt: float) -> void:
+	var F := nuke_film
+	F["t"] = float(F["t"]) + dt
+	var t := float(F["t"])
+	var at: Vector3 = F["at"]
+	var r := float(F["r"])
+	var H := r * Data.NUKE_FILM_HEIGHT
+	var S := Data.NUKE_FILM_S
+	if not bool(F["boom"]):
+		F["boom"] = true
+		_blast(at, [r * 2.4, 40, 60, 8, 0.2])
+		_burst_fx(at, r * 2.2, 3.0)
+		hit_shake = 1.5
+		Sfx.play("explosion", 3.0, 0.4)
+		Sfx.play("explosion", 0.0, 0.6)
+		var ball := SphereMesh.new()
+		ball.radius = 1.0
+		ball.height = 2.0
+		F["flash"] = _film_fx(ball, Color(1.0, 0.6, 0.22), 0)
+		(F["flash"] as Node3D).global_position = at
+		var disc := PlaneMesh.new()
+		disc.size = Vector2(2.0, 2.0)
+		var g := _film_fx(disc, Color(1.0, 0.55, 0.2), 2, 0.12)   # the shock ring over the ground
+		g.global_position = at + Vector3(0, 2.0, 0)
+		var c := _film_fx(disc, Color(1.0, 0.85, 0.6), 2, 0.08)   # the ring round the cap
+		c.global_position = at + Vector3(0, H, 0)
+		F["rings"] = [g, c]
+	var fl = F.get("flash", null)
+	if is_instance_valid(fl):
+		var q := clampf(t / 1.6, 0.0, 1.0)
+		(fl as Node3D).scale = Vector3.ONE * r * lerpf(0.4, 2.2, sqrt(q))
+		(fl as Node3D).global_position = at + Vector3(0, r * 0.6 * q, 0)
+		((fl as MeshInstance3D).material_override as ShaderMaterial).set_shader_parameter("fade", 1.0 - q)
+		if q >= 1.0: (fl as Node).queue_free()
+	var rings: Array = F.get("rings", [])
+	for i in rings.size():
+		var rg = rings[i]
+		if not is_instance_valid(rg): continue
+		var t0 := 0.2 if i == 0 else S * 0.35
+		var life := 3.6 if i == 0 else 3.0
+		var q2 := clampf((t - t0) / life, 0.0, 1.0)
+		var rad := r * (lerpf(1.0, Data.NUKE_FILM_RING, 1.0 - pow(1.0 - q2, 2.2)) if i == 0 else lerpf(1.5, 5.0, 1.0 - pow(1.0 - q2, 2.0)))
+		(rg as Node3D).global_basis = Basis.from_scale(Vector3(rad, 1.0, rad))
+		if i == 1: (rg as Node3D).global_position = at + Vector3(0, H + r * 0.3 * q2, 0)
+		((rg as MeshInstance3D).material_override as ShaderMaterial).set_shader_parameter("fade", (1.0 - q2) * (1.0 if t >= t0 else 0.0))
+		if q2 >= 1.0: (rg as Node).queue_free()
+	if t > 1.0 and fmod(t, 0.25) < dt and t < S * 0.85:   # smoke boiling up the column and off the cap
+		var hy := minf(H, H * t / (S * 0.4))
+		_spark_v(at + Vector3(_rng.randf_range(-1, 1) * r * 0.4, hy * _rng.randf(), _rng.randf_range(-1, 1) * r * 0.4), Vector3(0, r * 0.15, 0), Color(0.32, 0.28, 0.26), r * 0.9, 3.0)
+	# the camera: well back, tilting up as it rises
+	var view: Vector3 = F["view"]
+	var look := at + Vector3(0, H * clampf(t / (S * 0.5), 0.15, 0.85), 0)
+	var rel := view - player.global_position
+	if hit_shake > 0.0: rel += Vector3(_rng.randfn(0, 1), _rng.randfn(0, 1), 0) * hit_shake * r * 0.02
+	_set_cam(rel, look - player.global_position, Vector3.UP)
+	cam.fov = 70.0
+	if t >= S:
+		for rg in F.get("rings", []): if is_instance_valid(rg): (rg as Node).queue_free()
+		nuke_film = {}
+		controls = true
+		nuke_film_done.emit()
+
 func _escape_film(dt: float) -> void:
 	var F := esc_film
 	F["t"] = float(F["t"]) + dt
@@ -12126,6 +12245,9 @@ func _update_camera(dt: float, snap: bool) -> void:
 	if is_instance_valid(player): _cam_prev_ship = player.global_position
 	if not esc_film.is_empty() and is_instance_valid(player):   # v13.220
 		_escape_film(dt)
+		return
+	if not nuke_film.is_empty() and is_instance_valid(player):   # v13.242
+		_nuke_film(dt)
 		return
 	if cine_t >= 0.0 and is_instance_valid(player):
 		# v12.52 (owner: "a camera lock sequence ... going through clouds coming into the atmosphere ... then back to the

@@ -2794,16 +2794,23 @@ func _leave_fleet_ship(won: bool) -> void:
 		GS.credits += pay
 		_load_surface(str(bf["planet"]), int(bf["tile"]))
 		await get_tree().process_frame
-		if fjob:
-			Missions._pay(space, "%s is done. %s pays %d cr." % [str(bf["name"]), Missions.giver_name(GS.mission), int(GS.mission["pay"])])
-			space.raid_clear(str(bf["name"]))   # v13.241: the raid base is gone
+		await get_tree().process_frame
+		var fbase: Array = space.facility_base_at(str(bf["name"]))
+		var blow: bool = won and str(bf.get("kind", "")) == "sabotage" and fbase[0] != Vector3.INF   # v13.242: the generator's gone: the base goes up
+		if fjob: Missions._pay(space, "%s is done. %s pays %d cr." % [str(bf["name"]), Missions.giver_name(GS.mission), int(GS.mission["pay"])])
 		space.player.global_position = (bf["pos"] as Vector3) + Vector3(0, 40.0, 0)
 		space.vel = Vector3.ZERO
+		if blow: space.start_nuke_film(fbase[0], maxf(60.0, float(fbase[1])))
 		var twf2 := create_tween()
 		twf2.tween_property(fx, "fade", 0.0, 0.6)
 		await twf2.finished
 		fx.caption = ""
 		fx.sub = ""
+		if blow:
+			film_runs += 1
+			await space.nuke_film_done
+			space.base_blown(str(bf["name"]))
+		if fjob: space.raid_clear(str(bf["name"]))   # v13.241: the raid base is gone
 		space.controls = true
 		hud.visible = true
 		state = "flight"

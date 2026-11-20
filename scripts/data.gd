@@ -2354,6 +2354,10 @@ const STATION_INFIL_LEVEL := 3   # v11.99: an alien station is infiltrated as a 
 ## v13.239: the facilities' own three floors (tools/trace/facility_v1), by difficulty; a site picks one by its name
 const FACILITY_DECKS := {1: ["res://assets/holodeck/facility_d1_a.json"], 2: ["res://assets/holodeck/facility_d2_a.json"],
 	3: ["res://assets/holodeck/facility_d3_a.json"], 4: ["res://assets/holodeck/facility_d4_a.json"]}   # (one each for now: every facility adds ~4 MB to the main download)
+const NUKE_FILM_S := 10.0          # v13.242: the mushroom cloud film over a blown base (s)
+const NUKE_FILM_HEIGHT := 4.5      # its column: this many base half-widths high
+const NUKE_FILM_RING := 14.0       # its shock ring races out to this many half-widths
+const NUKE_FILM_BACK := 9.0        # the camera holds this many half-widths back
 const RAID_BASES := true            # v13.241 (owner): planet RAID jobs: a bunker base placed when you take the job
 const RAID_MIN_DOCK := 3000.0       # m: a raid base is at least this far from every port on the world
 const RAID_EDGE := 600.0            # m in from its tile's edges
