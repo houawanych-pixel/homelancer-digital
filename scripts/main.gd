@@ -1513,6 +1513,11 @@ func _escape_in_space(retry := false, calm := false) -> void:
 	escape_from = str(hub.base["name"])
 	var own := str(Factions.owner_of(hub.base, Data.SYSTEMS[sid]))
 	var fac := own if Factions.has(own) else "Savagers"
+	if not calm and alarm_on_deck and station_v2_deck(sid) != "":   # v13.237: the alarm on the station's own five decks
+		if retry: GS.restore_full()
+		hub.visible = false
+		board_station("visit", {}, {"sys": sid, "name": escape_from, "faction": fac, "alarm": true, "from": "alarm"})
+		return
 	var form: String = str(board_from.get("form", GS.form)) if retry else GS.form
 	state = "boarding"
 	board_from = {"sys": sid, "pos": Vector3.ZERO, "name": escape_from, "faction": fac, "escape": true, "form": form, "calm": calm}
@@ -1572,28 +1577,44 @@ static func station_board_path(sys_id: String) -> String:
 	var p := "res://assets/stations_board/%s.json" % m
 	return p if m != "" and FileAccess.file_exists(p) else ""
 
-func board_station(kind: String, job := {}) -> void:
+## v13.237 (owner: "Yes 5 deck maps instead"): a station built with the station v2 tools (Data.STATION_SHIP_DECK) has
+## its five decks; its infiltration and its alarm run there too. "" = no such deck (the older breakout / maze).
+var alarm_on_deck := true   # (the older breakout tests turn it off)
+static func station_v2_deck(sys_id: String) -> String:
+	if not Data.STATION_V2_HOSTILE: return ""
+	var p := station_board_path(sys_id)
+	return p if p != "" and p in Data.STATION_SHIP_DECK.values() else ""
+
+func board_station(kind: String, job := {}, opts := {}) -> void:
 	if not is_instance_valid(space) or state == "boarding": return
-	var path := station_board_path(GS.system_id)
+	var bsid := str(opts.get("sys", GS.system_id))   # v13.237: an enemy station infiltrated from flight, or the alarm, pass their own
+	var path := station_board_path(bsid)
 	var _bt0 := Time.get_ticks_msec()
 	var L := Boarding.fleet_layout(path)
 	if OS.get_environment("HL_BTIME") != "": print("BTIME layout %d" % (Time.get_ticks_msec() - _bt0))
 	if L.is_empty():
 		hud.flash_message("No deck plan for this station yet.")
 		return
-	var from := state
+	var from := str(opts.get("from", state))
 	state = "boarding"
 	var base: Dictionary = hub.base if is_instance_valid(hub) else {}
-	var own := str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id]))
-	var fac := own if Factions.has(own) else "Unity"
-	var nm := str(base.get("name", "Station"))
-	board_from = {"sys": GS.system_id, "pos": Vector3.ZERO, "ship_at": Vector3.ZERO, "name": nm, "faction": fac,
-		"fleet_deck": "station:" + path.get_file().get_basename(), "job": not job.is_empty(), "kind": kind, "form": GS.form, "from": from, "station": true}
+	var own := str(Factions.owner_of(base, Data.SYSTEMS[bsid]))
+	var fac := str(opts.get("faction", own if Factions.has(own) else "Unity"))
+	var nm := str(opts.get("name", base.get("name", "Station")))
+	board_from = {"sys": bsid, "pos": opts.get("pos", Vector3.ZERO), "ship_at": opts.get("ship_at", Vector3.ZERO), "name": nm, "faction": fac,
+		"fleet_deck": "station:" + path.get_file().get_basename(), "job": not job.is_empty(), "kind": kind, "form": GS.form, "from": from, "station": true,
+		"infiltrate": bool(opts.get("infiltrate", false)), "alarm": bool(opts.get("alarm", false))}
 	space.controls = false
 	hud.visible = false
 	hub.visible = false
 	fx.caption = nm.to_upper()
 	fx.sub = "WELCOME ABOARD" if kind == "visit" else "BOARDING"
+	if bool(opts.get("infiltrate", false)):
+		fx.caption = "INFILTRATION"
+		fx.sub = nm.to_upper()
+	elif bool(opts.get("alarm", false)):
+		fx.caption = "WANTED"
+		fx.sub = "GET TO YOUR SHIP IN %s'S HANGAR" % nm.to_upper()
 	Sfx.play("whoosh", -2.0, 0.8)
 	var tw := create_tween()
 	tw.tween_property(fx, "fade", 1.0, 0.5)
@@ -1621,6 +1642,7 @@ func board_station(kind: String, job := {}) -> void:
 	space.escape_pilot = not (Data.FLEET_MECH and Packs.is_ready("mechs"))
 	var _bt2 := Time.get_ticks_msec()
 	space.setup_boarding({"sys": board_from["sys"], "faction": fac, "name": nm, "escape": true, "mission": kind, "ship_id": ""})
+	if bool(opts.get("alarm", false)): space.set_stealth("alert", "a price on your head")   # v13.237: the lockdown: every guard after you
 	if OS.get_environment("HL_BTIME") != "": print("BTIME setup %d" % (Time.get_ticks_msec() - _bt2))
 	_connect_space()
 	var tw2 := create_tween()
@@ -2384,6 +2406,12 @@ func board_battleship(e: Dictionary) -> void:
 ## and you come out beside it, paid.
 func infiltrate_station(n: Node3D) -> void:
 	if state != "flight" or not is_instance_valid(space): return
+	if station_v2_deck(space.sys_id) != "":   # v13.237: its own five decks: blow the generator in the Main Hub, get out
+		var inf0: Dictionary = n.get_meta("info", {})
+		var fac0 := str(Data.SYSTEMS.get(space.sys_id, {}).get("enemy_faction", "Savagers"))
+		board_station("sabotage", {}, {"sys": space.sys_id, "name": str(inf0.get("name", n.name)), "faction": fac0 if Factions.has(fac0) else "Savagers",
+			"infiltrate": true, "from": "flight", "pos": space.player.global_position, "ship_at": n.global_position})
+		return
 	state = "boarding"
 	var info: Dictionary = n.get_meta("info", {})
 	var nm := str(info.get("name", n.name))
@@ -2692,6 +2720,17 @@ func _leave_fleet_ship(won: bool) -> void:
 	var bf := board_from
 	board_from = {}
 	var done: bool = won and str(bf.get("kind", "")) != ""
+	if bool(bf.get("alarm", false)):   # v13.237: out of the station's alarm: into your ship and away, their ships after you
+		_load_system(str(bf["sys"]), "station")
+		space.visible = false
+		space.process_mode = Node.PROCESS_MODE_DISABLED
+		state = "hub"
+		escape_from = str(bf["name"])
+		fx.caption = ""
+		fx.sub = ""
+		fx.fade = 0.0
+		_escape_finish(false)
+		return
 	if str(bf.get("from", "")) == "hub":   # (walked round from the dealer's DECK PLAN: back to the station)
 		_load_system(str(bf["sys"]), "station")
 		space.visible = false
@@ -2748,3 +2787,7 @@ func _leave_fleet_ship(won: bool) -> void:
 	if deliver: hud.flash_message("%s Now dock at %s to hand %s over and get paid." % ["CAPTAIN CAPTURED!" if str(bf.get("kind", "")) == "capture" else "HOSTAGE RESCUED!", str(Data.SYSTEMS[str(j["sys"])]["station"].get("name", "the station")), "him" if str(bf.get("kind", "")) == "capture" else "her"])
 	elif done and not j.is_empty(): hud.flash_message("BOARDING MISSION COMPLETE: %s. Paid %d cr." % [str(j["title"]), int(j["pay"])])
 	elif not j.is_empty(): hud.flash_message("You left the ship with the job unfinished. It is still out here: reach it again to go back aboard.")
+	if bool(bf.get("infiltrate", false)) and won:   # v13.237: an enemy station gutted from the inside
+		_relic_drop(str(bf.get("faction", "")), true)
+		GS.credits += Data.FACILITY_PAY * Data.STATION_INFIL_LEVEL
+		hud.flash_message("COMMAND: you gutted %s from the inside. %d credits. They'll rebuild." % [str(bf["name"]), Data.FACILITY_PAY * Data.STATION_INFIL_LEVEL])

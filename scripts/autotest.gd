@@ -1911,6 +1911,51 @@ func _run() -> void:
 		_check("v13.176: back to the docking bay: out to the station page (LAUNCH from there)", main.state == "hub" and main.hub.visible, main.state)
 		_finish_group()
 		return
+	if _flag("HL_STHOSTILE"):   # v13.237 (owner: "Yes 5 deck maps instead"): an enemy station's infiltration and a station's alarm run on its five decks
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var hs := OS.get_environment("HL_SYS") if OS.get_environment("HL_SYS") != "" else "raptian_major"
+		main._load_system(hs, "station")
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.sys_id == hs, 15.0)
+		await _wait(1.0)
+		var h0 := _sp()
+		GS.form = "mech"
+		var cr0: int = GS.credits
+		_check("v13.237: %s is enemy space with a five-deck station" % hs, SystemBuilder.is_enemy_space(Data.SYSTEMS.get(hs, {})) and main.station_v2_deck(hs) != "", main.station_v2_deck(hs))
+		main.dock(h0.station)
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding, 90.0)
+		var h1 := _sp()
+		_check("v13.237: docking as a mech INFILTRATES its five decks (Main Hub generator, guards on patrol, not a guest)", h1.boarding and Boarding.INFO.has("fleet") and bool(main.board_from.get("infiltrate", false)) and str(h1.board.get("fleet", {}).get("kind", "")) == "sabotage" and h1.stealth != "neutral" and Boarding.deck_names().size() == 5,
+			"%s kind %s stealth %s decks %d" % [main.board_from.get("fleet_deck", ""), h1.board.get("fleet", {}).get("kind", ""), h1.stealth, Boarding.deck_names().size()])
+		await _shot("sthostile_infiltrate", 0.5)
+		main._leave_fleet_ship(true)
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and not main.space.boarding, 30.0)
+		await _wait(1.0)
+		_check("v13.237: gutted from the inside: back in flight beside it, paid", main.state == "flight" and not _sp().boarding and GS.credits > cr0, "%s %d" % [main.state, GS.credits - cr0])
+		# the alarm: a friendly five-deck station (Liberty Hub's system), docked, the lockdown
+		main._load_system("veranthos", "station")
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space), 15.0)
+		await _wait(1.0)
+		var a0 := _sp()
+		var asid: String = a0.sys_id
+		_check("v13.237: %s has a five-deck station" % asid, main.station_v2_deck(asid) != "", asid)
+		main.dock(a0.station)
+		await _until(func(): return main.state == "hub", 20.0)
+		await _wait(0.5)
+		main.hub.escape_3d = true
+		main.hub._start_lockdown()
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding, 90.0)
+		var a1 := _sp()
+		_check("v13.237: the station's ALARM runs on its five decks: WANTED, every guard after you (ALERT)", a1.boarding and Boarding.INFO.has("fleet") and bool(main.board_from.get("alarm", false)) and a1.stealth == "alert" and Boarding.deck_names().size() == 5,
+			"%s stealth %s" % [main.board_from.get("fleet_deck", ""), a1.stealth])
+		await _shot("sthostile_alarm", 0.5)
+		main._leave_fleet_ship(true)
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and not main.space.boarding and main.space.visible, 30.0)
+		await _wait(1.0)
+		_check("v13.237: out of the alarm: launched, docking there banned, their ships after you", main.state == "flight" and main.dock_ban.has(main.escape_from) and not main.hub.lockdown, "%s ban %s" % [main.state, main.dock_ban])
+		_finish_group()
+		return
 	if _flag("HL_STBOARD"):   # v13.174 (owner: "a station should look just like the boarding levels"): Liberty Hub's own deck plan in the boarding engine
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -2963,6 +3008,7 @@ func _run() -> void:
 		_finish_group()
 		return
 	if OS.get_environment("HL_ESCAPE") == "" and not _flag("HL_BREAKOUT") and not _flag("HL_CUTTER") and not _flag("HL_MOVES"): main.hub.escape_3d = false   # v12.30: the older lockdown checks test the panorama fight (HL_ESCAPE tests the 3D one)
+	if OS.get_environment("HL_ESCAPE") != "" or _flag("HL_BREAKOUT") or _flag("HL_CUTTER") or _flag("HL_MOVES"): main.alarm_on_deck = false   # v13.237: they test the older breakout deck
 	if OS.get_environment("HL_SMOKE") != "":   # Nov 2 (owner): the fast pre-deploy check (< 2 min)
 		await _smoke()
 		_finish_group()
