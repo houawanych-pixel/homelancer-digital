@@ -8326,7 +8326,9 @@ func _autopilot_input() -> Array:
 		return [Vector2.ZERO, Vector2.ZERO]
 	var aligned := local.z < -0.97
 	# long legs: spool the warp drive while flying on, warp, drop out near the destination (and before any atmosphere)
-	if warp_state == "off" and aligned and dist > 1500.0 and planet_hazard == 0: request_warp()
+	var near_air := _ap_planet_close()   # v13.238: never warp close to a planet (it warped into one going round it)
+	if warp_state == "off" and aligned and dist > 1500.0 and planet_hazard == 0 and not near_air: request_warp()
+	if warp_state != "off" and near_air: drop_warp("Autopilot: dropping out of warp near the planet.")
 	var drop_d := 650.0
 	if kind == "planet": drop_d = maxf(650.0, float(autopilot.get_meta("radius")) * (Data.ATMO_OUTER - 1.0) + 450.0)   # v8.9: out of warp before the air
 	if warp_state == "on" and (dist < drop_d or planet_hazard > 0): drop_warp("Autopilot: dropping out of warp.")
@@ -8334,6 +8336,10 @@ func _autopilot_input() -> Array:
 	if final_run or ((kind == "planet" or kind == "station" or autopilot.has_meta("dock")) and dist < Data.AP_SLOW_DIST):   # v13.238: come in slowly, never boost into it
 		th = minf(th, _ap_throttle_for(clampf(dist * 0.35, Data.AP_DOCK_SPEED, _ap_bs())))
 	return [steer, Vector2(0, th)]
+
+func _ap_planet_close() -> bool:   # inside the zone where warp near a planet is deadly (1.8x its air, and a margin)
+	if not is_instance_valid(planet) or surface_mode: return false
+	return player.global_position.distance_to(planet.global_position) < float(planet.get_meta("radius", 1000.0)) * Data.ATMO_OUTER * 1.8 + 300.0
 
 func _ap_bs() -> float:   # (the ship's speed, as flight uses it)
 	var bs := float(GS.ship()["speed"])
@@ -8371,7 +8377,7 @@ func _ap_planet_goal(pn: Node3D, gate: Vector3) -> Vector3:
 			var side := near - c
 			if side.length() < 1.0: side = seg.cross(Vector3.UP)
 			if side.length() < 1.0: side = Vector3.RIGHT
-			return c + side.normalized() * (safe + Data.AP_PLANET_APPROACH)
+			return c + side.normalized() * (r * Data.ATMO_OUTER * Data.AP_PLANET_ROUND)   # (well out: warp is not allowed near it)
 	return above
 
 
