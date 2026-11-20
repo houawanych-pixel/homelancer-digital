@@ -2507,7 +2507,7 @@ func _enter_facility_deck(site: Dictionary, path: String) -> void:
 	state = "flight"
 
 func enter_facility(site: Dictionary) -> void:
-	if state != "flight" or not is_instance_valid(space) or not space.surface_mode: return
+	if state != "flight" or not is_instance_valid(space) or not space.surface_mode or site.is_empty(): return
 	var fpath := facility_deck(site)
 	if fpath != "":
 		_enter_facility_deck(site, fpath)

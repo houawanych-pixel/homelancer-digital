@@ -1952,6 +1952,7 @@ func _run() -> void:
 		await _wait(0.3)
 		var can_in: bool = not s.facility_candidate().is_empty()
 		_check("v13.241: shield up, it won't let you in; shield, then hull to half: the generator goes (never destroyed from outside) and you can INFILTRATE", shut and opened and can_in, "shut %s opened %s in %s" % [shut, opened, can_in])
+		var site_in: Dictionary = s.facility_candidate()
 		s.player.global_position = hbase.global_position + Vector3(0, 250, 500)
 		var dv: Vector3 = (hbase.global_position - s.player.global_position).normalized()
 		s.yaw = atan2(-dv.x, -dv.z)
@@ -1962,7 +1963,9 @@ func _run() -> void:
 		await _capture("raid_base")
 		var cr0: int = GS.credits
 		GS.form = "mech"
-		main.enter_facility(s.facility_candidate())
+		s.player.global_position = Vector3(hbase.global_position.x + 60.0, s._ground(hbase.global_position.x + 60.0, hbase.global_position.z) + 4.0, hbase.global_position.z)
+		s.controls = true
+		main.enter_facility(site_in)
 		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding and Boarding.INFO.has("fleet"), 90.0)
 		await _wait(1.0)
 		var inside: bool = _sp().boarding and bool(Boarding.INFO.get("facility", false))
