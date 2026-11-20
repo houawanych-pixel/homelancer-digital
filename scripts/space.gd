@@ -8068,7 +8068,8 @@ func _update_player(dt: float) -> void:
 		var wsp: float = base_speed * Data.WARP_MULT
 		if ram_shield: wsp = minf(wsp, Data.RAM_WARP_SPEED)   # v13.77 (owner): with the ram shield up, half warp speed
 		if autopilot != null and is_instance_valid(autopilot):   # v8.9: at ~3 km/s the autopilot eases off as it closes in (no overshoot)
-			wsp = minf(wsp, maxf(base_speed * 4.0, (autopilot.global_position.distance_to(player.global_position) - 400.0) / Data.WARP_EASE))
+			var ap_at: Vector3 = _ap_goal if _ap_goal != Vector3.INF else autopilot.global_position   # v13.238: where it is really heading (a planet's centre is far past its gate)
+			wsp = minf(wsp, maxf(base_speed * 4.0, (ap_at.distance_to(player.global_position) - 400.0) / Data.WARP_EASE))
 		vel = vel.lerp(fwd * wsp, minf(1.0, dt * 1.2))
 		_booster_particles(dt, 0.5)
 	elif engine_kill:
@@ -8265,10 +8266,16 @@ var ap_lane_legs := 0   # (tests) lanes the autopilot has taken
 var arrived_spot := {}
 var _gas_warned := {}   # v12.66: gas giants already warned about this visit
 var autodock_target: Node3D = null   # v12.62: a course you set: the autopilot docks when it gets there   # v12.62: the surface spot the autopilot just reached (main docks if it's a dock)
+var _ap_final: Node3D = null   # v13.238: the planet whose approach point you have reached (now the slow final run to its gate)
+var _ap_goal := Vector3.INF     # where the autopilot is actually heading this frame (the warp eases off on it)
 func _autopilot_input() -> Array:
 	var goal: Vector3 = autopilot.global_position
 	var kind: String = autopilot.get_meta("kind", "")
 	if kind == "planet" or kind == "station" or autopilot.has_meta("dock") or kind == "platform": goal = dock_point(autopilot)
+	var final_run := false
+	if kind == "planet" and not surface_mode:   # v13.238 (owner: "it should find the best waypoint there, a dock there, not boost and crash into it")
+		goal = _ap_planet_goal(autopilot, goal)
+		final_run = _ap_final == autopilot
 	if kind == "landmark" and not autopilot.has_meta("dock"):      # stop a little way off a placeholder planet or station
 		var off: Vector3 = (player.global_position - autopilot.global_position).normalized()
 		goal = autopilot.global_position + off * (float(autopilot.get_meta("radius")) + Data.PH_GOTO_STANDOFF)
@@ -8294,6 +8301,7 @@ func _autopilot_input() -> Array:
 				goal = en
 				kind = "waypoint"
 	goal = _detour(goal)   # v11.91: round a (4x) station in the way, not through it
+	_ap_goal = goal
 	var to := goal - player.global_position
 	var local := player.global_basis.inverse() * to.normalized()
 	var steer := Vector2(clampf(local.x * 3.0, -1, 1), clampf(-local.y * 3.0, -1, 1))
@@ -8318,7 +8326,49 @@ func _autopilot_input() -> Array:
 	if kind == "planet": drop_d = maxf(650.0, float(autopilot.get_meta("radius")) * (Data.ATMO_OUTER - 1.0) + 450.0)   # v8.9: out of warp before the air
 	if warp_state == "on" and (dist < drop_d or planet_hazard > 0): drop_warp("Autopilot: dropping out of warp.")
 	var th := 1.0 if local.z < -0.3 else 0.2
+	if final_run or ((kind == "planet" or kind == "station" or autopilot.has_meta("dock")) and dist < Data.AP_SLOW_DIST):   # v13.238: come in slowly, never boost into it
+		th = minf(th, _ap_throttle_for(clampf(dist * 0.35, Data.AP_DOCK_SPEED, _ap_bs())))
 	return [steer, Vector2(0, th)]
+
+func _ap_bs() -> float:   # (the ship's speed, as flight uses it)
+	var bs := float(GS.ship()["speed"])
+	if loadout_live(): bs *= float(lo_totals()["speed"])
+	return bs
+
+## v13.238: the throttle (the stick's forward axis) that settles the cruise at speed v (the cruise model: centred = CRUISE,
+## forward builds to full, back eases toward a stop).
+func _ap_throttle_for(v: float) -> float:
+	var f := v / maxf(1.0, _ap_bs())
+	if f >= Data.CRUISE: return clampf((f - Data.CRUISE) / maxf(0.01, 1.0 - Data.CRUISE), 0.0, 1.0)
+	return clampf(f / maxf(0.01, Data.CRUISE) - 1.0, -1.0, 0.0)
+
+## v13.238 (owner): GO TO a planet: first to a point out over its docking gate, clear of the air (round the planet if
+## it is in the way), then straight down to the gate, slowly, and dock.
+func _ap_planet_goal(pn: Node3D, gate: Vector3) -> Vector3:
+	var c := pn.global_position
+	var r := float(pn.get_meta("radius", 1000.0))
+	var out := (gate - c).normalized()
+	var above := c + out * (r * Data.ATMO_OUTER + Data.AP_PLANET_APPROACH)
+	var p := player.global_position
+	if _ap_final == pn and p.distance_to(c) > r * Data.ATMO_OUTER + Data.AP_PLANET_APPROACH * 2.0: _ap_final = null   # (flown off since: approach again)
+	if _ap_final == pn: return gate
+	if p.distance_to(above) < Data.AP_PLANET_APPROACH * 0.5:
+		_ap_final = pn
+		drop_warp()
+		return gate
+	var safe := r * Data.ATMO_OUTER + Data.AP_PLANET_APPROACH * 0.5   # (keep out of the air on the way)
+	var seg := above - p
+	var L := seg.length()
+	if L > 1.0:
+		var t := clampf((c - p).dot(seg) / (L * L), 0.0, 1.0)
+		var near := p + seg * t
+		if near.distance_to(c) < safe and t > 0.0 and t < 1.0:   # the planet is in the way: head for a point beside it
+			var side := near - c
+			if side.length() < 1.0: side = seg.cross(Vector3.UP)
+			if side.length() < 1.0: side = Vector3.RIGHT
+			return c + side.normalized() * (safe + Data.AP_PLANET_APPROACH)
+	return above
+
 
 ## v11.91: the stations are big now (4x): when the straight run to `goal` passes through a station that is not where
 ## you're going, head for a point beside it first (on your side), then on to the goal.

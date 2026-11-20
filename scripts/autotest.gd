@@ -5099,23 +5099,28 @@ func _run() -> void:
 				s.player.global_position = (row[last] as Vector3) - (ln["dir"] as Vector3) * (1.0 if s.lane["fwd"] else -1.0) * 30.0
 				await _until(func(): return s.lane.is_empty(), 10.0)
 		var after_lane: bool = s.autopilot == s.planet
-		# near the planet: the autopilot takes it down and to the port
+		# v13.238 (owner: "find the best waypoint there, a dock there, not boost and crash into it"): from BEHIND the planet,
+		# the autopilot goes round it (never into the air), out over its gate, then in slowly and docks at the gate
 		var pr: float = float(s.planet.get_meta("radius"))
 		var toward: Vector3 = (s.station.global_position - s.planet.global_position).normalized()
 		s.drop_warp()
-		_tp(s.planet.global_position + toward * pr * 1.05, s.planet.global_position)
+		_tp(s.planet.global_position - toward * pr * 1.6, s.planet.global_position)
 		s.autopilot = s.planet
-		await _until(func(): return main.state == "flight" and _sp().surface_mode, 120.0)
-		await _wait(1.0)
-		s = _sp()
-		var sg_ok: bool = s.autopilot != null and s.autodock_target == s.autopilot
-		if sg_ok:
-			var gp: Vector3 = s.autopilot.global_position
-			_tp(gp + Vector3(0, 0, 400), gp)
-		await _until(func(): return main.state == "hub", 60.0)
+		s.autodock_target = s.planet
+		var low := INF
+		var top_v := 0.0
+		var t_end := Time.get_ticks_msec() + 300000
+		while Time.get_ticks_msec() < t_end and main.state == "flight" and is_instance_valid(s) and not s.surface_mode:
+			var dpc: float = s.player.global_position.distance_to(s.planet.global_position) / pr
+			low = minf(low, dpc)
+			if s._ap_final == s.planet: top_v = maxf(top_v, s.vel.length())
+			await get_tree().process_frame
+		await _until(func(): return main.state == "hub", 30.0)
 		var docked: bool = main.state == "hub" and main.docked_node_kind == "planet"
-		_check("v12.62 (owner): GO TO New Terra: by %s; the autopilot docked into the lane (%s) and flew on from its end (%s); then it docked on the planet (%s, %s; by its port down there %s)" % [plan.get("via", "?"), saw_lane, after_lane, docked, main.hub.base.get("name", "") if docked else main.state, sg_ok],
-			docked and (str(plan.get("via", "")) != "lane" or (saw_lane and after_lane)), "state %s lane %s after %s sg %s" % [main.state, saw_lane, after_lane, sg_ok])
+		_check("v12.62 (owner): GO TO New Terra: by %s; the autopilot docked into the lane (%s) and flew on from its end (%s); then it docked on the planet (%s)" % [plan.get("via", "?"), saw_lane, after_lane, docked],
+			docked and (str(plan.get("via", "")) != "lane" or (saw_lane and after_lane)), "state %s lane %s after %s" % [main.state, saw_lane, after_lane])
+		_check("v13.238 (owner): from behind the planet it went ROUND (never into the air: lowest %.3f R, the air starts at %.2f R), out over the gate, in slowly (%.0f m/s at most on the final run) and docked at the gate" % [low, Data.ATMO_OUTER, top_v],
+			docked and low > Data.ATMO_INNER + 0.005 and top_v < 120.0, "low %.3f top %.0f" % [low, top_v])
 		_check("v12.62 (owner): in a trade lane the right stick looks round the ship (%s)" % look_ok, look_ok or not saw_lane, "")
 		_finish_group()
 		return
