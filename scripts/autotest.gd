@@ -4264,7 +4264,8 @@ func _run() -> void:
 				if main.state != "boarding": break
 				await _wait(0.5)
 			var sd2: ShipInterior = main.ship_deck
-			_check("v13.02: BOARD at the hull puts you aboard its deck plan with the job's mission running", is_instance_valid(sd2) and main.state == "ship_deck" and sd2.mission == str(jb["kind"]) and sd2.m_stage == 0, main.state)
+			var fleet_in: bool = main.state == "flight" and not main.board_from.is_empty() and str(main.board_from.get("kind", "")) == str(jb["kind"]) and bool(main.board_from.get("job", false))   # (v13.89+: a traced fleet deck is the full boarding run)
+			_check("v13.02: BOARD at the hull puts you aboard its deck plan with the job's mission running", fleet_in or (is_instance_valid(sd2) and main.state == "ship_deck" and sd2.mission == str(jb["kind"]) and sd2.m_stage == 0), "%s fleet %s" % [main.state, fleet_in])
 			if is_instance_valid(sd2):
 				await _shot("boardjob_aboard", 0.5)
 				var cr0: int = GS.credits
