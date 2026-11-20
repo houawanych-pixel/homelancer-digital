@@ -8326,7 +8326,7 @@ func _autopilot_input() -> Array:
 		return [Vector2.ZERO, Vector2.ZERO]
 	var aligned := local.z < -0.97
 	# long legs: spool the warp drive while flying on, warp, drop out near the destination (and before any atmosphere)
-	var near_air := _ap_planet_close()   # v13.238: never warp close to a planet (it warped into one going round it)
+	var near_air := _ap_planet_close(goal)   # v13.238: no warp on a run that passes close to a planet (it warped into one going round it)
 	if warp_state == "off" and aligned and dist > 1500.0 and planet_hazard == 0 and not near_air: request_warp()
 	if warp_state != "off" and near_air: drop_warp("Autopilot: dropping out of warp near the planet.")
 	var drop_d := 650.0
@@ -8337,9 +8337,16 @@ func _autopilot_input() -> Array:
 		th = minf(th, _ap_throttle_for(clampf(dist * 0.35, Data.AP_DOCK_SPEED, _ap_bs())))
 	return [steer, Vector2(0, th)]
 
-func _ap_planet_close() -> bool:   # inside the zone where warp near a planet is deadly (1.8x its air, and a margin)
+func _ap_planet_close(goal: Vector3) -> bool:   # the run from here to goal passes too close to the planet's air for warp
 	if not is_instance_valid(planet) or surface_mode: return false
-	return player.global_position.distance_to(planet.global_position) < float(planet.get_meta("radius", 1000.0)) * Data.ATMO_OUTER * 1.8 + 300.0
+	var outer := float(planet.get_meta("radius", 1000.0)) * Data.ATMO_OUTER
+	return _seg_min_dist(player.global_position, goal, planet.global_position) < outer * Data.AP_PLANET_CLEAR
+
+static func _seg_min_dist(a: Vector3, b: Vector3, c: Vector3) -> float:
+	var ab := b - a
+	var L2 := ab.length_squared()
+	if L2 < 0.01: return a.distance_to(c)
+	return (a + ab * clampf((c - a).dot(ab) / L2, 0.0, 1.0)).distance_to(c)
 
 func _ap_bs() -> float:   # (the ship's speed, as flight uses it)
 	var bs := float(GS.ship()["speed"])
@@ -8367,18 +8374,20 @@ func _ap_planet_goal(pn: Node3D, gate: Vector3) -> Vector3:
 		_ap_final = pn
 		drop_warp()
 		return gate
-	var safe := r * Data.ATMO_OUTER + Data.AP_PLANET_APPROACH * 0.5   # (keep out of the air on the way)
-	var seg := above - p
-	var L := seg.length()
-	if L > 1.0:
-		var t := clampf((c - p).dot(seg) / (L * L), 0.0, 1.0)
-		var near := p + seg * t
-		if near.distance_to(c) < safe and t > 0.0 and t < 1.0:   # the planet is in the way: head for a point beside it
-			var side := near - c
-			if side.length() < 1.0: side = seg.cross(Vector3.UP)
-			if side.length() < 1.0: side = Vector3.RIGHT
-			return c + side.normalized() * (r * Data.ATMO_OUTER * Data.AP_PLANET_ROUND)   # (well out: warp is not allowed near it)
-	return above
+	var outer := r * Data.ATMO_OUTER
+	var high := c + out * outer * Data.AP_PLANET_ROUND   # (over the gate, high: the run down from here is straight)
+	var u := p - c
+	var D := u.length()
+	if D < 1.0: return above
+	u /= D
+	if u.dot(out) > cos(deg_to_rad(12.0)) or p.distance_to(high) < 1500.0: return above   # over the gate: straight down to the approach point
+	if _seg_min_dist(p, high, c) >= outer * Data.AP_PLANET_CLEAR: return high   # a clear run to over the gate
+	var rw := maxf(D, outer * Data.AP_PLANET_ROUND)
+	if D < outer * Data.AP_PLANET_CLEAR * 1.05: return c + u * rw   # (too close: straight out first)
+	var axis := u.cross(out)   # round the planet toward the gate side, a step at a time, at a safe height
+	if axis.length() < 0.01: axis = u.cross(Vector3.UP)
+	if axis.length() < 0.01: axis = u.cross(Vector3.RIGHT)
+	return c + u.rotated(axis.normalized(), deg_to_rad(Data.AP_PLANET_STEP)) * rw
 
 
 ## v11.91: the stations are big now (4x): when the straight run to `goal` passes through a station that is not where
