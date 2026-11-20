@@ -2725,6 +2725,7 @@ func _fleet_line(where: String) -> String:
 		if float(board["escape"]) > 1.0e6: return "GET OUT  ·  %s  ·  %s" % [where, "the way in is blocked: find another way out" if fleet_exit_key() != "sbay" else "back to the %s" % str(Boarding.ROOMS["sbay"]["label"])]   # v13.170: no clock (rescue / capture)
 		if fleet_exit_key() != "sbay": return "ESCAPE: %d s  ·  %s  ·  the way in is blocked: find another way out" % [int(ceil(maxf(0.0, float(board["escape"])))), where]
 		return "ESCAPE: %d s  ·  %s  ·  back to the %s" % [int(ceil(maxf(0.0, float(board["escape"])))), where, str(Boarding.ROOMS["sbay"]["label"])]
+	if kind == "visit" and stealth == "alert" and bool(Boarding.INFO.get("station", false)): return "%s  ·  %s  ·  WANTED: get to your ship at the %s%s" % [stealth.to_upper(), where, str(Boarding.ROOMS["sbay"]["label"]), cards]   # v13.237: the station alarm
 	if kind == "visit": return "%s  ·  %s  ·  a guest aboard: look round; the %s to leave%s" % [stealth.to_upper(), where, str(Boarding.ROOMS["sbay"]["label"]), cards]   # v13.144
 	if bool(fl["done"]) or kind == "": return "%s%s  ·  back to the %s to leave%s" % [alert, where, str(Boarding.ROOMS["sbay"]["label"]), cards]
 	var need := int(fl.get("need", 0))
