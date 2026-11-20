@@ -1922,8 +1922,8 @@ func _run() -> void:
 		var h0 := _sp()
 		GS.form = "mech"
 		var cr0: int = GS.credits
-		_check("v13.237: %s is enemy space with a five-deck station" % hs, SystemBuilder.is_enemy_space(Data.SYSTEMS.get(hs, {})) and main.station_v2_deck(hs) != "", main.station_v2_deck(hs))
-		main.dock(h0.station)
+		_check("v13.237: %s (a hostile capital) has its five-deck station" % hs, main.station_v2_deck(hs) != "", main.station_v2_deck(hs))
+		main.infiltrate_station(h0.station)   # (docking in "Enemy" space does this; their alien stations have no five decks yet)
 		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding, 90.0)
 		var h1 := _sp()
 		_check("v13.237: docking as a mech INFILTRATES its five decks (Main Hub generator, guards on patrol, not a guest)", h1.boarding and Boarding.INFO.has("fleet") and bool(main.board_from.get("infiltrate", false)) and str(h1.board.get("fleet", {}).get("kind", "")) == "sabotage" and h1.stealth != "neutral" and Boarding.deck_names().size() == 5,
