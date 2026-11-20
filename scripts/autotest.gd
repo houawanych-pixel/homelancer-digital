@@ -10243,9 +10243,26 @@ func _job_v1132() -> void:
 		await get_tree().physics_frame   # (the new hull joins the physics world on the next physics step)
 		await get_tree().physics_frame
 		var top0: Vector3 = bse["node"].global_position + Vector3(0, 390, 0)
+		var aim0: Vector3 = bse["node"].global_position + Vector3(0, 2, 0)
+		var grid_hits := 0
+		var bn5: Node3D = bse["node"]
+		for gx in [0.0, -0.25, 0.25, -0.12, 0.12]:   # (the real shape can have a gap down its middle: find hull under you first)
+			for gz in [0.0, -0.3, 0.3, -0.15, 0.15, -0.45, 0.45]:
+				var hh: Vector3 = bn5.get_meta("hit_half") if bn5.has_meta("hit_half") else Vector3(300, 300, 1200)
+				var off5: Vector3 = bn5.global_basis.orthonormalized() * Vector3(gx * hh.x * 2.0, 0, gz * hh.z * 2.0)
+				var rq6 := PhysicsRayQueryParameters3D.create(bn5.global_position + off5 + Vector3(0, 390, 0), bn5.global_position + off5 - Vector3(0, 390, 0), s.HULL_LAYER)
+				var rh6 := s.get_world_3d().direct_space_state.intersect_ray(rq6)
+				if not rh6.is_empty():
+					grid_hits += 1
+					if grid_hits == 1:
+						top0 = bn5.global_position + off5 + Vector3(0, 390, 0)
+						aim0 = (rh6["position"] as Vector3) - Vector3(0, 30, 0)
+		print("[route] solid debug3: grid hits %d of 35" % grid_hits)
+		s.player.global_position = top0
+		await get_tree().physics_frame
 		for st5 in 40:   # (flown in from above in steps, like real flight: a real-shape hull stops you at its skin)
 			s._hull_prev = s.player.global_position
-			var want: Vector3 = top0.lerp(bse["node"].global_position + Vector3(0, 2, 0), float(st5 + 1) / 40.0)
+			var want: Vector3 = top0.lerp(aim0, float(st5 + 1) / 40.0)
 			if s.player.global_position.distance_to(want) > 5.0 and st5 > 0 and s.ship_bumps > b0: break   # (stopped: it held you)
 			s.player.global_position = want
 			s._bump_ships()
@@ -10259,7 +10276,7 @@ func _job_v1132() -> void:
 			var rq5 := PhysicsRayQueryParameters3D.create(top0, bse["node"].global_position - Vector3(0, 390, 0), 0xFFFFFFFF)
 			var rh5 := s.get_world_3d().direct_space_state.intersect_ray(rq5)
 			print("[route] solid debug2: faces %d local box %s body at %s node at %s scale %s inside %s layer %d ray %s" % [fz.size() / 3, ab, hb.global_position, bse["node"].global_position, bse["node"].global_basis.get_scale(), hb.is_inside_tree(), hb.collision_layer, str(rh5.get("collider", null)) + " " + str(rh5.get("position", ""))])
-		var out_d: float = s.player.global_position.distance_to(bse["node"].global_position)
+		var out_d: float = s.player.global_position.distance_to(aim0)   # (held at the skin, short of the point inside it)
 		var solid_ok: bool = s.ship_bumps > b0 and out_d > 15.0 and bse["node"].has_meta("ship_box")
 		s.player.global_position = pp0
 		res.append("solid %s (pushed %.0f m)" % [solid_ok, out_d])
