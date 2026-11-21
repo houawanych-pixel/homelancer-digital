@@ -429,7 +429,7 @@ static func facility_sites(planet_id: String) -> Array:
 	var dock_spots: Array = []
 	for l in P.get("locations", []): dock_spots.append([int(l["tile"]), l["pos"] as Vector2])
 	for i in out.size():
-		out[i]["difficulty"] = clampi(1 + i / 2, 1, 4)
+		out[i]["difficulty"] = clampi(1 + i / 2 + (1 if sides.is_empty() else 0), 1, 5)   # v13.244: an enemy faction's world: one harder (level 5 at the top)
 		var t: int = tiles[(i * 5 + absi(hash(planet_id)) % tiles.size()) % tiles.size()]
 		var spot := Vector2.ZERO
 		for tries in 30:   # hidden somewhere on the land, well apart from the others and the docks

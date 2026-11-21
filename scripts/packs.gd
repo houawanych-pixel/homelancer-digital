@@ -443,7 +443,11 @@ const PACKS := {
 	"pilot": {"folders": ["res://assets/pilot"], "probe": "res://assets/pilot/hl_hova.glb"},   # v12.34: the owner's pilot (on foot in the station escape) and his rifle (the mech's gun)
 	"kaijurai_fleet": {"folders": ["res://assets/ships/kaijurai"], "probe": "res://assets/ships/kaijurai/kaijurai_fang.glb"},   # v6.2: the second Kaijurai set
 	"faction_fleet": {"folders": ["res://assets/ships/fleet"], "probe": "res://assets/ships/fleet/elyza_battleship.glb"},
-	"facilities": {"folders": ["res://assets/facilities"], "probe": "res://assets/facilities/facility_d1_a_map.jpg"},   # v13.242: the planet facilities' floors (tools/trace/facility_v1), fetched when you first go in
+	"facilities_l1": {"folders": ["res://assets/facilities"], "match": "facility_d1_", "probe": "res://assets/facilities/facility_d1_a_map.jpg"},   # v13.244: the planet facilities' floors, one pack per level (only the level you go into is fetched)
+	"facilities_l2": {"folders": ["res://assets/facilities"], "match": "facility_d2_", "probe": "res://assets/facilities/facility_d2_a_map.jpg"},
+	"facilities_l3": {"folders": ["res://assets/facilities"], "match": "facility_d3_", "probe": "res://assets/facilities/facility_d3_a_map.jpg"},
+	"facilities_l4": {"folders": ["res://assets/facilities"], "match": "facility_d4_", "probe": "res://assets/facilities/facility_d4_a_map.jpg"},
+	"facilities_l5": {"folders": ["res://assets/facilities"], "match": "facility_d5_", "probe": "res://assets/facilities/facility_d5_a_map.jpg"},
 	"faction_fighters": {"folders": ["res://assets/ships/fighters"], "probe": "res://assets/ships/fighters/HL_Orion_Fighter_L2.glb"},   # v11.68: the 8 factions' Level 2 and Level 3 fighters
 	"bases3d": {"folders": ["res://assets/bases3d"], "probe": "res://assets/bases3d/HL_Base_Unity_ResearchDome.glb"},   # v11.91: the owner's 15 faction bases + 3 base parts
 	"crowd3d": {"folders": ["res://assets/crowd3d"], "probe": "res://assets/crowd3d/phenom_isara.glb"},

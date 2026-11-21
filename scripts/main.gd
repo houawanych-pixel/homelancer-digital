@@ -2450,16 +2450,17 @@ func infiltrate_station(n: Node3D) -> void:
 var facility_decks_on := true   # (the older facility tests turn it off)
 func facility_deck(site: Dictionary) -> String:
 	if not facility_decks_on: return ""
-	var arr: Array = Data.FACILITY_DECKS.get(clampi(int(site.get("difficulty", 1)), 1, 4), [])
+	var arr: Array = Data.FACILITY_DECKS.get(clampi(int(site.get("difficulty", 1)), 1, 5), [])
 	if arr.is_empty(): return ""
 	return str(arr[absi(hash("%s:%s" % [str(site.get("planet", "")), str(site.get("name", ""))])) % arr.size()])   # (v13.242: in the facilities pack; it's fetched on the way in)
 
 func _enter_facility_deck(site: Dictionary, path: String) -> void:
 	state = "boarding"
-	if not Packs.is_ready("facilities"):   # v13.242: the facilities' floors are their own download
+	var fpk := "facilities_l%d" % clampi(int(site.get("difficulty", 1)), 1, 5)   # v13.244: one download per level
+	if not Packs.is_ready(fpk):   # v13.242: the facilities' floors are their own download
 		hud.flash_message("Loading the facility...")
-		Packs.request("facilities")
-		await Packs.wait("facilities", 90.0)
+		Packs.request(fpk)
+		await Packs.wait(fpk, 90.0)
 	var L := Boarding.fleet_layout(path) if FileAccess.file_exists(path) else {}
 	if L.is_empty():
 		state = "flight"

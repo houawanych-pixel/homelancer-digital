@@ -40,10 +40,10 @@ FLOORS = [("lower2", "SUB-LEVEL 2", -2), ("lower", "SUB-LEVEL 1", -1), ("main", 
 ROLE = {"ENTRY LEVEL": dict(hub="Command Center", word="Operations"),
         "SUB-LEVEL 1": dict(hub="Pump Station", word="Works"),
         "SUB-LEVEL 2": dict(hub="Reactor Hall", word="Deep")}
-SIZE = {1: 2, 2: 2, 3: 2, 4: 2}               # junctions out from the core (a bigger grid was too heavy: 650 rooms a floor)
-KEEP = {1: 0.62, 2: 0.72, 3: 0.82, 4: 0.92}   # share of junctions kept: the harder, the more of the grid is dug out
+SIZE = {1: 2, 2: 2, 3: 2, 4: 2, 5: 2}               # junctions out from the core (a bigger grid was too heavy: 650 rooms a floor)
+KEEP = {1: 0.62, 2: 0.72, 3: 0.82, 4: 0.92, 5: 0.98}   # (5: the enemy factions' own facilities, the fullest)   # share of junctions kept: the harder, the more of the grid is dug out
 LOOPS = 0.22                                  # extra links on top of the tree (other ways round)
-CAVES = {1: 2, 2: 2, 3: 3, 4: 3}              # caverns per floor (where dead ends allow)
+CAVES = {1: 2, 2: 2, 3: 3, 4: 3, 5: 3}              # caverns per floor (where dead ends allow)
 
 def cavern(cx, cy, r, d, rng):
     """An irregular rock chamber round (cx, cy), radius about r, cut flat across its mouth (facing direction -d), so

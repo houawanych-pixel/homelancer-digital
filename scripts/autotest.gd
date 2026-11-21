@@ -2038,10 +2038,12 @@ func _run() -> void:
 		await _until(func(): return main.state == "flight", 10.0)
 		await _wait(1.0)
 		var fl_ok := true
-		for dd in [1, 2, 3, 4]:
+		for dd in [1, 2, 3, 4, 5]:
 			var p0: String = main.facility_deck({"planet": "new_terra", "name": "Test Site", "difficulty": dd})
 			fl_ok = fl_ok and p0 != "" and FileAccess.file_exists(p0)
-		_check("v13.239: a facility map for every level (1-4)", fl_ok, str(Data.FACILITY_DECKS))
+		var n_maps := 0
+		for lv in Data.FACILITY_DECKS: n_maps += (Data.FACILITY_DECKS[lv] as Array).size()
+		_check("v13.244: a facility map for every level (1-5), %d in all" % n_maps, fl_ok and n_maps == 30, str(n_maps))
 		main._load_surface("new_terra", 0)
 		await _wait(1.5)
 		GS.form = "mech"
