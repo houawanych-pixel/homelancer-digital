@@ -2094,6 +2094,34 @@ func _run() -> void:
 		await _capture("portbase")
 		_finish_group()
 		return
+	if _flag("HL_DOCKSTART"):   # v13.258 (owner): a returning pilot wakes up in the pilot's room; the station loads meanwhile
+		GS.save_enabled = true
+		GS.save_path = "user://hl_dockstart_test.save"
+		GS.system_id = "solara"
+		GS.creator_done = true
+		GS.save_game()
+		main.start_game()
+		await _until(func(): return main.state == "hub", 20.0)
+		await _wait(1.0)
+		var st: Node3D = main.space.station
+		var standin := false
+		if st != null and st.has_meta("body"):
+			for ch in (st.get_meta("body") as Node3D).get_children():   # (a mesh you'd see; the hull's collision box is not one)
+				if ch is Node3D and not ch.has_meta("blink") and str(ch.name) != "Station3D" and (ch as Node3D).visible and (ch is VisualInstance3D or not (ch as Node3D).find_children("*", "MeshInstance3D", true, false).is_empty()) and not (ch is CollisionObject3D): standin = true
+		_check("v13.258: back in the game you start docked, in your quarters (MY SHIP), no small stand-in station (%s)" % main.hub.screen,
+			main.state == "hub" and main.hub.screen == "ship" and not standin, "state %s screen %s standin %s" % [main.state, main.hub.screen, standin])
+		await _capture("dockstart_quarters")
+		await _until(func(): return is_instance_valid(main.space) and main.space.station_model != null, 120.0)
+		var loaded_docked: bool = main.state == "hub" and main.space.station_model != null
+		main.launch()
+		await _until(func(): return main.state == "flight", 20.0)
+		await _wait(1.5)
+		_check("v13.258: while you're in your quarters the real station loads (%s); LAUNCH flies out with it there" % loaded_docked, loaded_docked and main.state == "flight" and main.space.station_model != null and main.space.station_model.is_visible_in_tree(), main.state)
+		await _capture("dockstart_launch")
+		DirAccess.remove_absolute(ProjectSettings.globalize_path("user://hl_dockstart_test.save"))
+		GS.save_enabled = false
+		_finish_group()
+		return
 	if _flag("HL_FACILITY"):   # v13.239 (owner: "planetary maps ... randomizer using the library ... 3 to 4 key method"): a facility's own three floors
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)

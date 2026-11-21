@@ -510,9 +510,11 @@ func _build_station(d: Dictionary) -> void:
 	torus.ring_segments = 8
 	var body := Node3D.new()
 	station.add_child(body)
-	if ShipFactory.has_real_model("station"):
+	if ShipFactory.has_real_model("station") or (Data.NO_STATION_STANDIN and d.has("model")):
 		# real station model: 150 units tall, round docking port facing +Z (front face at about z = 45)
-		body.add_child(ShipFactory.build("station"))
+		# v13.258 (owner: "it loads that small round one first, then the real one: that's memory on something not needed"):
+		# a station with its own model shows nothing until that model is in (you start docked inside, it loads meanwhile)
+		if not (Data.NO_STATION_STANDIN and d.has("model")): body.add_child(ShipFactory.build("station"))
 		for i in 5:
 			for s in [-1.0, 1.0]:
 				var gl := _mesh(body, BoxMesh.new(), Vector3(s * 12, -6, 64 + i * 14), Color(0.3, 1.0, 0.6), Vector3(1.2, 1.2, 1.2), Vector3.ZERO, true)

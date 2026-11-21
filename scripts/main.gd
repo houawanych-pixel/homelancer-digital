@@ -130,6 +130,9 @@ func start_game() -> void:
 	if Data.PILOT_OUTFITS and (not back or not GS.creator_done) and (not autotest or OS.get_environment("HL_CREATOR") != ""):   # v12.90 (owner): a new pilot makes their character first
 		open_creator()
 		return
+	if Data.START_DOCKED and back and (not autotest or OS.get_environment("HL_DOCKSTART") != ""):
+		_start_docked()   # v13.258 (owner): you wake up in your pilot's room at the station you last docked at
+		return
 	_launch_sequence(str(Data.SYSTEMS[GS.system_id]["station"]["name"]) if back else "Liberty Hub", false)   # v1.7n (owner): no radio call at the very start
 	if back: hud.flash_message("Welcome back, %s. Your progress is loaded." % GS.pilot_name if GS.pilot_name != "" else "Welcome back. Your progress is loaded.")
 	else: GS.save_game()   # v1.9j: a new pilot's slot is taken at once (the picker shows the name next time)
@@ -155,6 +158,24 @@ func open_creator() -> void:
 	hub.open(info)
 	state = "hub"
 	hub.start_creator()
+
+## v13.258 (owner: "start in the pilot's room where you last docked; while you're in there the real station loads, so it's
+## ready when you head out"): a returning pilot opens the game docked, in MY SHIP (the pilot's quarters). Space waits
+## behind the hub with the station's own model downloading; LAUNCH flies out as from any dock.
+func _start_docked() -> void:
+	var n: Node3D = space.station
+	var info: Dictionary = n.get_meta("info") if n != null and n.has_meta("info") else {}
+	space.controls = false
+	space.visible = false
+	space.process_mode = Node.PROCESS_MODE_DISABLED
+	hud.visible = false
+	docked_node_kind = str(info.get("kind", "station"))
+	space.launch_from = n if n != null and n.has_meta("dock") else null
+	GS.last_base = str(info.get("id", GS.last_base))
+	hub.open(info)
+	state = "hub"
+	hub.show_screen("ship")
+	hub.status.text = ("Welcome back, %s. You're in your quarters at %s." % [GS.pilot_name, str(info.get("name", "the station"))]) if GS.pilot_name != "" else "Welcome back. You're in your quarters at %s." % str(info.get("name", "the station"))
 
 func finish_creator() -> void:
 	GS.creator_done = true
