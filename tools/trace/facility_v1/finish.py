@@ -43,7 +43,11 @@ if True:
     reds = sorted([k for k, v in lv.items() if int(v) == 3 and not k.startswith(("l_", "l2_", "u_")) and k in b["rooms"] and b["rooms"][k].get("kind") != "lift"])
     k4 = reds[len(reds) // 2] if reds else f["cards"][-1]["room"]
     r4 = b["rooms"][k4]["r"]
-    if PURPLE: f["cards"].append({"room": k4, "key": 4, "at": [(r4[0] + r4[1]) / 2, 0.0, (r4[2] + r4[3]) / 2]})
+    # v13.250: the PURPLE card is carried on SUB-LEVEL 3 (down LIFT A and B), so it is dug for, not found at the door
+    deep = sorted(k for k, v in b["rooms"].items() if k.startswith("l3_r_") and v.get("kind") != "lift" and "lift" not in k and "cavern" not in k)
+    if deep: k4 = deep[len(deep) // 2]
+    r4 = b["rooms"][k4]["r"]; y4 = float(b["rooms"][k4]["y"][0])
+    if PURPLE: f["cards"].append({"room": k4, "key": 4, "at": [(r4[0] + r4[1]) / 2, y4, (r4[2] + r4[3]) / 2]})
     hub2 = next(k for k in b["rooms"] if k.startswith("l4_") and "reactor_hall" in k)
     rh = b["rooms"][hub2]["r"]; yh = float(b["rooms"][hub2]["y"][0])
     for t in f["targets"].values():
