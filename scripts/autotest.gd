@@ -1955,10 +1955,11 @@ func _run() -> void:
 			if bool(rb.get("shield_broken", false)): break
 			s._damage_enemy(rb, 300.0)
 		var opened: bool = bool(rb.get("shield_broken", false)) and not (rb["raid_dome"] as Node3D).visible and s.enemies.has(rb) and float(rb["hp"]) > 0.0
-		s.player.global_position = Vector3(hbase.global_position.x + 60.0, s._ground(hbase.global_position.x + 60.0, hbase.global_position.z) + 4.0, hbase.global_position.z)
+		var edge: float = float(hbase.get_meta("half", 80.0)) + 25.0   # v13.255 (owner: "could not enter"): landed just outside its solid walls
+		s.player.global_position = Vector3(hbase.global_position.x + edge, s._ground(hbase.global_position.x + edge, hbase.global_position.z) + 4.0, hbase.global_position.z)
 		await _wait(0.3)
 		var can_in: bool = not s.facility_candidate().is_empty()
-		_check("v13.241: shield up, it won't let you in; shield, then hull to half: the generator goes (never destroyed from outside) and you can INFILTRATE", shut and opened and can_in, "shut %s opened %s in %s" % [shut, opened, can_in])
+		_check("v13.241: shield up, it won't let you in; shield, then hull to half: the generator goes (never destroyed from outside) and you can INFILTRATE from just outside its walls", shut and opened and can_in, "shut %s opened %s in %s (half %d)" % [shut, opened, can_in, int(hbase.get_meta("half", 0))])
 		var site_in: Dictionary = s.facility_candidate()
 		s.player.global_position = hbase.global_position + Vector3(0, 250, 500)
 		var dv: Vector3 = (hbase.global_position - s.player.global_position).normalized()

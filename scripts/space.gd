@@ -1750,14 +1750,23 @@ func board_candidate() -> Dictionary:
 func facility_candidate() -> Dictionary:
 	if not surface_mode or boarding or not is_instance_valid(player): return {}
 	for h: Node3D in planet_bases:
-		if is_instance_valid(h) and h.has_meta("facility") and Vector2(h.global_position.x - player.global_position.x, h.global_position.z - player.global_position.z).length() < Data.FACILITY_NEAR \
-				and player.global_position.y - h.global_position.y < Data.FACILITY_HIGH:   # v12.33 (owner): right by it, on the ground, not miles up in the air
+		# v13.255 (owner: "could not enter New Terra enemy base"): the reach counts from the base's edge, not its middle
+		# (a big bunker compound is solid: from its centre you could never stand close enough), and the height from the
+		# ground by it
+		if not is_instance_valid(h) or not h.has_meta("facility"): continue
+		var reach := maxf(Data.FACILITY_NEAR, float(h.get_meta("half", 80.0)) + Data.FACILITY_NEAR * 0.6)
+		var gy := _ground(h.global_position.x, h.global_position.z)
+		if is_instance_valid(h) and h.has_meta("facility") and Vector2(h.global_position.x - player.global_position.x, h.global_position.z - player.global_position.z).length() < reach \
+				and player.global_position.y - maxf(gy, h.global_position.y) < Data.FACILITY_HIGH:   # v12.33 (owner): right by it, on the ground, not miles up in the air
 			if h.has_meta("raid_e") and not bool((h.get_meta("raid_e") as Dictionary).get("shield_broken", false)):   # v13.241: its shield first
-				if _rng.randf() < 0.01: message.emit("The base's shield is up: knock it down first.")
+				if Time.get_ticks_msec() - _raid_hint_ms > 6000:
+					_raid_hint_ms = Time.get_ticks_msec()
+					message.emit("The base's shield is up: shoot the base till its shield generator goes down, then INFILTRATE.")
 				continue
 			return h.get_meta("facility")
 	return {}
 
+var _raid_hint_ms := -100000
 signal facility_request(site: Dictionary)
 var _fac_pending := {}
 func board_now() -> bool:
