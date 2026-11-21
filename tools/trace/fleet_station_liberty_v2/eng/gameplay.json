@@ -408,58 +408,47 @@
    "decks": [
     "lower2",
     "lower",
-    "main",
-    "upper",
-    "upper2"
+    "main"
    ],
    "at": [
     1698,
     1367
    ],
-   "label": "LIFT",
+   "label": "NORTH LIFT",
    "need": {
-    "upper2": 3
+    "main": 0
    }
   },
   {
    "decks": [
-    "lower2",
     "lower",
-    "main",
-    "upper",
-    "upper2"
+    "main"
    ],
    "at": [
     1698,
     2011
    ],
-   "label": "LIFT",
+   "label": "SOUTH LIFT",
    "need": {
-    "upper2": 3
+    "main": 0
    }
   },
   {
    "decks": [
-    "lower2",
-    "lower",
     "main",
-    "upper",
-    "upper2"
+    "upper"
    ],
    "at": [
     1933,
     1602
    ],
-   "label": "LIFT",
+   "label": "EAST LIFT",
    "need": {
-    "upper2": 3
+    "main": 0
    }
   },
   {
    "decks": [
-    "lower2",
-    "lower",
-    "main",
     "upper",
     "upper2"
    ],
@@ -467,7 +456,7 @@
     1367,
     1602
    ],
-   "label": "LIFT",
+   "label": "WEST LIFT",
    "need": {
     "upper2": 3
    }

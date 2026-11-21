@@ -254,7 +254,7 @@
     "Main Hub (Central Customs)"
    ],
    "type": "mech",
-   "key": 3
+   "key": 0
   },
   {
    "at": [
@@ -266,7 +266,7 @@
     "Main Hub (Central Customs)"
    ],
    "type": "mech",
-   "key": 3
+   "key": 0
   },
   {
    "at": [
@@ -278,7 +278,7 @@
     "Main Hub (Central Customs)"
    ],
    "type": "mech",
-   "key": 3
+   "key": 0
   },
   {
    "at": [
@@ -290,7 +290,7 @@
     "Main Hub (Central Customs)"
    ],
    "type": "mech",
-   "key": 3
+   "key": 0
   },
   {
    "at": [
@@ -302,7 +302,7 @@
     "Dock Pad 32"
    ],
    "type": "mech",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -338,7 +338,7 @@
     "Dock Pad 148"
    ],
    "type": "mech",
-   "key": 1
+   "key": 0
   },
   {
    "at": [
@@ -602,7 +602,7 @@
     "Pilot Services Quarters 2"
    ],
    "type": "pilot",
-   "key": 2
+   "key": 0
   },
   {
    "at": [
@@ -1717,10 +1717,10 @@
   "mech_doors": 44,
   "pilot_doors": 78,
   "locked": {
-   "OPEN": 115,
-   "YELLOW": 1,
-   "ORANGE": 2,
-   "RED": 4
+   "OPEN": 122,
+   "YELLOW": 0,
+   "ORANGE": 0,
+   "RED": 0
   }
  }
 }
