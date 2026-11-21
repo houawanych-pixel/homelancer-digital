@@ -30,16 +30,21 @@ sys.path.insert(0, TR); sys.path.insert(0, os.path.join(TR, "station_v2"))
 import planlib
 from planlib import hall, Ship, run, DOOR
 import station_build as SB
-from station_build import C, NPX, MW, A_HUB, A_A, LIFTS, octo, cut_of, pick, MECH_WORDS, PILOT_WORDS
+from station_build import C, NPX, MW, A_HUB, A_A, octo, cut_of, pick, MECH_WORDS, PILOT_WORDS
 from shapely.geometry import Polygon, box, Point, shape, mapping, LineString
 from shapely import affinity
 from shapely.ops import unary_union
 
 G = 360.0                                     # junction spacing (px; 10 px = 1 m): the cross ends at 360 like a station
-FLOORS = [("lower2", "SUB-LEVEL 2", -2), ("lower", "SUB-LEVEL 1", -1), ("main", "ENTRY LEVEL", 0)]
+# v13.248 (owner: "elevators in different places, like a real building: one takes you 1 2 3, then 3 4, then 4 to 5;
+# more lower levels for a facility base"): five floors going down, the lift shafts staggered (see shafts())
+FLOORS = [("lower4", "SUB-LEVEL 4", -4), ("lower3", "SUB-LEVEL 3", -3), ("lower2", "SUB-LEVEL 2", -2), ("lower", "SUB-LEVEL 1", -1), ("main", "ENTRY LEVEL", 0)]
 ROLE = {"ENTRY LEVEL": dict(hub="Command Center", word="Operations"),
         "SUB-LEVEL 1": dict(hub="Pump Station", word="Works"),
-        "SUB-LEVEL 2": dict(hub="Reactor Hall", word="Deep")}
+        "SUB-LEVEL 2": dict(hub="Control Hub", word="Deep"),
+        "SUB-LEVEL 3": dict(hub="Cooling Plant", word="Vault"),
+        "SUB-LEVEL 4": dict(hub="Reactor Hall", word="Core")}
+FLOOR_K = {"main": 1.0, "lower": 0.9, "lower2": 0.85, "lower3": 0.78, "lower4": 0.72}   # (the deeper, the smaller: keeps the downloads in check)
 SIZE = {1: 2, 2: 2, 3: 2, 4: 2, 5: 2}               # junctions out from the core (a bigger grid was too heavy: 650 rooms a floor)
 KEEP = {1: 0.62, 2: 0.72, 3: 0.82, 4: 0.92, 5: 0.98}   # (5: the enemy factions' own facilities, the fullest)   # share of junctions kept: the harder, the more of the grid is dug out
 LOOPS = 0.22                                  # extra links on top of the tree (other ways round)
@@ -65,7 +70,42 @@ def cavern(cx, cy, r, d, rng):
         g = g.intersection(box(min(x, cx + d[0] * 3 * r), cy - 3 * r, max(x, cx + d[0] * 3 * r), cy + 3 * r))
     return Polygon(g.exterior) if g.geom_type == "Polygon" else max(g.geoms, key=lambda q: q.area)
 
-def build_floor(fid, d, role, here, src, entry_floor):
+def shafts(fid, d):
+    """The lift shafts, the same for every floor they serve (owner: "like a real building"): A runs floors 1-2-3 (ENTRY
+    LEVEL to SUB-LEVEL 2), B 3-4, C 4-5, each somewhere else on the grid; sometimes a second short lift joins 1-2.
+    Each sits beside the tunnel out of its junction (cell, dir) on the side given."""
+    rng = random.Random(int(hashlib.md5(("%s|shafts" % fid).encode()).hexdigest(), 16) % (2 ** 31))
+    N = SIZE[d]
+    ring = [(i, j) for i in range(-N, N + 1) for j in range(-N, N + 1) if max(abs(i), abs(j)) == N]
+    rng.shuffle(ring)
+    plan = [("LIFT A", ["main", "lower", "lower2"]), ("LIFT B", ["lower2", "lower3"]), ("LIFT C", ["lower3", "lower4"])]
+    if rng.random() < 0.6: plan.append(("LIFT D", ["main", "lower"]))
+    out, used = [], []
+    for label, decks in plan:
+        for c in ring:   # (far apart: a different side of the facility each)
+            if any(abs(c[0] - u[0]) + abs(c[1] - u[1]) < N + 1 for u in used): continue
+            dirs = [(dx, dy) for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)) if max(abs(c[0] + dx), abs(c[1] + dy)) <= N and (c[0] + dx, c[1] + dy) != (0, 0)]
+            if not dirs: continue
+            du = rng.choice(dirs)
+            used.append(c); out.append({"label": label, "decks": decks, "cell": c, "dir": du, "side": rng.choice((-1, 1))})
+            break
+    return out
+
+def lift_box(c, du, side):
+    """The lift car's room beside the tunnel leaving junction c in direction du, on the given side, and its door."""
+    px, py = C + c[0] * G, C + c[1] * G
+    a0, a1 = MW / 2 + 14, MW / 2 + 14 + 66
+    if du[1] == 0:   # (an east-west tunnel: the lift sits north or south of it)
+        x0, x1 = sorted((px + du[0] * a0, px + du[0] * a1))
+        e = py + side * MW / 2
+        y0, y1 = sorted((e, e + side * 70))
+        return box(x0, y0, x1, y1), ((x0 + x1) / 2, e, "h")
+    y0, y1 = sorted((py + du[1] * a0, py + du[1] * a1))
+    e = px + side * MW / 2
+    x0, x1 = sorted((e, e + side * 70))
+    return box(x0, y0, x1, y1), (e, (y0 + y1) / 2, "v")
+
+def build_floor(fid, d, role, here, src, entry_floor, dname="main", SH=()):
     planlib.DIAG.clear()
     seed = int(hashlib.md5(("%s|%s" % (fid, role)).encode()).hexdigest(), 16) % (2 ** 31)
     rng = random.Random(seed)
@@ -91,7 +131,9 @@ def build_floor(fid, d, role, here, src, entry_floor):
     # ---- the junction grid and its random tree (+ loops)
     cells = [(i, j) for i in range(-N, N + 1) for j in range(-N, N + 1) if max(abs(i), abs(j)) >= 1]
     must = {(0, -1), (0, 1), (1, 0), (-1, 0)}
-    kept = {c for c in cells if c in must or rng.random() < KEEP[d]}
+    kept = {c for c in cells if c in must or rng.random() < KEEP[d] * FLOOR_K.get(dname, 1.0)}
+    mine = [sh for sh in SH if dname in sh["decks"]]
+    for sh in mine: kept.add(sh["cell"])
     nb = lambda c: [(c[0] + 1, c[1]), (c[0] - 1, c[1]), (c[0], c[1] + 1), (c[0], c[1] - 1)]
     edges, seen = set(), set(must)
     front = list(must)
@@ -102,6 +144,22 @@ def build_floor(fid, d, role, here, src, entry_floor):
         for q in opts[:rng.choice((1, 2, 2, 3))]:
             seen.add(q); edges.add(tuple(sorted((c, q)))); front.append(q)
         if opts[rng.choice((1, 2, 2, 3)):] : front.append(c)   # (it can branch again later)
+    def join(c0):   # (a lift's junction joined to the tunnels the shortest way, if the tree missed it)
+        if c0 in seen: return
+        prev, todo = {c0: None}, [c0]
+        while todo:
+            c = todo.pop(0)
+            if c in seen and c != c0:
+                while prev[c] is not None:
+                    p_ = prev[c]; seen.add(p_); edges.add(tuple(sorted((c, p_)))); c = p_
+                return
+            for q in nb(c):
+                if q not in prev and max(abs(q[0]), abs(q[1])) <= N and q != (0, 0):
+                    prev[q] = c; todo.append(q)
+    for sh in mine:
+        join(sh["cell"])
+        q = (sh["cell"][0] + sh["dir"][0], sh["cell"][1] + sh["dir"][1])   # (the tunnel the lift stands beside)
+        seen.add(q); edges.add(tuple(sorted((sh["cell"], q))))
     kept = seen
     for c in sorted(kept):   # loops
         for q in nb(c):
@@ -115,6 +173,11 @@ def build_floor(fid, d, role, here, src, entry_floor):
         deg[a] += 1; deg[b] += 1
     for c in kept: node(*P(c))
     for a, b in sorted(edges): seg(P(a), P(b))
+    LIFTS_HERE = []
+    for sh in mine:   # the lift cars (before anything else is placed: they must be the same on every floor they serve)
+        lb, ld = lift_box(sh["cell"], sh["dir"], sh["side"])
+        nm = "Lift %s" % sh["label"][-1]
+        R[nm] = lb; DOORS.append((round(ld[0], 1), round(ld[1], 1), ld[2])); LIFTS_HERE.append(nm)
     # ---- dead ends (out at the edge): the entry and the way out, then caverns
     ends = sorted([c for c in kept if deg[c] + (1 if c in must else 0) == 1 and max(abs(c[0]), abs(c[1])) >= 2], key=lambda c: -(abs(c[0]) + abs(c[1])))
     rng.shuffle(ends)
@@ -141,7 +204,7 @@ def build_floor(fid, d, role, here, src, entry_floor):
         p = P(c); cx, cy = p[0] + u[0] * (G * 0.55 + hw), p[1] + u[1] * (G * 0.55 + hw)
         e = (cx - u[0] * hw, cy - u[1] * hw)
         g = octo(cx, cy, hw, hw, hw * 0.3)
-        if not HULL.contains(g) or any(box(*g.bounds).buffer(20).intersects(h) for h in HALLS): continue
+        if not HULL.contains(g) or any(box(*g.bounds).buffer(20).intersects(h) for h in HALLS) or any(box(*g.bounds).buffer(30).intersects(box(*q.bounds)) for q in R.values()): continue
         seg(p, e); R[nm] = g; DOORS.append((round(e[0], 1), round(e[1], 1), "h" if u[0] == 0 else "v")); PADS.append(nm); taken.append(c)
     n_cave = 0
     for c in ends:
@@ -158,7 +221,6 @@ def build_floor(fid, d, role, here, src, entry_floor):
         n_cave += 1
         nm = "Cavern %d" % n_cave
         seg(p, e); R[nm] = g; DOORS.append((round(e[0], 1), round(e[1], 1), "h" if u[0] == 0 else "v")); taken.append(c)
-    for nm, (bx_, d_) in LIFTS.items(): R[nm] = box(*bx_); DOORS.append(d_)
     # ---- the small rooms: the station v2 placement (library shapes along every straight tunnel, back rooms, room to
     # room doors), both sides, nothing mirrored
     occ = list(HALLS) + [box(*b.bounds).buffer(4) for b in R.values()] + [box(*q.bounds).buffer(3) for q in planlib.DIAG]
@@ -293,7 +355,7 @@ def build_floor(fid, d, role, here, src, entry_floor):
         elif k in KIND: kinds[k] = KIND[k]
         else: kinds[k] = "mech"   # (the hub, the caverns, the surface lift and the exit shaft)
     S = Ship(fid, here, src, C, R, HALLS, DOORS, start=(C, C + A_A), center_y=C)
-    info = {"junctions": len(kept), "links": len(edges), "pads": PADS, "caves": n_cave, "rooms": len(R), "kit_shapes": len(used), "back": n_back, "doors": n_link}
+    info = {"lifts": LIFTS_HERE, "junctions": len(kept), "links": len(edges), "pads": PADS, "caves": n_cave, "rooms": len(R), "kit_shapes": len(used), "back": n_back, "doors": n_link}
     return S, kinds, hubname, info
 
 def silhouette(P):   # the floor's own outline: everything dug out, with a rim of rock
@@ -329,9 +391,10 @@ def main():
     src = np.zeros((NPX, NPX, 3), np.uint8); src[:] = (30, 22, 18)
     cv2.imwrite(os.path.join(root, "source.jpg"), src, [cv2.IMWRITE_JPEG_QUALITY, 90])
     bad_all = {}
+    SH = shafts(fid, d); shaft_at = {}
     for dname, role, lvl in FLOORS:
         tmp = tempfile.mkdtemp()
-        S, kinds, hub, info = build_floor(fid, d, role, tmp if dname != "main" else eng, os.path.join(root, "source.jpg"), dname == "main")
+        S, kinds, hub, info = build_floor(fid, d, role, tmp if dname != "main" else eng, os.path.join(root, "source.jpg"), dname == "main", dname, SH)
         bad = run(S); bad_all[dname] = bad
         P = json.load(open(os.path.join(S.here, "plan.json")))
         draw(os.path.join(dk, "%s_plan.jpg" % dname), P, kinds, "%s  -  %s" % (name.upper(), role))
@@ -349,18 +412,21 @@ def main():
             json.dump(ov, open(os.path.join(eng, "overrides.json"), "w"), indent=1)
             pt = lambda k: [int(shape(P["rooms"][k]).representative_point().x), int(shape(P["rooms"][k]).representative_point().y)]
             Gp = {"entry": {"room": entry, "at": pt(entry)}, "locks": [], "guards": [], "wreck": [], "patrols": [], "targets": {},
-                  "lifts": [{"room": k, "at": pt(k)} for k in LIFTS], "room_guards": {k: (2 if kinds[k] == "mech" else 0) for k in kinds if kinds[k] != "lift"},
+                  "lifts": [{"room": k, "at": pt(k)} for k in info["lifts"]], "room_guards": {k: (2 if kinds[k] == "mech" else 0) for k in kinds if kinds[k] != "lift"},
                   "note": "%s ENTRY LEVEL (facility_v1/facility_build.py, difficulty %d)" % (name, d)}
             json.dump(Gp, open(os.path.join(eng, "gameplay.json"), "w"), indent=1)
             json.dump(Gp, open(os.path.join(eng, "gameplay_v1.json"), "w"), indent=1)
         else:
             P["deck"] = dname; P["level"] = lvl; P["hull"] = mapping(rock if rock.geom_type == "Polygon" else rock.convex_hull)
-            P["lifts"] = [[(b[0] + b[2]) / 2, (b[1] + b[3]) / 2] for b, _ in LIFTS.values()]
+            P["lifts"] = [list(shape(P["rooms"][k]).centroid.coords[0]) for k in info["lifts"] if k in P["rooms"]]
             P["kinds"] = kinds
             json.dump(P, open(os.path.join(eng, "deck_%s.json" % dname), "w"))
         shutil.rmtree(tmp, ignore_errors=True)
+        for k in info["lifts"]:
+            if k in P["rooms"]: shaft_at.setdefault(k, list(shape(P["rooms"][k]).centroid.coords[0]))
         print("%-7s %-12s junctions %d links %d pads %s caves %d rooms %d (back %d, room doors %d, kit shapes %d) unreachable %s" % (
             dname, role, info["junctions"], info["links"], info["pads"], info["caves"], info["rooms"], info["back"], info["doors"], info["kit_shapes"], bad))
+    json.dump([{"label": sh["label"], "decks": sh["decks"], "at": shaft_at.get("Lift %s" % sh["label"][-1])} for sh in SH], open(os.path.join(eng, "shafts.json"), "w"), indent=1)
     sys.exit(1 if any(bad_all.values()) else 0)
 
 if __name__ == "__main__":
