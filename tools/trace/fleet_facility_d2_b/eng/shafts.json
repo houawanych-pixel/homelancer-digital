@@ -1,0 +1,47 @@
+[
+ {
+  "label": "LIFT A",
+  "decks": [
+   "main",
+   "lower",
+   "lower2"
+  ],
+  "at": [
+   2306.0,
+   982.0
+  ]
+ },
+ {
+  "label": "LIFT B",
+  "decks": [
+   "lower2",
+   "lower3"
+  ],
+  "at": [
+   2422.0,
+   2074.0
+  ]
+ },
+ {
+  "label": "LIFT C",
+  "decks": [
+   "lower3",
+   "lower4"
+  ],
+  "at": [
+   1238.0,
+   994.0
+  ]
+ },
+ {
+  "label": "LIFT D",
+  "decks": [
+   "main",
+   "lower"
+  ],
+  "at": [
+   994.0,
+   1958.0
+  ]
+ }
+]

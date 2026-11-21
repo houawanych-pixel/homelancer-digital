@@ -2,24 +2,25 @@
  "ship": "facility_d4_e",
  "rooms": {
   "Command Center": "mech",
+  "Lift A": "lift",
   "Surface Lift": "mech",
   "Exit Shaft": "mech",
   "Cavern 1": "mech",
   "Cavern 2": "mech",
   "Cavern 3": "mech",
-  "Lift (north)": "lift",
-  "Lift (south)": "lift",
-  "Lift (East)": "lift",
-  "Lift (West)": "lift",
   "Operations East Quarters 1": "pilot",
+  "Operations East Office 1": "pilot",
   "Operations South Office 1": "pilot",
   "Operations South Canteen 1": "pilot",
   "Operations South Lobby 1": "pilot",
+  "Operations South Lobby 2": "pilot",
   "Operations West Quarters 1": "pilot",
+  "Operations West Office 1": "pilot",
   "Operations North Clinic 1": "pilot",
   "Operations North Quarters 1": "pilot",
+  "Operations North Quarters 2": "pilot",
   "Operations North Canteen 1": "pilot",
-  "Operations East Office 1": "pilot",
+  "Operations East Office 2": "pilot",
   "Operations East Lobby 1": "pilot",
   "Operations West Lobby 1": "pilot",
   "Operations West Quarters 2": "pilot",
@@ -43,7 +44,7 @@
   "Operations West Control 1": "pilot",
   "Operations West Armoury 2": "mech",
   "Operations West Clinic 1": "pilot",
-  "Operations West Office 1": "pilot",
+  "Operations West Office 2": "pilot",
   "Operations West Plant 1": "mech",
   "Operations West Store 2": "pilot",
   "Operations West Bay 2": "mech",
@@ -51,7 +52,7 @@
   "Operations West Quarters 4": "pilot",
   "Operations North Store 2": "pilot",
   "Operations North Machine Shop 1": "mech",
-  "Operations West Office 2": "pilot",
+  "Operations West Office 3": "pilot",
   "Operations North Cargo Bay 2": "mech",
   "Operations North Control 1": "pilot",
   "Operations North Lounge 1": "pilot",
@@ -62,7 +63,7 @@
   "Operations North Machine Shop 2": "mech",
   "Operations West Clinic 2": "pilot",
   "Operations West Quarters 5": "pilot",
-  "Operations West Office 3": "pilot",
+  "Operations West Office 4": "pilot",
   "Operations West Bay 3": "mech",
   "Operations West Canteen 3": "pilot",
   "Operations West Lounge 3": "pilot",
@@ -85,7 +86,7 @@
   "Operations North Clinic 3": "pilot",
   "Operations North Plant 2": "mech",
   "Operations North Machine Shop 4": "mech",
-  "Operations North Quarters 2": "pilot",
+  "Operations North Quarters 3": "pilot",
   "Operations North Cargo Bay 4": "mech",
   "Operations North Loading Bay 1": "mech",
   "Operations North Cabin 1": "pilot",
@@ -97,14 +98,14 @@
   "Operations North Lounge 3": "pilot",
   "Operations North Armoury 1": "mech",
   "Operations North Cabin 2": "pilot",
-  "Operations South Lobby 2": "pilot",
+  "Operations South Lobby 3": "pilot",
   "Operations South Bay 1": "mech",
-  "Operations South Store 1": "pilot",
+  "Operations East Store 1": "pilot",
   "Operations South Armoury 4": "mech",
   "Operations South Machine Shop 2": "mech",
   "Operations South Loading Bay 1": "mech",
   "Operations North Store 5": "pilot",
-  "Operations North Quarters 3": "pilot",
+  "Operations North Quarters 4": "pilot",
   "Operations North Control 2": "pilot",
   "Operations North Loading Bay 3": "mech",
   "Operations North Cargo Bay 5": "mech",
@@ -116,23 +117,23 @@
   "Operations North Armoury 3": "mech",
   "Operations East Quarters 2": "pilot",
   "Operations East Clinic 1": "pilot",
-  "Operations East Store 1": "pilot",
+  "Operations East Store 2": "pilot",
   "Operations East Cargo Bay 1": "mech",
   "Operations East Quarters 3": "pilot",
   "Operations East Armoury 1": "mech",
   "Operations East Loading Bay 1": "mech",
   "Operations East Machine Shop 1": "mech",
-  "Operations East Store 2": "pilot",
+  "Operations East Store 3": "pilot",
   "Operations East Clinic 2": "pilot",
   "Operations East Cabin 1": "pilot",
   "Operations East Control 1": "pilot",
-  "Operations East Office 2": "pilot",
+  "Operations East Office 3": "pilot",
   "Operations East Cargo Bay 2": "mech",
   "Operations East Bay 1": "mech",
   "Operations East Cabin 2": "pilot",
   "Operations East Quarters 4": "pilot",
   "Operations East Lobby 2": "pilot",
-  "Operations South Lobby 3": "pilot",
+  "Operations South Lobby 4": "pilot",
   "Operations South Quarters 1": "pilot",
   "Operations South Canteen 3": "pilot",
   "Operations South Clinic 2": "pilot",
@@ -151,17 +152,15 @@
   "Operations East Lounge 1": "pilot",
   "Operations East Cargo Bay 4": "mech",
   "Operations East Loading Bay 3": "mech",
-  "Operations East Office 3": "pilot",
-  "Operations East Control 6": "pilot",
   "Operations South Loading Bay 2": "mech",
   "Operations South Lounge 2": "pilot",
   "Operations South Clinic 4": "pilot",
   "Operations South Cabin 1": "pilot",
   "Operations North Bay 2": "mech",
-  "Operations East Control 7": "pilot",
+  "Operations East Control 6": "pilot",
   "Operations East Lobby 3": "pilot",
   "Operations East Machine Shop 2": "mech",
-  "Operations East Store 3": "pilot",
+  "Operations East Store 4": "pilot",
   "Operations East Clinic 3": "pilot",
   "Operations East Machine Shop 3": "mech",
   "Operations West Cargo Bay 4": "mech",
@@ -171,6 +170,7 @@
   "Operations South Cargo Bay 2": "mech",
   "Operations South Control 3": "pilot",
   "Operations North Machine Shop 6": "mech",
+  "Operations North Canteen 2": "pilot",
   "Operations West Lobby 2": "pilot",
   "Operations North Machine Shop 7": "mech",
   "Operations East Lounge 2": "pilot",
@@ -178,16 +178,12 @@
   "Operations South Clinic 5": "pilot",
   "Operations West Bay 4": "mech",
   "Operations West Cargo Bay 5": "mech",
-  "Operations North Canteen 2": "pilot",
-  "Operations North Canteen 3": "pilot",
-  "Operations East Lobby 4": "pilot",
-  "Operations North Loading Bay 4": "mech",
   "Operations North Office 2": "pilot",
   "Operations North Clinic 4": "pilot",
-  "Operations North Canteen 4": "pilot",
+  "Operations North Canteen 3": "pilot",
   "Operations West Store 3": "pilot",
   "Operations North Clinic 5": "pilot",
-  "Operations North Quarters 4": "pilot",
+  "Operations North Quarters 5": "pilot",
   "Operations North Bay 3": "mech",
   "Operations West Lounge 4": "pilot",
   "Operations West Control 3": "pilot",
@@ -198,187 +194,182 @@
   "Operations East Loading Bay 4": "mech",
   "Operations West Store 4": "pilot",
   "Operations West Armoury 3": "mech",
-  "Operations North Canteen 5": "pilot",
+  "Operations North Canteen 4": "pilot",
   "Operations North Lounge 4": "pilot",
   "Operations South Control 4": "pilot",
-  "Operations West Control 4": "pilot",
-  "Operations East Cabin 5": "pilot",
-  "Operations East Store 4": "pilot",
-  "Operations North Control 3": "pilot",
   "Operations West Lobby 3": "pilot",
+  "Operations West Cabin 3": "pilot",
+  "Operations East Cabin 5": "pilot",
+  "Operations East Bay 2": "mech",
+  "Operations East Store 5": "pilot",
+  "Operations North Control 3": "pilot",
+  "Operations West Lobby 4": "pilot",
   "Operations South Plant 2": "mech",
-  "Operations East Office 4": "pilot",
-  "Operations South Lobby 4": "pilot",
+  "Operations South Lobby 5": "pilot",
   "Operations West Loading Bay 3": "mech",
-  "Operations East Lounge 3": "pilot",
+  "Operations East Clinic 4": "pilot",
   "Operations North Armoury 4": "mech",
   "Operations North Armoury 5": "mech",
-  "Operations South Store 2": "pilot",
+  "Operations South Store 1": "pilot",
   "Operations South Loading Bay 4": "mech",
   "Operations West Quarters 7": "pilot",
   "Operations South Office 2": "pilot",
   "Operations East Canteen 1": "pilot",
-  "Operations East Loading Bay 5": "mech",
-  "Operations South Lobby 5": "pilot",
+  "Operations North Office 3": "pilot",
+  "Operations North Lounge 5": "pilot",
+  "Operations East Clinic 5": "pilot",
+  "Operations South Lobby 6": "pilot",
   "Operations North Armoury 6": "mech",
-  "Operations East Control 8": "pilot",
-  "Operations East Lobby 5": "pilot",
+  "Operations East Control 7": "pilot",
+  "Operations East Lobby 4": "pilot",
   "Operations South Loading Bay 5": "mech",
   "Operations North Cabin 3": "pilot",
   "Operations East Machine Shop 4": "mech",
   "Operations East Quarters 5": "pilot",
   "Operations North Machine Shop 8": "mech",
-  "Operations East Control 9": "pilot",
-  "Operations East Quarters 6": "pilot",
-  "Operations East Lobby 6": "pilot",
+  "Operations East Control 8": "pilot",
+  "Operations East Store 6": "pilot",
   "Operations North Store 8": "pilot",
-  "Operations North Quarters 5": "pilot",
-  "Operations North Office 3": "pilot",
-  "Operations North Lounge 5": "pilot",
+  "Operations North Quarters 6": "pilot",
+  "Operations North Office 4": "pilot",
+  "Operations North Lounge 6": "pilot",
   "Operations West Canteen 4": "pilot",
-  "Operations East Store 5": "pilot",
+  "Operations East Store 7": "pilot",
   "Operations North Store 9": "pilot",
   "Operations North Bay 5": "mech",
   "Operations South Clinic 6": "pilot",
   "Operations South Loading Bay 6": "mech",
   "Operations East Canteen 2": "pilot",
-  "Operations East Canteen 3": "pilot",
-  "Operations East Canteen 4": "pilot",
   "Operations South Bay 3": "mech",
   "Operations South Control 5": "pilot",
   "Operations North Armoury 7": "mech",
-  "Operations East Quarters 7": "pilot",
+  "Operations East Quarters 6": "pilot",
   "Operations West Bay 5": "mech",
-  "Operations West Lobby 4": "pilot",
+  "Operations West Lobby 5": "pilot",
   "Operations North Plant 4": "mech",
   "Operations South Lounge 3": "pilot",
-  "Operations West Cabin 3": "pilot",
   "Operations East Cabin 6": "pilot",
-  "Operations North Office 4": "pilot",
+  "Operations North Office 5": "pilot",
   "Operations North Bay 6": "mech",
   "Operations East Armoury 2": "mech",
   "Operations West Cargo Bay 6": "mech",
   "Operations South Machine Shop 3": "mech",
   "Operations South Canteen 5": "pilot",
-  "Operations East Lobby 7": "pilot",
-  "Operations East Lounge 4": "pilot",
+  "Operations East Lobby 5": "pilot",
+  "Operations East Lounge 3": "pilot",
+  "Operations East Office 4": "pilot",
   "Operations East Office 5": "pilot",
+  "Operations East Office 6": "pilot",
   "Operations East Armoury 3": "mech",
   "Operations West Canteen 5": "pilot",
-  "Operations North Office 5": "pilot",
-  "Operations East Loading Bay 6": "mech",
-  "Operations East Lounge 5": "pilot",
+  "Operations North Office 6": "pilot",
+  "Operations East Lounge 4": "pilot",
   "Operations North Armoury 8": "mech",
   "Operations West Loading Bay 4": "mech",
   "Operations South Canteen 6": "pilot",
-  "Operations East Office 6": "pilot",
+  "Operations East Canteen 3": "pilot",
   "Operations East Office 7": "pilot",
   "Operations South Quarters 2": "pilot",
   "Operations South Bay 4": "mech",
   "Operations West Quarters 8": "pilot",
-  "Operations East Cabin 7": "pilot",
   "Operations North Machine Shop 9": "mech",
-  "Operations East Control 10": "pilot",
+  "Operations East Control 9": "pilot",
   "Operations North Cabin 4": "pilot",
-  "Operations East Loading Bay 7": "mech",
+  "Operations East Loading Bay 5": "mech",
   "Operations East Machine Shop 5": "mech",
-  "Operations East Control 11": "pilot",
+  "Operations East Control 10": "pilot",
   "Operations East Office 8": "pilot",
   "Operations North Cargo Bay 7": "mech",
   "Operations West Cargo Bay 7": "mech",
   "Operations South Clinic 7": "pilot",
-  "Operations West Control 5": "pilot",
+  "Operations West Control 4": "pilot",
   "Operations East Office 9": "pilot",
   "Operations North Cabin 5": "pilot",
-  "Operations North Lounge 6": "pilot",
-  "Operations West Lobby 5": "pilot",
+  "Operations North Lounge 7": "pilot",
+  "Operations West Lobby 6": "pilot",
   "Operations North Clinic 6": "pilot",
   "Operations West Plant 3": "mech",
   "Operations West Store 5": "pilot",
-  "Operations East Control 12": "pilot",
+  "Operations East Control 11": "pilot",
   "Operations East Machine Shop 6": "mech",
   "Operations West Cargo Bay 8": "mech",
   "Operations South Clinic 8": "pilot",
-  "Operations West Store 6": "pilot",
-  "Operations East Lobby 8": "pilot",
+  "Operations West Quarters 9": "pilot",
+  "Operations East Clinic 6": "pilot",
   "Operations North Store 10": "pilot",
-  "Operations West Clinic 3": "pilot",
   "Operations South Canteen 7": "pilot",
-  "Operations East Office 10": "pilot",
-  "Operations North Loading Bay 5": "mech",
-  "Operations South Canteen 8": "pilot",
+  "Operations North Loading Bay 4": "mech",
+  "Operations South Cabin 2": "pilot",
   "Operations South Plant 3": "mech",
   "Operations South Clinic 9": "pilot",
-  "Operations East Cargo Bay 6": "mech",
-  "Operations South Lobby 6": "pilot",
+  "Operations North Lounge 8": "pilot",
+  "Operations East Lounge 5": "pilot",
+  "Operations South Office 3": "pilot",
   "Operations North Plant 5": "mech",
-  "Operations East Store 6": "pilot",
-  "Operations North Office 6": "pilot",
-  "Operations East Store 7": "pilot",
   "Operations North Office 7": "pilot",
-  "Operations East Office 11": "pilot",
+  "Operations East Store 8": "pilot",
+  "Operations North Store 11": "pilot",
   "Operations South Control 6": "pilot",
   "Operations South Machine Shop 4": "mech",
-  "Operations East Cabin 8": "pilot",
-  "Operations East Lobby 9": "pilot",
   "Operations South Cargo Bay 3": "mech",
   "Operations West Machine Shop 2": "mech",
-  "Operations South Canteen 9": "pilot",
+  "Operations South Canteen 8": "pilot",
+  "Operations North Cabin 6": "pilot",
   "Operations West Plant 4": "mech",
   "Operations South Quarters 3": "pilot",
+  "Operations East Quarters 7": "pilot",
   "Operations East Quarters 8": "pilot",
-  "Operations North Office 8": "pilot",
-  "Operations South Cabin 2": "pilot",
+  "Operations South Cabin 3": "pilot",
   "Operations South Lounge 4": "pilot",
   "Operations West Machine Shop 3": "mech",
-  "Operations East Control 13": "pilot",
+  "Operations East Control 12": "pilot",
+  "Operations North Quarters 7": "pilot",
   "Operations East Armoury 4": "mech",
-  "Operations East Office 12": "pilot",
   "Operations North Bay 7": "mech",
-  "Operations East Cabin 9": "pilot",
-  "Operations North Cabin 6": "pilot",
-  "Operations West Clinic 4": "pilot",
+  "Operations West Cabin 4": "pilot",
+  "Operations East Cabin 7": "pilot",
+  "Operations West Office 5": "pilot",
+  "Operations West Clinic 3": "pilot",
+  "Operations East Lobby 6": "pilot",
   "Operations South Lobby 7": "pilot",
-  "Operations West Control 6": "pilot",
-  "Operations West Lounge 5": "pilot",
   "Operations North Plant 6": "mech",
-  "Operations South Lounge 5": "pilot",
   "Operations South Clinic 10": "pilot",
-  "Operations North Loading Bay 6": "mech",
-  "Operations East Office 13": "pilot",
-  "Operations South Lounge 6": "pilot",
+  "Operations North Loading Bay 5": "mech",
+  "Operations East Clinic 7": "pilot",
+  "Operations North Clinic 7": "pilot",
+  "Operations South Lounge 5": "pilot",
   "Operations South Cargo Bay 4": "mech",
-  "Operations East Control 14": "pilot",
-  "Operations South Canteen 10": "pilot",
+  "Operations South Lounge 6": "pilot",
+  "Operations North Store 12": "pilot",
+  "Operations East Lounge 6": "pilot",
+  "Operations South Canteen 9": "pilot",
   "Operations West Machine Shop 4": "mech",
+  "Operations East Control 13": "pilot",
   "Operations East Armoury 5": "mech",
   "Operations North Machine Shop 10": "mech",
-  "Operations East Quarters 9": "pilot",
-  "Operations North Store 11": "pilot",
-  "Operations West Clinic 5": "pilot",
-  "Operations West Lobby 6": "pilot",
   "Operations West Loading Bay 5": "mech"
  },
  "rooms_base": {
   "Command Center": "mech",
+  "Lift A": "lift",
   "Surface Lift": "mech",
   "Exit Shaft": "mech",
   "Cavern 1": "mech",
   "Cavern 2": "mech",
   "Cavern 3": "mech",
-  "Lift (north)": "lift",
-  "Lift (south)": "lift",
-  "Lift (East)": "lift",
-  "Lift (West)": "lift",
   "Operations East Quarters 1": "pilot",
+  "Operations East Office 1": "pilot",
   "Operations South Office 1": "pilot",
   "Operations South Canteen 1": "pilot",
   "Operations South Lobby 1": "pilot",
+  "Operations South Lobby 2": "pilot",
   "Operations West Quarters 1": "pilot",
+  "Operations West Office 1": "pilot",
   "Operations North Clinic 1": "pilot",
   "Operations North Quarters 1": "pilot",
+  "Operations North Quarters 2": "pilot",
   "Operations North Canteen 1": "pilot",
-  "Operations East Office 1": "pilot",
+  "Operations East Office 2": "pilot",
   "Operations East Lobby 1": "pilot",
   "Operations West Lobby 1": "pilot",
   "Operations West Quarters 2": "pilot",
@@ -402,7 +393,7 @@
   "Operations West Control 1": "pilot",
   "Operations West Armoury 2": "mech",
   "Operations West Clinic 1": "pilot",
-  "Operations West Office 1": "pilot",
+  "Operations West Office 2": "pilot",
   "Operations West Plant 1": "mech",
   "Operations West Store 2": "pilot",
   "Operations West Bay 2": "mech",
@@ -410,7 +401,7 @@
   "Operations West Quarters 4": "pilot",
   "Operations North Store 2": "pilot",
   "Operations North Machine Shop 1": "mech",
-  "Operations West Office 2": "pilot",
+  "Operations West Office 3": "pilot",
   "Operations North Cargo Bay 2": "mech",
   "Operations North Control 1": "pilot",
   "Operations North Lounge 1": "pilot",
@@ -421,7 +412,7 @@
   "Operations North Machine Shop 2": "mech",
   "Operations West Clinic 2": "pilot",
   "Operations West Quarters 5": "pilot",
-  "Operations West Office 3": "pilot",
+  "Operations West Office 4": "pilot",
   "Operations West Bay 3": "mech",
   "Operations West Canteen 3": "pilot",
   "Operations West Lounge 3": "pilot",
@@ -444,7 +435,7 @@
   "Operations North Clinic 3": "pilot",
   "Operations North Plant 2": "mech",
   "Operations North Machine Shop 4": "mech",
-  "Operations North Quarters 2": "pilot",
+  "Operations North Quarters 3": "pilot",
   "Operations North Cargo Bay 4": "mech",
   "Operations North Loading Bay 1": "mech",
   "Operations North Cabin 1": "pilot",
@@ -456,14 +447,14 @@
   "Operations North Lounge 3": "pilot",
   "Operations North Armoury 1": "mech",
   "Operations North Cabin 2": "pilot",
-  "Operations South Lobby 2": "pilot",
+  "Operations South Lobby 3": "pilot",
   "Operations South Bay 1": "mech",
-  "Operations South Store 1": "pilot",
+  "Operations East Store 1": "pilot",
   "Operations South Armoury 4": "mech",
   "Operations South Machine Shop 2": "mech",
   "Operations South Loading Bay 1": "mech",
   "Operations North Store 5": "pilot",
-  "Operations North Quarters 3": "pilot",
+  "Operations North Quarters 4": "pilot",
   "Operations North Control 2": "pilot",
   "Operations North Loading Bay 3": "mech",
   "Operations North Cargo Bay 5": "mech",
@@ -475,23 +466,23 @@
   "Operations North Armoury 3": "mech",
   "Operations East Quarters 2": "pilot",
   "Operations East Clinic 1": "pilot",
-  "Operations East Store 1": "pilot",
+  "Operations East Store 2": "pilot",
   "Operations East Cargo Bay 1": "mech",
   "Operations East Quarters 3": "pilot",
   "Operations East Armoury 1": "mech",
   "Operations East Loading Bay 1": "mech",
   "Operations East Machine Shop 1": "mech",
-  "Operations East Store 2": "pilot",
+  "Operations East Store 3": "pilot",
   "Operations East Clinic 2": "pilot",
   "Operations East Cabin 1": "pilot",
   "Operations East Control 1": "pilot",
-  "Operations East Office 2": "pilot",
+  "Operations East Office 3": "pilot",
   "Operations East Cargo Bay 2": "mech",
   "Operations East Bay 1": "mech",
   "Operations East Cabin 2": "pilot",
   "Operations East Quarters 4": "pilot",
   "Operations East Lobby 2": "pilot",
-  "Operations South Lobby 3": "pilot",
+  "Operations South Lobby 4": "pilot",
   "Operations South Quarters 1": "pilot",
   "Operations South Canteen 3": "pilot",
   "Operations South Clinic 2": "pilot",
@@ -510,17 +501,15 @@
   "Operations East Lounge 1": "pilot",
   "Operations East Cargo Bay 4": "mech",
   "Operations East Loading Bay 3": "mech",
-  "Operations East Office 3": "pilot",
-  "Operations East Control 6": "pilot",
   "Operations South Loading Bay 2": "mech",
   "Operations South Lounge 2": "pilot",
   "Operations South Clinic 4": "pilot",
   "Operations South Cabin 1": "pilot",
   "Operations North Bay 2": "mech",
-  "Operations East Control 7": "pilot",
+  "Operations East Control 6": "pilot",
   "Operations East Lobby 3": "pilot",
   "Operations East Machine Shop 2": "mech",
-  "Operations East Store 3": "pilot",
+  "Operations East Store 4": "pilot",
   "Operations East Clinic 3": "pilot",
   "Operations East Machine Shop 3": "mech",
   "Operations West Cargo Bay 4": "mech",
@@ -530,6 +519,7 @@
   "Operations South Cargo Bay 2": "mech",
   "Operations South Control 3": "pilot",
   "Operations North Machine Shop 6": "mech",
+  "Operations North Canteen 2": "pilot",
   "Operations West Lobby 2": "pilot",
   "Operations North Machine Shop 7": "mech",
   "Operations East Lounge 2": "pilot",
@@ -537,16 +527,12 @@
   "Operations South Clinic 5": "pilot",
   "Operations West Bay 4": "mech",
   "Operations West Cargo Bay 5": "mech",
-  "Operations North Canteen 2": "pilot",
-  "Operations North Canteen 3": "pilot",
-  "Operations East Lobby 4": "pilot",
-  "Operations North Loading Bay 4": "mech",
   "Operations North Office 2": "pilot",
   "Operations North Clinic 4": "pilot",
-  "Operations North Canteen 4": "pilot",
+  "Operations North Canteen 3": "pilot",
   "Operations West Store 3": "pilot",
   "Operations North Clinic 5": "pilot",
-  "Operations North Quarters 4": "pilot",
+  "Operations North Quarters 5": "pilot",
   "Operations North Bay 3": "mech",
   "Operations West Lounge 4": "pilot",
   "Operations West Control 3": "pilot",
@@ -557,165 +543,159 @@
   "Operations East Loading Bay 4": "mech",
   "Operations West Store 4": "pilot",
   "Operations West Armoury 3": "mech",
-  "Operations North Canteen 5": "pilot",
+  "Operations North Canteen 4": "pilot",
   "Operations North Lounge 4": "pilot",
   "Operations South Control 4": "pilot",
-  "Operations West Control 4": "pilot",
-  "Operations East Cabin 5": "pilot",
-  "Operations East Store 4": "pilot",
-  "Operations North Control 3": "pilot",
   "Operations West Lobby 3": "pilot",
+  "Operations West Cabin 3": "pilot",
+  "Operations East Cabin 5": "pilot",
+  "Operations East Bay 2": "mech",
+  "Operations East Store 5": "pilot",
+  "Operations North Control 3": "pilot",
+  "Operations West Lobby 4": "pilot",
   "Operations South Plant 2": "mech",
-  "Operations East Office 4": "pilot",
-  "Operations South Lobby 4": "pilot",
+  "Operations South Lobby 5": "pilot",
   "Operations West Loading Bay 3": "mech",
-  "Operations East Lounge 3": "pilot",
+  "Operations East Clinic 4": "pilot",
   "Operations North Armoury 4": "mech",
   "Operations North Armoury 5": "mech",
-  "Operations South Store 2": "pilot",
+  "Operations South Store 1": "pilot",
   "Operations South Loading Bay 4": "mech",
   "Operations West Quarters 7": "pilot",
   "Operations South Office 2": "pilot",
   "Operations East Canteen 1": "pilot",
-  "Operations East Loading Bay 5": "mech",
-  "Operations South Lobby 5": "pilot",
+  "Operations North Office 3": "pilot",
+  "Operations North Lounge 5": "pilot",
+  "Operations East Clinic 5": "pilot",
+  "Operations South Lobby 6": "pilot",
   "Operations North Armoury 6": "mech",
-  "Operations East Control 8": "pilot",
-  "Operations East Lobby 5": "pilot",
+  "Operations East Control 7": "pilot",
+  "Operations East Lobby 4": "pilot",
   "Operations South Loading Bay 5": "mech",
   "Operations North Cabin 3": "pilot",
   "Operations East Machine Shop 4": "mech",
   "Operations East Quarters 5": "pilot",
   "Operations North Machine Shop 8": "mech",
-  "Operations East Control 9": "pilot",
-  "Operations East Quarters 6": "pilot",
-  "Operations East Lobby 6": "pilot",
+  "Operations East Control 8": "pilot",
+  "Operations East Store 6": "pilot",
   "Operations North Store 8": "pilot",
-  "Operations North Quarters 5": "pilot",
-  "Operations North Office 3": "pilot",
-  "Operations North Lounge 5": "pilot",
+  "Operations North Quarters 6": "pilot",
+  "Operations North Office 4": "pilot",
+  "Operations North Lounge 6": "pilot",
   "Operations West Canteen 4": "pilot",
-  "Operations East Store 5": "pilot",
+  "Operations East Store 7": "pilot",
   "Operations North Store 9": "pilot",
   "Operations North Bay 5": "mech",
   "Operations South Clinic 6": "pilot",
   "Operations South Loading Bay 6": "mech",
   "Operations East Canteen 2": "pilot",
-  "Operations East Canteen 3": "pilot",
-  "Operations East Canteen 4": "pilot",
   "Operations South Bay 3": "mech",
   "Operations South Control 5": "pilot",
   "Operations North Armoury 7": "mech",
-  "Operations East Quarters 7": "pilot",
+  "Operations East Quarters 6": "pilot",
   "Operations West Bay 5": "mech",
-  "Operations West Lobby 4": "pilot",
+  "Operations West Lobby 5": "pilot",
   "Operations North Plant 4": "mech",
   "Operations South Lounge 3": "pilot",
-  "Operations West Cabin 3": "pilot",
   "Operations East Cabin 6": "pilot",
-  "Operations North Office 4": "pilot",
+  "Operations North Office 5": "pilot",
   "Operations North Bay 6": "mech",
   "Operations East Armoury 2": "mech",
   "Operations West Cargo Bay 6": "mech",
   "Operations South Machine Shop 3": "mech",
   "Operations South Canteen 5": "pilot",
-  "Operations East Lobby 7": "pilot",
-  "Operations East Lounge 4": "pilot",
+  "Operations East Lobby 5": "pilot",
+  "Operations East Lounge 3": "pilot",
+  "Operations East Office 4": "pilot",
   "Operations East Office 5": "pilot",
+  "Operations East Office 6": "pilot",
   "Operations East Armoury 3": "mech",
   "Operations West Canteen 5": "pilot",
-  "Operations North Office 5": "pilot",
-  "Operations East Loading Bay 6": "mech",
-  "Operations East Lounge 5": "pilot",
+  "Operations North Office 6": "pilot",
+  "Operations East Lounge 4": "pilot",
   "Operations North Armoury 8": "mech",
   "Operations West Loading Bay 4": "mech",
   "Operations South Canteen 6": "pilot",
-  "Operations East Office 6": "pilot",
+  "Operations East Canteen 3": "pilot",
   "Operations East Office 7": "pilot",
   "Operations South Quarters 2": "pilot",
   "Operations South Bay 4": "mech",
   "Operations West Quarters 8": "pilot",
-  "Operations East Cabin 7": "pilot",
   "Operations North Machine Shop 9": "mech",
-  "Operations East Control 10": "pilot",
+  "Operations East Control 9": "pilot",
   "Operations North Cabin 4": "pilot",
-  "Operations East Loading Bay 7": "mech",
+  "Operations East Loading Bay 5": "mech",
   "Operations East Machine Shop 5": "mech",
-  "Operations East Control 11": "pilot",
+  "Operations East Control 10": "pilot",
   "Operations East Office 8": "pilot",
   "Operations North Cargo Bay 7": "mech",
   "Operations West Cargo Bay 7": "mech",
   "Operations South Clinic 7": "pilot",
-  "Operations West Control 5": "pilot",
+  "Operations West Control 4": "pilot",
   "Operations East Office 9": "pilot",
   "Operations North Cabin 5": "pilot",
-  "Operations North Lounge 6": "pilot",
-  "Operations West Lobby 5": "pilot",
+  "Operations North Lounge 7": "pilot",
+  "Operations West Lobby 6": "pilot",
   "Operations North Clinic 6": "pilot",
   "Operations West Plant 3": "mech",
   "Operations West Store 5": "pilot",
-  "Operations East Control 12": "pilot",
+  "Operations East Control 11": "pilot",
   "Operations East Machine Shop 6": "mech",
   "Operations West Cargo Bay 8": "mech",
   "Operations South Clinic 8": "pilot",
-  "Operations West Store 6": "pilot",
-  "Operations East Lobby 8": "pilot",
+  "Operations West Quarters 9": "pilot",
+  "Operations East Clinic 6": "pilot",
   "Operations North Store 10": "pilot",
-  "Operations West Clinic 3": "pilot",
   "Operations South Canteen 7": "pilot",
-  "Operations East Office 10": "pilot",
-  "Operations North Loading Bay 5": "mech",
-  "Operations South Canteen 8": "pilot",
+  "Operations North Loading Bay 4": "mech",
+  "Operations South Cabin 2": "pilot",
   "Operations South Plant 3": "mech",
   "Operations South Clinic 9": "pilot",
-  "Operations East Cargo Bay 6": "mech",
-  "Operations South Lobby 6": "pilot",
+  "Operations North Lounge 8": "pilot",
+  "Operations East Lounge 5": "pilot",
+  "Operations South Office 3": "pilot",
   "Operations North Plant 5": "mech",
-  "Operations East Store 6": "pilot",
-  "Operations North Office 6": "pilot",
-  "Operations East Store 7": "pilot",
   "Operations North Office 7": "pilot",
-  "Operations East Office 11": "pilot",
+  "Operations East Store 8": "pilot",
+  "Operations North Store 11": "pilot",
   "Operations South Control 6": "pilot",
   "Operations South Machine Shop 4": "mech",
-  "Operations East Cabin 8": "pilot",
-  "Operations East Lobby 9": "pilot",
   "Operations South Cargo Bay 3": "mech",
   "Operations West Machine Shop 2": "mech",
-  "Operations South Canteen 9": "pilot",
+  "Operations South Canteen 8": "pilot",
+  "Operations North Cabin 6": "pilot",
   "Operations West Plant 4": "mech",
   "Operations South Quarters 3": "pilot",
+  "Operations East Quarters 7": "pilot",
   "Operations East Quarters 8": "pilot",
-  "Operations North Office 8": "pilot",
-  "Operations South Cabin 2": "pilot",
+  "Operations South Cabin 3": "pilot",
   "Operations South Lounge 4": "pilot",
   "Operations West Machine Shop 3": "mech",
-  "Operations East Control 13": "pilot",
+  "Operations East Control 12": "pilot",
+  "Operations North Quarters 7": "pilot",
   "Operations East Armoury 4": "mech",
-  "Operations East Office 12": "pilot",
   "Operations North Bay 7": "mech",
-  "Operations East Cabin 9": "pilot",
-  "Operations North Cabin 6": "pilot",
-  "Operations West Clinic 4": "pilot",
+  "Operations West Cabin 4": "pilot",
+  "Operations East Cabin 7": "pilot",
+  "Operations West Office 5": "pilot",
+  "Operations West Clinic 3": "pilot",
+  "Operations East Lobby 6": "pilot",
   "Operations South Lobby 7": "pilot",
-  "Operations West Control 6": "pilot",
-  "Operations West Lounge 5": "pilot",
   "Operations North Plant 6": "mech",
-  "Operations South Lounge 5": "pilot",
   "Operations South Clinic 10": "pilot",
-  "Operations North Loading Bay 6": "mech",
-  "Operations East Office 13": "pilot",
-  "Operations South Lounge 6": "pilot",
+  "Operations North Loading Bay 5": "mech",
+  "Operations East Clinic 7": "pilot",
+  "Operations North Clinic 7": "pilot",
+  "Operations South Lounge 5": "pilot",
   "Operations South Cargo Bay 4": "mech",
-  "Operations East Control 14": "pilot",
-  "Operations South Canteen 10": "pilot",
+  "Operations South Lounge 6": "pilot",
+  "Operations North Store 12": "pilot",
+  "Operations East Lounge 6": "pilot",
+  "Operations South Canteen 9": "pilot",
   "Operations West Machine Shop 4": "mech",
+  "Operations East Control 13": "pilot",
   "Operations East Armoury 5": "mech",
   "Operations North Machine Shop 10": "mech",
-  "Operations East Quarters 9": "pilot",
-  "Operations North Store 11": "pilot",
-  "Operations West Clinic 5": "pilot",
-  "Operations West Lobby 6": "pilot",
   "Operations West Loading Bay 5": "mech"
  },
  "cut_off_red": [],
@@ -764,6 +744,18 @@
    "o": "v",
    "rooms": [
     "Command Center"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2387.0,
+    1586.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Lift A"
    ],
    "type": "mech",
    "key": 0
@@ -830,60 +822,24 @@
   },
   {
    "at": [
-    1667.0,
-    1367.0
+    1899.0,
+    1596.9
    ],
    "o": "v",
    "rooms": [
-    "Lift (north)"
+    "Operations East Quarters 1"
    ],
-   "type": "mech",
-   "key": 0
-  },
-  {
-   "at": [
-    1667.0,
-    1933.0
-   ],
-   "o": "v",
-   "rooms": [
-    "Lift (south)"
-   ],
-   "type": "mech",
-   "key": 0
-  },
-  {
-   "at": [
-    1933.0,
-    1633.0
-   ],
-   "o": "h",
-   "rooms": [
-    "Lift (East)"
-   ],
-   "type": "mech",
-   "key": 0
-  },
-  {
-   "at": [
-    1367.0,
-    1633.0
-   ],
-   "o": "h",
-   "rooms": [
-    "Lift (West)"
-   ],
-   "type": "mech",
+   "type": "pilot",
    "key": 0
   },
   {
    "at": [
     1899.0,
-    1706.9
+    1704.9
    ],
    "o": "v",
    "rooms": [
-    "Operations East Quarters 1"
+    "Operations East Office 1"
    ],
    "type": "pilot",
    "key": 0
@@ -926,12 +882,36 @@
   },
   {
    "at": [
+    1704.9,
+    1899.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Operations South Lobby 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
     1401.0,
-    1706.9
+    1596.9
    ],
    "o": "v",
    "rooms": [
     "Operations West Quarters 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1401.0,
+    1704.9
+   ],
+   "o": "v",
+   "rooms": [
+    "Operations West Office 1"
    ],
    "type": "pilot",
    "key": 0
@@ -950,12 +930,24 @@
   },
   {
    "at": [
+    1704.9,
+    1401.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Operations North Quarters 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
     1596.9,
     1435.0
    ],
    "o": "h",
    "rooms": [
-    "Operations North Quarters 1"
+    "Operations North Quarters 2"
    ],
    "type": "pilot",
    "key": 0
@@ -979,7 +971,7 @@
    ],
    "o": "h",
    "rooms": [
-    "Operations East Office 1"
+    "Operations East Office 2"
    ],
    "type": "pilot",
    "key": 0
@@ -1267,7 +1259,7 @@
    ],
    "o": "h",
    "rooms": [
-    "Operations West Office 1"
+    "Operations West Office 2"
    ],
    "type": "pilot",
    "key": 0
@@ -1363,7 +1355,7 @@
    ],
    "o": "v",
    "rooms": [
-    "Operations West Office 2"
+    "Operations West Office 3"
    ],
    "type": "pilot",
    "key": 0
@@ -1495,7 +1487,7 @@
    ],
    "o": "v",
    "rooms": [
-    "Operations West Office 3"
+    "Operations West Office 4"
    ],
    "type": "pilot",
    "key": 0
@@ -1771,7 +1763,7 @@
    ],
    "o": "h",
    "rooms": [
-    "Operations North Quarters 2"
+    "Operations North Quarters 3"
    ],
    "type": "pilot",
    "key": 0
@@ -1874,7 +1866,7 @@
   },
   {
    "at": [
-    1773.0,
+    1783.0,
     1307.0
    ],
    "o": "h",
@@ -1886,7 +1878,7 @@
   },
   {
    "at": [
-    1864.0,
+    1874.0,
     1307.0
    ],
    "o": "h",
@@ -1898,7 +1890,7 @@
   },
   {
    "at": [
-    1955.0,
+    1959.0,
     1307.0
    ],
    "o": "h",
@@ -1910,19 +1902,19 @@
   },
   {
    "at": [
-    1773.0,
+    1783.0,
     1993.0
    ],
    "o": "h",
    "rooms": [
-    "Operations South Lobby 2"
+    "Operations South Lobby 3"
    ],
    "type": "pilot",
    "key": 0
   },
   {
    "at": [
-    1864.0,
+    1874.0,
     1993.0
    ],
    "o": "h",
@@ -1934,12 +1926,12 @@
   },
   {
    "at": [
-    1955.0,
+    1965.0,
     1993.0
    ],
    "o": "h",
    "rooms": [
-    "Operations South Store 1"
+    "Operations East Store 1"
    ],
    "type": "pilot",
    "key": 0
@@ -1999,7 +1991,7 @@
    ],
    "o": "v",
    "rooms": [
-    "Operations North Quarters 3"
+    "Operations North Quarters 4"
    ],
    "type": "pilot",
    "key": 0
@@ -2127,7 +2119,7 @@
   {
    "at": [
     1993.0,
-    1413.0
+    1403.0
    ],
    "o": "v",
    "rooms": [
@@ -2139,11 +2131,11 @@
   {
    "at": [
     1993.0,
-    1491.0
+    1481.0
    ],
    "o": "v",
    "rooms": [
-    "Operations East Store 1"
+    "Operations East Store 2"
    ],
    "type": "pilot",
    "key": 0
@@ -2215,7 +2207,7 @@
    ],
    "o": "h",
    "rooms": [
-    "Operations East Store 2"
+    "Operations East Store 3"
    ],
    "type": "pilot",
    "key": 0
@@ -2263,7 +2255,7 @@
    ],
    "o": "h",
    "rooms": [
-    "Operations East Office 2"
+    "Operations East Office 3"
    ],
    "type": "pilot",
    "key": 0
@@ -2335,7 +2327,7 @@
    ],
    "o": "v",
    "rooms": [
-    "Operations South Lobby 3"
+    "Operations South Lobby 4"
    ],
    "type": "pilot",
    "key": 0
@@ -2558,30 +2550,6 @@
   },
   {
    "at": [
-    2387.0,
-    1541.0
-   ],
-   "o": "v",
-   "rooms": [
-    "Operations East Office 3"
-   ],
-   "type": "pilot",
-   "key": 0
-  },
-  {
-   "at": [
-    2387.0,
-    1613.0
-   ],
-   "o": "v",
-   "rooms": [
-    "Operations East Control 6"
-   ],
-   "type": "pilot",
-   "key": 0
-  },
-  {
-   "at": [
     1273.0,
     2426.0
    ],
@@ -2647,7 +2615,7 @@
    ],
    "o": "h",
    "rooms": [
-    "Operations East Control 7"
+    "Operations East Control 6"
    ],
    "type": "pilot",
    "key": 0
@@ -2683,7 +2651,7 @@
    ],
    "o": "h",
    "rooms": [
-    "Operations East Store 3"
+    "Operations East Store 4"
    ],
    "type": "pilot",
    "key": 0
@@ -2800,6 +2768,19 @@
   },
   {
    "at": [
+    1931.0,
+    1131.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Operations North Quarters 4",
+    "Operations North Canteen 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
     889.0,
     1009.0
    ],
@@ -2891,58 +2872,6 @@
   },
   {
    "at": [
-    1658.0,
-    882.0
-   ],
-   "o": "v",
-   "rooms": [
-    "Operations North Quarters 2",
-    "Operations North Canteen 2"
-   ],
-   "type": "pilot",
-   "key": 0
-  },
-  {
-   "at": [
-    1693.0,
-    851.0
-   ],
-   "o": "h",
-   "rooms": [
-    "Operations North Quarters 2",
-    "Operations North Canteen 3"
-   ],
-   "type": "pilot",
-   "key": 0
-  },
-  {
-   "at": [
-    1931.0,
-    1427.0
-   ],
-   "o": "v",
-   "rooms": [
-    "Operations East Clinic 1",
-    "Operations East Lobby 4"
-   ],
-   "type": "pilot",
-   "key": 0
-  },
-  {
-   "at": [
-    1884.0,
-    1185.0
-   ],
-   "o": "h",
-   "rooms": [
-    "Operations North Loading Bay 2",
-    "Operations North Loading Bay 4"
-   ],
-   "type": "mech",
-   "key": 0
-  },
-  {
-   "at": [
     1369.0,
     1233.0
    ],
@@ -2975,7 +2904,7 @@
    "o": "v",
    "rooms": [
     "Operations North Clinic 2",
-    "Operations North Canteen 4"
+    "Operations North Canteen 3"
    ],
    "type": "pilot",
    "key": 0
@@ -3014,7 +2943,7 @@
    "o": "v",
    "rooms": [
     "Operations North Store 4",
-    "Operations North Quarters 4"
+    "Operations North Quarters 5"
    ],
    "type": "pilot",
    "key": 0
@@ -3157,7 +3086,7 @@
    "o": "v",
    "rooms": [
     "Operations North Clinic 1",
-    "Operations North Canteen 5"
+    "Operations North Canteen 4"
    ],
    "type": "pilot",
    "key": 0
@@ -3195,8 +3124,21 @@
    ],
    "o": "v",
    "rooms": [
+    "Operations West Office 3",
+    "Operations West Lobby 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1073.0,
+    1931.0
+   ],
+   "o": "h",
+   "rooms": [
     "Operations West Office 2",
-    "Operations West Control 4"
+    "Operations West Cabin 3"
    ],
    "type": "pilot",
    "key": 0
@@ -3216,13 +3158,26 @@
   },
   {
    "at": [
+    1883.6,
+    1395.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Operations North Armoury 1",
+    "Operations East Bay 2"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
     2413.0,
     1009.0
    ],
    "o": "h",
    "rooms": [
     "Operations East Lobby 3",
-    "Operations East Store 4"
+    "Operations East Store 5"
    ],
    "type": "pilot",
    "key": 0
@@ -3248,7 +3203,7 @@
    "o": "v",
    "rooms": [
     "Operations West Lounge 1",
-    "Operations West Lobby 3"
+    "Operations West Lobby 4"
    ],
    "type": "pilot",
    "key": 0
@@ -3268,26 +3223,13 @@
   },
   {
    "at": [
-    2335.0,
-    1223.0
-   ],
-   "o": "h",
-   "rooms": [
-    "Operations East Store 2",
-    "Operations East Office 4"
-   ],
-   "type": "pilot",
-   "key": 0
-  },
-  {
-   "at": [
     1494.0,
     1949.0
    ],
    "o": "v",
    "rooms": [
     "Operations South Armoury 3",
-    "Operations South Lobby 4"
+    "Operations South Lobby 5"
    ],
    "type": "pilot",
    "key": 0
@@ -3307,13 +3249,13 @@
   },
   {
    "at": [
-    1931.0,
-    1491.0
+    1965.0,
+    1931.0
    ],
-   "o": "v",
+   "o": "h",
    "rooms": [
     "Operations East Store 1",
-    "Operations East Lounge 3"
+    "Operations East Clinic 4"
    ],
    "type": "pilot",
    "key": 0
@@ -3352,7 +3294,7 @@
    "o": "h",
    "rooms": [
     "Operations South Machine Shop 1",
-    "Operations South Store 2"
+    "Operations South Store 1"
    ],
    "type": "pilot",
    "key": 0
@@ -3411,15 +3353,41 @@
   },
   {
    "at": [
-    2475.0,
-    1450.0
+    1658.0,
+    882.0
    ],
    "o": "v",
    "rooms": [
-    "Operations East Loading Bay 3",
-    "Operations East Loading Bay 5"
+    "Operations North Quarters 3",
+    "Operations North Office 3"
    ],
-   "type": "mech",
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1693.0,
+    851.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Operations North Quarters 3",
+    "Operations North Lounge 5"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2431.0,
+    1498.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Operations East Loading Bay 3",
+    "Operations East Clinic 5"
+   ],
+   "type": "pilot",
    "key": 0
   },
   {
@@ -3430,7 +3398,7 @@
    "o": "h",
    "rooms": [
     "Operations South Control 2",
-    "Operations South Lobby 5"
+    "Operations South Lobby 6"
    ],
    "type": "pilot",
    "key": 0
@@ -3456,7 +3424,7 @@
    "o": "h",
    "rooms": [
     "Operations East Cabin 1",
-    "Operations East Control 8"
+    "Operations East Control 7"
    ],
    "type": "pilot",
    "key": 0
@@ -3469,7 +3437,7 @@
    "o": "h",
    "rooms": [
     "Operations East Cabin 2",
-    "Operations East Lobby 5"
+    "Operations East Lobby 4"
    ],
    "type": "pilot",
    "key": 0
@@ -3502,7 +3470,7 @@
   },
   {
    "at": [
-    1883.2,
+    1883.6,
     1905.0
    ],
    "o": "h",
@@ -3547,33 +3515,20 @@
    "o": "h",
    "rooms": [
     "Operations East Control 2",
-    "Operations East Control 9"
+    "Operations East Control 8"
    ],
    "type": "pilot",
    "key": 0
   },
   {
    "at": [
-    2412.0,
-    1642.0
+    2517.0,
+    851.0
    ],
    "o": "h",
    "rooms": [
     "Operations East Control 6",
-    "Operations East Quarters 6"
-   ],
-   "type": "pilot",
-   "key": 0
-  },
-  {
-   "at": [
-    2437.0,
-    1613.0
-   ],
-   "o": "v",
-   "rooms": [
-    "Operations East Control 6",
-    "Operations East Lobby 6"
+    "Operations East Store 6"
    ],
    "type": "pilot",
    "key": 0
@@ -3599,7 +3554,7 @@
    "o": "h",
    "rooms": [
     "Operations North Store 1",
-    "Operations North Quarters 5"
+    "Operations North Quarters 6"
    ],
    "type": "pilot",
    "key": 0
@@ -3612,7 +3567,7 @@
    "o": "v",
    "rooms": [
     "Operations North Store 1",
-    "Operations North Office 3"
+    "Operations North Office 4"
    ],
    "type": "pilot",
    "key": 0
@@ -3625,7 +3580,7 @@
    "o": "h",
    "rooms": [
     "Operations North Machine Shop 5",
-    "Operations North Lounge 5"
+    "Operations North Lounge 6"
    ],
    "type": "pilot",
    "key": 0
@@ -3645,13 +3600,13 @@
   },
   {
    "at": [
-    2449.0,
-    1541.0
+    2153.0,
+    1571.0
    ],
-   "o": "v",
+   "o": "h",
    "rooms": [
     "Operations East Office 3",
-    "Operations East Store 5"
+    "Operations East Store 7"
    ],
    "type": "pilot",
    "key": 0
@@ -3710,39 +3665,13 @@
   },
   {
    "at": [
-    2517.0,
-    851.0
-   ],
-   "o": "h",
-   "rooms": [
-    "Operations East Control 7",
-    "Operations East Canteen 2"
-   ],
-   "type": "pilot",
-   "key": 0
-  },
-  {
-   "at": [
-    1955.0,
-    1931.0
-   ],
-   "o": "h",
-   "rooms": [
-    "Operations South Store 1",
-    "Operations East Canteen 3"
-   ],
-   "type": "pilot",
-   "key": 0
-  },
-  {
-   "at": [
     2235.0,
     1729.0
    ],
    "o": "h",
    "rooms": [
     "Operations East Quarters 4",
-    "Operations East Canteen 4"
+    "Operations East Canteen 2"
    ],
    "type": "pilot",
    "key": 0
@@ -3794,7 +3723,7 @@
    "o": "h",
    "rooms": [
     "Operations East Control 3",
-    "Operations East Quarters 7"
+    "Operations East Quarters 6"
    ],
    "type": "pilot",
    "key": 0
@@ -3820,7 +3749,7 @@
    "o": "h",
    "rooms": [
     "Operations West Cabin 2",
-    "Operations West Lobby 4"
+    "Operations West Lobby 5"
    ],
    "type": "pilot",
    "key": 0
@@ -3853,19 +3782,6 @@
   },
   {
    "at": [
-    1073.0,
-    1931.0
-   ],
-   "o": "h",
-   "rooms": [
-    "Operations West Office 1",
-    "Operations West Cabin 3"
-   ],
-   "type": "pilot",
-   "key": 0
-  },
-  {
-   "at": [
     2018.0,
     1711.0
    ],
@@ -3885,7 +3801,7 @@
    "o": "v",
    "rooms": [
     "Operations North Plant 3",
-    "Operations North Office 4"
+    "Operations North Office 5"
    ],
    "type": "pilot",
    "key": 0
@@ -3963,7 +3879,7 @@
    "o": "v",
    "rooms": [
     "Operations East Quarters 3",
-    "Operations East Lobby 7"
+    "Operations East Lobby 5"
    ],
    "type": "pilot",
    "key": 0
@@ -3976,7 +3892,33 @@
    "o": "h",
    "rooms": [
     "Operations East Lobby 2",
-    "Operations East Lounge 4"
+    "Operations East Lounge 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2348.0,
+    1698.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Operations East Lobby 2",
+    "Operations East Office 4"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2335.0,
+    1223.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Operations East Store 3",
+    "Operations East Office 5"
    ],
    "type": "pilot",
    "key": 0
@@ -3988,8 +3930,8 @@
    ],
    "o": "h",
    "rooms": [
-    "Operations East Store 3",
-    "Operations East Office 5"
+    "Operations East Store 4",
+    "Operations East Office 6"
    ],
    "type": "pilot",
    "key": 0
@@ -4028,22 +3970,9 @@
    "o": "v",
    "rooms": [
     "Operations North Control 1",
-    "Operations North Office 5"
+    "Operations North Office 6"
    ],
    "type": "pilot",
-   "key": 0
-  },
-  {
-   "at": [
-    2115.0,
-    1528.4
-   ],
-   "o": "v",
-   "rooms": [
-    "Operations East Armoury 1",
-    "Operations East Loading Bay 6"
-   ],
-   "type": "mech",
    "key": 0
   },
   {
@@ -4054,7 +3983,7 @@
    "o": "h",
    "rooms": [
     "Operations East Clinic 3",
-    "Operations East Lounge 5"
+    "Operations East Lounge 4"
    ],
    "type": "pilot",
    "key": 0
@@ -4100,13 +4029,13 @@
   },
   {
    "at": [
-    1809.2,
-    1583.0
+    1930.0,
+    1739.9
    ],
    "o": "h",
    "rooms": [
     "Operations East Office 1",
-    "Operations East Office 6"
+    "Operations East Canteen 3"
    ],
    "type": "pilot",
    "key": 0
@@ -4165,19 +4094,6 @@
   },
   {
    "at": [
-    1930.0,
-    1741.9
-   ],
-   "o": "h",
-   "rooms": [
-    "Operations East Quarters 1",
-    "Operations East Cabin 7"
-   ],
-   "type": "pilot",
-   "key": 0
-  },
-  {
-   "at": [
     824.0,
     825.0
    ],
@@ -4197,7 +4113,7 @@
    "o": "h",
    "rooms": [
     "Operations East Control 4",
-    "Operations East Control 10"
+    "Operations East Control 9"
    ],
    "type": "pilot",
    "key": 0
@@ -4223,7 +4139,7 @@
    "o": "h",
    "rooms": [
     "Operations East Machine Shop 1",
-    "Operations East Loading Bay 7"
+    "Operations East Loading Bay 5"
    ],
    "type": "mech",
    "key": 0
@@ -4249,7 +4165,7 @@
    "o": "h",
    "rooms": [
     "Operations North Armoury 3",
-    "Operations East Control 11"
+    "Operations East Control 10"
    ],
    "type": "pilot",
    "key": 0
@@ -4314,7 +4230,7 @@
    "o": "h",
    "rooms": [
     "Operations West Lobby 2",
-    "Operations West Control 5"
+    "Operations West Control 4"
    ],
    "type": "pilot",
    "key": 0
@@ -4353,7 +4269,7 @@
    "o": "v",
    "rooms": [
     "Operations North Clinic 4",
-    "Operations North Lounge 6"
+    "Operations North Lounge 7"
    ],
    "type": "pilot",
    "key": 0
@@ -4366,7 +4282,7 @@
    "o": "v",
    "rooms": [
     "Operations West Store 3",
-    "Operations West Lobby 5"
+    "Operations West Lobby 6"
    ],
    "type": "pilot",
    "key": 0
@@ -4418,7 +4334,7 @@
    "o": "h",
    "rooms": [
     "Operations East Plant 2",
-    "Operations East Control 12"
+    "Operations East Control 11"
    ],
    "type": "pilot",
    "key": 0
@@ -4469,21 +4385,21 @@
    ],
    "o": "v",
    "rooms": [
-    "Operations West Control 4",
-    "Operations West Store 6"
+    "Operations West Lobby 3",
+    "Operations West Quarters 9"
    ],
    "type": "pilot",
    "key": 0
   },
   {
    "at": [
-    2413.0,
-    1071.0
+    2378.0,
+    1040.0
    ],
-   "o": "h",
+   "o": "v",
    "rooms": [
-    "Operations East Store 4",
-    "Operations East Lobby 8"
+    "Operations East Store 5",
+    "Operations East Clinic 6"
    ],
    "type": "pilot",
    "key": 0
@@ -4503,19 +4419,6 @@
   },
   {
    "at": [
-    820.0,
-    1910.0
-   ],
-   "o": "h",
-   "rooms": [
-    "Operations West Lobby 3",
-    "Operations West Clinic 3"
-   ],
-   "type": "pilot",
-   "key": 0
-  },
-  {
-   "at": [
     1810.0,
     2203.0
    ],
@@ -4529,26 +4432,13 @@
   },
   {
    "at": [
-    2335.0,
-    1161.0
-   ],
-   "o": "h",
-   "rooms": [
-    "Operations East Office 4",
-    "Operations East Office 10"
-   ],
-   "type": "pilot",
-   "key": 0
-  },
-  {
-   "at": [
     2170.0,
     737.0
    ],
    "o": "h",
    "rooms": [
     "Operations North Armoury 4",
-    "Operations North Loading Bay 5"
+    "Operations North Loading Bay 4"
    ],
    "type": "mech",
    "key": 0
@@ -4560,8 +4450,8 @@
    ],
    "o": "v",
    "rooms": [
-    "Operations South Store 2",
-    "Operations South Canteen 8"
+    "Operations South Store 1",
+    "Operations South Cabin 2"
    ],
    "type": "pilot",
    "key": 0
@@ -4594,15 +4484,28 @@
   },
   {
    "at": [
-    2563.0,
-    1450.0
+    1693.0,
+    789.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Operations North Lounge 5",
+    "Operations North Lounge 8"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2475.0,
+    1523.0
    ],
    "o": "v",
    "rooms": [
-    "Operations East Loading Bay 5",
-    "Operations East Cargo Bay 6"
+    "Operations East Clinic 5",
+    "Operations East Lounge 5"
    ],
-   "type": "mech",
+   "type": "pilot",
    "key": 0
   },
   {
@@ -4612,8 +4515,8 @@
    ],
    "o": "v",
    "rooms": [
-    "Operations South Lobby 5",
-    "Operations South Lobby 6"
+    "Operations South Lobby 6",
+    "Operations South Office 3"
    ],
    "type": "pilot",
    "key": 0
@@ -4633,26 +4536,13 @@
   },
   {
    "at": [
-    2157.0,
-    1791.0
-   ],
-   "o": "h",
-   "rooms": [
-    "Operations East Lobby 5",
-    "Operations East Store 6"
-   ],
-   "type": "pilot",
-   "key": 0
-  },
-  {
-   "at": [
     1051.0,
     789.0
    ],
    "o": "h",
    "rooms": [
     "Operations North Cabin 3",
-    "Operations North Office 6"
+    "Operations North Office 7"
    ],
    "type": "pilot",
    "key": 0
@@ -4664,8 +4554,8 @@
    ],
    "o": "v",
    "rooms": [
-    "Operations East Control 9",
-    "Operations East Store 7"
+    "Operations East Control 8",
+    "Operations East Store 8"
    ],
    "type": "pilot",
    "key": 0
@@ -4677,21 +4567,8 @@
    ],
    "o": "v",
    "rooms": [
-    "Operations North Quarters 5",
-    "Operations North Office 7"
-   ],
-   "type": "pilot",
-   "key": 0
-  },
-  {
-   "at": [
-    2511.0,
-    1541.0
-   ],
-   "o": "v",
-   "rooms": [
-    "Operations East Store 5",
-    "Operations East Office 11"
+    "Operations North Quarters 6",
+    "Operations North Store 11"
    ],
    "type": "pilot",
    "key": 0
@@ -4720,32 +4597,6 @@
     "Operations South Machine Shop 4"
    ],
    "type": "mech",
-   "key": 0
-  },
-  {
-   "at": [
-    1955.0,
-    1869.0
-   ],
-   "o": "h",
-   "rooms": [
-    "Operations East Canteen 3",
-    "Operations East Cabin 8"
-   ],
-   "type": "pilot",
-   "key": 0
-  },
-  {
-   "at": [
-    2235.0,
-    1791.0
-   ],
-   "o": "h",
-   "rooms": [
-    "Operations East Canteen 4",
-    "Operations East Lobby 9"
-   ],
-   "type": "pilot",
    "key": 0
   },
   {
@@ -4782,7 +4633,20 @@
    "o": "v",
    "rooms": [
     "Operations South Lounge 3",
-    "Operations South Canteen 9"
+    "Operations South Canteen 8"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2347.0,
+    825.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Operations North Office 5",
+    "Operations North Cabin 6"
    ],
    "type": "pilot",
    "key": 0
@@ -4815,8 +4679,21 @@
   },
   {
    "at": [
-    2413.0,
-    1869.0
+    2379.0,
+    1722.8
+   ],
+   "o": "h",
+   "rooms": [
+    "Operations East Office 4",
+    "Operations East Quarters 7"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2335.0,
+    1161.0
    ],
    "o": "h",
    "rooms": [
@@ -4829,25 +4706,12 @@
   {
    "at": [
     1431.0,
-    1077.0
-   ],
-   "o": "v",
-   "rooms": [
-    "Operations North Office 5",
-    "Operations North Office 8"
-   ],
-   "type": "pilot",
-   "key": 0
-  },
-  {
-   "at": [
-    1431.0,
     2413.0
    ],
    "o": "v",
    "rooms": [
     "Operations South Canteen 6",
-    "Operations South Cabin 2"
+    "Operations South Cabin 3"
    ],
    "type": "pilot",
    "key": 0
@@ -4885,8 +4749,21 @@
    ],
    "o": "h",
    "rooms": [
-    "Operations East Control 10",
-    "Operations East Control 13"
+    "Operations East Control 9",
+    "Operations East Control 12"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1509.0,
+    1077.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Operations North Cabin 4",
+    "Operations North Quarters 7"
    ],
    "type": "pilot",
    "key": 0
@@ -4906,19 +4783,6 @@
   },
   {
    "at": [
-    2292.0,
-    1060.0
-   ],
-   "o": "v",
-   "rooms": [
-    "Operations East Control 11",
-    "Operations East Office 12"
-   ],
-   "type": "pilot",
-   "key": 0
-  },
-  {
-   "at": [
     1142.0,
     737.0
    ],
@@ -4932,26 +4796,39 @@
   },
   {
    "at": [
-    2499.0,
-    2177.0
+    889.0,
+    1133.0
    ],
    "o": "h",
    "rooms": [
-    "Operations East Office 9",
-    "Operations East Cabin 9"
+    "Operations West Control 4",
+    "Operations West Cabin 4"
    ],
    "type": "pilot",
    "key": 0
   },
   {
    "at": [
-    907.0,
-    795.2
+    2499.0,
+    2177.0
    ],
    "o": "h",
    "rooms": [
-    "Operations North Lounge 6",
-    "Operations North Cabin 6"
+    "Operations East Office 9",
+    "Operations East Cabin 7"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1087.0,
+    1333.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Operations West Lobby 6",
+    "Operations West Office 5"
    ],
    "type": "pilot",
    "key": 0
@@ -4964,7 +4841,20 @@
    "o": "h",
    "rooms": [
     "Operations West Store 5",
-    "Operations West Clinic 4"
+    "Operations West Clinic 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2018.0,
+    1792.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Operations East Control 11",
+    "Operations East Lobby 6"
    ],
    "type": "pilot",
    "key": 0
@@ -4984,54 +4874,15 @@
   },
   {
    "at": [
-    1099.0,
-    1249.0
-   ],
-   "o": "v",
-   "rooms": [
-    "Operations West Store 6",
-    "Operations West Control 6"
-   ],
-   "type": "pilot",
-   "key": 0
-  },
-  {
-   "at": [
-    820.0,
-    1972.0
-   ],
-   "o": "h",
-   "rooms": [
-    "Operations West Clinic 3",
-    "Operations West Lounge 5"
-   ],
-   "type": "pilot",
-   "key": 0
-  },
-  {
-   "at": [
-    2122.0,
+    2218.0,
     693.0
    ],
    "o": "v",
    "rooms": [
-    "Operations North Loading Bay 5",
+    "Operations North Loading Bay 4",
     "Operations North Plant 6"
    ],
    "type": "mech",
-   "key": 0
-  },
-  {
-   "at": [
-    1457.0,
-    2337.0
-   ],
-   "o": "v",
-   "rooms": [
-    "Operations South Canteen 8",
-    "Operations South Lounge 5"
-   ],
-   "type": "pilot",
    "key": 0
   },
   {
@@ -5055,20 +4906,33 @@
    "o": "h",
    "rooms": [
     "Operations North Plant 5",
-    "Operations North Loading Bay 6"
+    "Operations North Loading Bay 5"
    ],
    "type": "mech",
    "key": 0
   },
   {
    "at": [
-    2542.0,
-    1576.0
+    2223.0,
+    1875.2
    ],
    "o": "h",
    "rooms": [
-    "Operations East Office 11",
-    "Operations East Office 13"
+    "Operations East Store 8",
+    "Operations East Clinic 7"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1299.0,
+    795.2
+   ],
+   "o": "h",
+   "rooms": [
+    "Operations North Store 11",
+    "Operations North Clinic 7"
    ],
    "type": "pilot",
    "key": 0
@@ -5081,7 +4945,7 @@
    "o": "h",
    "rooms": [
     "Operations South Control 6",
-    "Operations South Lounge 6"
+    "Operations South Lounge 5"
    ],
    "type": "pilot",
    "key": 0
@@ -5101,13 +4965,39 @@
   },
   {
    "at": [
-    2413.0,
-    1807.0
+    2213.0,
+    2245.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Operations South Canteen 8",
+    "Operations South Lounge 6"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2347.0,
+    763.0
    ],
    "o": "h",
    "rooms": [
+    "Operations North Cabin 6",
+    "Operations North Store 12"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2364.0,
+    1130.0
+   ],
+   "o": "v",
+   "rooms": [
     "Operations East Quarters 8",
-    "Operations East Control 14"
+    "Operations East Lounge 6"
    ],
    "type": "pilot",
    "key": 0
@@ -5120,7 +5010,7 @@
    "o": "v",
    "rooms": [
     "Operations South Lounge 4",
-    "Operations South Canteen 10"
+    "Operations South Canteen 9"
    ],
    "type": "pilot",
    "key": 0
@@ -5136,6 +5026,19 @@
     "Operations West Machine Shop 4"
    ],
    "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    2315.0,
+    2213.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Operations East Control 12",
+    "Operations East Control 13"
+   ],
+   "type": "pilot",
    "key": 0
   },
   {
@@ -5166,58 +5069,6 @@
   },
   {
    "at": [
-    2499.0,
-    2239.0
-   ],
-   "o": "h",
-   "rooms": [
-    "Operations East Cabin 9",
-    "Operations East Quarters 9"
-   ],
-   "type": "pilot",
-   "key": 0
-  },
-  {
-   "at": [
-    907.0,
-    733.2
-   ],
-   "o": "h",
-   "rooms": [
-    "Operations North Cabin 6",
-    "Operations North Store 11"
-   ],
-   "type": "pilot",
-   "key": 0
-  },
-  {
-   "at": [
-    907.0,
-    1447.0
-   ],
-   "o": "h",
-   "rooms": [
-    "Operations West Clinic 4",
-    "Operations West Clinic 5"
-   ],
-   "type": "pilot",
-   "key": 0
-  },
-  {
-   "at": [
-    1037.0,
-    1249.0
-   ],
-   "o": "v",
-   "rooms": [
-    "Operations West Control 6",
-    "Operations West Lobby 6"
-   ],
-   "type": "pilot",
-   "key": 0
-  },
-  {
-   "at": [
     644.0,
     745.8
    ],
@@ -5237,7 +5088,7 @@
    "o": "v",
    "rooms": [
     "Operations South Lobby 1",
-    "Operations South Lobby 4"
+    "Operations South Lobby 5"
    ],
    "type": "pilot",
    "key": 0
@@ -5249,7 +5100,7 @@
    ],
    "o": "h",
    "rooms": [
-    "Operations West Quarters 1",
+    "Operations West Office 1",
     "Operations West Cargo Bay 3"
    ],
    "type": "pilot",
@@ -5322,6 +5173,19 @@
   },
   {
    "at": [
+    1248.0,
+    1734.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Operations West Office 4",
+    "Operations West Bay 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
     1229.0,
     2202.0
    ],
@@ -5361,7 +5225,20 @@
   },
   {
    "at": [
-    1816.0,
+    1943.0,
+    1208.5
+   ],
+   "o": "v",
+   "rooms": [
+    "Operations North Loading Bay 2",
+    "Operations North Control 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1826.0,
     1338.0
    ],
    "o": "v",
@@ -5374,8 +5251,8 @@
   },
   {
    "at": [
-    1960.5,
-    1378.0
+    1959.5,
+    1368.0
    ],
    "o": "h",
    "rooms": [
@@ -5400,25 +5277,12 @@
   },
   {
    "at": [
-    2196.0,
-    1602.0
-   ],
-   "o": "v",
-   "rooms": [
-    "Operations East Office 2",
-    "Operations East Cargo Bay 2"
-   ],
-   "type": "pilot",
-   "key": 0
-  },
-  {
-   "at": [
     1962.0,
     2196.0
    ],
    "o": "h",
    "rooms": [
-    "Operations South Lobby 3",
+    "Operations South Lobby 4",
     "Operations South Quarters 1"
    ],
    "type": "pilot",
@@ -5452,13 +5316,13 @@
   },
   {
    "at": [
-    2227.0,
-    1924.8
+    2259.0,
+    1404.5
    ],
-   "o": "h",
+   "o": "v",
    "rooms": [
-    "Operations East Cabin 3",
-    "Operations East Store 7"
+    "Operations East Plant 1",
+    "Operations East Control 7"
    ],
    "type": "pilot",
    "key": 0
@@ -5467,12 +5331,12 @@
  "entry": "Surface Lift",
  "mech_rooms_unreached": [],
  "counts": {
-  "mech_rooms": 132,
-  "pilot_rooms": 221,
-  "mech_doors": 142,
-  "pilot_doors": 236,
+  "mech_rooms": 129,
+  "pilot_rooms": 217,
+  "mech_doors": 136,
+  "pilot_doors": 233,
   "locked": {
-   "OPEN": 378,
+   "OPEN": 369,
    "YELLOW": 0,
    "ORANGE": 0,
    "RED": 0
