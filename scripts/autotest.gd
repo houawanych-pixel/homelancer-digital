@@ -59,6 +59,13 @@ func _check(name: String, ok: bool, detail := "") -> void:
 func _wait(sec: float) -> void:
 	await get_tree().create_timer(sec).timeout
 
+## v13.248: walk into a lift room's middle (a two-stop lift then runs by itself: set once, so the ride carries you)
+func _stand_in(s, k: String, y: float) -> void:
+	var r: Array = Boarding.ROOMS[k]["r"]
+	for i in 3:
+		s.player.global_position = Vector3((float(r[0]) + float(r[1])) * 0.5, y, (float(r[2]) + float(r[3])) * 0.5)
+		await get_tree().process_frame
+
 func _until(cond: Callable, timeout: float) -> bool:
 	var t := 0.0
 	while t < timeout:
@@ -2056,15 +2063,15 @@ func _run() -> void:
 		var F: Dictionary = Boarding.INFO.get("fleet", {})
 		var fl: Dictionary = s.board.get("fleet", {})
 		var names: Array = (Boarding.INFO.get("deck_names", []) as Array).map(func(x): return str(x[1]))
-		_check("v13.239: INFILTRATE: the facility's three floors in the boarding engine (%s), one of the three missions (%s), in at the %s" % [", ".join(names), str(fl.get("kind", "")), Boarding.room_at(s.player.global_position)],
-			bool(Boarding.INFO.get("facility", false)) and names.size() == 3 and str(fl.get("kind", "")) in ["sabotage", "capture", "rescue"] and Boarding.ROOMS.size() > 300, "%d rooms" % Boarding.ROOMS.size())
+		_check("v13.248: INFILTRATE: the facility's five floors in the boarding engine (%s), one of the three missions (%s), in at the %s" % [", ".join(names), str(fl.get("kind", "")), Boarding.room_at(s.player.global_position)],
+			bool(Boarding.INFO.get("facility", false)) and names.size() == 5 and str(fl.get("kind", "")) in ["sabotage", "capture", "rescue"] and Boarding.ROOMS.size() > 300, "%d rooms" % Boarding.ROOMS.size())
 		var purple_card: bool = (fl.get("cards", []) as Array).size() == 5 and (F.get("cards", []) as Array).any(func(c): return int(c["key"]) == 4)
 		var tg: Dictionary = (F.get("targets", {}) as Dictionary).get(str(fl.get("kind", "")), {})
-		var deep_obj: bool = str(tg.get("room", "")).begins_with("l2_") and int(tg.get("key", 0)) == 4
+		var deep_obj: bool = str(tg.get("room", "")).begins_with("l4_") and int(tg.get("key", 0)) == 4
 		var lift_need := false
 		for e in F.get("elev", []):
-			for k in (e.get("need", {}) as Dictionary): if str(k).begins_with("l2_") and int(e["need"][k]) == 4: lift_need = true
-		_check("v13.239: a level 3 facility has FOUR cards: purple opens the lift down to SUB-LEVEL 2, where the objective is (%s)" % str(tg.get("room", "")), purple_card and deep_obj and lift_need, "cards %s deep %s lift %s" % [purple_card, deep_obj, lift_need])
+			for k in (e.get("need", {}) as Dictionary): if str(k).begins_with("l4_") and int(e["need"][k]) == 4 and not (e.get("rooms", e.get("decks", [])) as Array).any(func(r): return str(r).begins_with("r_")): lift_need = true
+		_check("v13.239: a level 3 facility has FOUR cards: purple opens LIFT C down to SUB-LEVEL 4, where the objective is (%s)" % str(tg.get("room", "")), purple_card and deep_obj and lift_need, "cards %s deep %s lift %s" % [purple_card, deep_obj, lift_need])
 		await _capture("facility_in")
 		main.hud.planet_map = true
 		await _wait(0.6)
@@ -2232,11 +2239,19 @@ func _run() -> void:
 				s.player.global_position = lc2
 				await get_tree().process_frame
 			await _wait(1.5)
-			if Boarding.ROOMS.has("u_r_lift__north"):   # v13.225: UP to the habitat deck, and back
+			var stag := Boarding.ROOMS.has("u_r_lift__east") and not Boarding.ROOMS.has("u_r_lift__north") or Boarding.ROOMS.has("u_r_lift__east") and str(Boarding.ROOMS["u_r_lift__north"].get("label", "")) == "SHAFT ACCESS"
+			if stag:   # v13.248 (owner: "elevators in different places, like a real building"): only some decks per shaft
+				var by_lab := {}
+				for e in s._elev: by_lab[str(e["label"])] = (e["stops"] as Array).size()
+				_check("v13.248: staggered station lifts: NORTH 3 stops (hangar-engineering-hub), SOUTH 2, EAST 2 (hub-habitat), WEST 2 (habitat-command) (%s)" % str(by_lab),
+					by_lab.get("NORTH LIFT", 0) == 3 and by_lab.get("SOUTH LIFT", 0) == 2 and by_lab.get("EAST LIFT", 0) == 2 and by_lab.get("WEST LIFT", 0) == 2, str(by_lab))
+			if Boarding.ROOMS.has("u_r_lift__north") or stag:   # v13.225: UP to the habitat deck, and back
 				var cs0: Array = s.board["fleet"]["cards"]
 				for i in cs0.size(): cs0[i] = true   # (the upper decks' lifts need the yellow card, as on the ships)
-				s.lift_go(1)
-				await _until(func(): return Boarding.deck_name(Boarding.deck_y(s.player.global_position)) == "HABITAT DECK" and not bool(s._elev[0]["ride"]), 15.0)
+				if stag:   # (v13.248: up by the EAST lift, which runs by itself: two stops)
+					await _stand_in(s, "r_lift__east", 6.0)
+				else: s.lift_go(1)
+				await _until(func(): return Boarding.deck_name(Boarding.deck_y(s.player.global_position)) == "HABITAT DECK" and not s._elev.any(func(e): return bool(e["ride"])), 15.0)
 				await _wait(1.0)
 				_check("v13.225: UP the north lift: the HABITAT deck", Boarding.deck_name(Boarding.deck_y(s.player.global_position)) == "HABITAT DECK", Boarding.deck_name(Boarding.deck_y(s.player.global_position)))
 				main.open_map()
@@ -2258,8 +2273,10 @@ func _run() -> void:
 						await get_tree().process_frame
 					await _wait(1.0)
 				if Boarding.ROOMS.has("u2_r_lift__north"):   # v13.226: on up to the COMMAND deck (the red card), the Bridge
-					s.lift_go(1)
-					await _until(func(): return Boarding.deck_name(Boarding.deck_y(s.player.global_position)) == "COMMAND DECK" and not bool(s._elev[0]["ride"]), 15.0)
+					if stag:   # (v13.248: across the habitat deck to the WEST lift)
+						await _stand_in(s, "u_r_lift__west", 176.0)
+					else: s.lift_go(1)
+					await _until(func(): return Boarding.deck_name(Boarding.deck_y(s.player.global_position)) == "COMMAND DECK" and not s._elev.any(func(e): return bool(e["ride"])), 15.0)
 					await _wait(1.0)
 					_check("v13.226: UP again: the COMMAND deck", Boarding.deck_name(Boarding.deck_y(s.player.global_position)) == "COMMAND DECK", Boarding.deck_name(Boarding.deck_y(s.player.global_position)))
 					main.open_map()
@@ -2280,12 +2297,19 @@ func _run() -> void:
 							s.player.global_position = back2
 							await get_tree().process_frame
 						await _wait(1.0)
-					s.lift_go(-1)
-					await _until(func(): return Boarding.deck_name(Boarding.deck_y(s.player.global_position)) == "HABITAT DECK" and not bool(s._elev[0]["ride"]), 15.0)
+					if stag: await _stand_in(s, "u2_r_lift__west", 346.0)
+					else: s.lift_go(-1)
+					await _until(func(): return Boarding.deck_name(Boarding.deck_y(s.player.global_position)) == "HABITAT DECK" and not s._elev.any(func(e): return bool(e["ride"])), 15.0)
 					await _wait(1.0)
-				s.lift_go(-1)
-				await _until(func(): return Boarding.deck_name(Boarding.deck_y(s.player.global_position)) == "MAIN HUB DECK" and not bool(s._elev[0]["ride"]), 15.0)
+				if stag: await _stand_in(s, "u_r_lift__east", 176.0)
+				else: s.lift_go(-1)
+				await _until(func(): return Boarding.deck_name(Boarding.deck_y(s.player.global_position)) == "MAIN HUB DECK" and not s._elev.any(func(e): return bool(e["ride"])), 15.0)
 				await _wait(1.0)
+				if stag:   # (back to the NORTH lift for the decks below)
+					for i in 30:
+						s.player.global_position = lc2
+						await get_tree().process_frame
+					await _wait(1.5)
 			if Boarding.ROOMS.has("l_r_lift__north"):   # v13.224: the engineering deck first
 				s.lift_go(-1)
 				await _until(func(): return Boarding.deck_name(Boarding.deck_y(s.player.global_position)) == "ENGINEERING DECK" and not bool(s._elev[0]["ride"]), 15.0)

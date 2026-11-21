@@ -2573,7 +2573,15 @@ func _fleet_elev(dt: float) -> bool:
 			elif (e["stops"] as Array).size() == 2 and near and not bool(e["rode"]):   # a two-deck lift runs by itself
 				e["t_on"] = float(e["t_on"]) + dt
 				if float(e["t_on"]) > 0.5:
-					_lift_start(e, float(e["yhi"]) if is_equal_approx(my_y, float(e["ylo"])) else float(e["ylo"]))
+					var to_y: float = float(e["yhi"]) if is_equal_approx(my_y, float(e["ylo"])) else float(e["ylo"])
+					var need := 0   # v13.248: a two-stop lift that needs a card (a facility's LIFT C, a station's command lift) waits for it
+					for st in e["stops"]:
+						if is_equal_approx(float(st[1]), to_y): need = int((e["need"] as Dictionary).get(str(st[0]), 0))
+					if need > 0 and not _fleet_has(need):
+						message.emit("%s: the %s needs the %s card" % [str(e["label"]), Boarding.deck_name(to_y).to_lower(), ShipInterior.KEY_NAME[need]])
+						e["rode"] = true   # (said once: step off and back on to try again)
+					else:
+						_lift_start(e, to_y)
 			elif not near:
 				e["t_on"] = 0.0
 				e["rode"] = false
