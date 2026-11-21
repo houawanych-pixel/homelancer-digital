@@ -5508,6 +5508,50 @@ var nebula_flash := 0.0          # 0..1 lightning lighting up the cloud around y
 var nebula_flashes := 0          # lightning flashes so far (checks)
 var _neb_stream: MultiMeshInstance3D
 var _neb_stream_mat: ShaderMaterial
+## v13.259 (owner: "inside a cloud it looks like a sphere with a Photoshop cloud filter on it ... swirling wisps, flying
+## towards the camera, see-through, feathered at the edges"): long soft streaks of mist kept round the ship inside a
+## cloud. They stand still in the cloud (you fly past them, faster = they rush by), curl slowly on their own, and fade
+## before they reach the camera; each fades out at its edges.
+var _neb_wisps: MultiMeshInstance3D
+var _neb_wisp_mat: ShaderMaterial
+var _wisp_drift: Array = []
+var _fog_noise: FastNoiseLite
+const WISP_SHADER := """
+shader_type spatial;
+render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, shadows_disabled, fog_disabled, skip_vertex_transform;
+uniform vec4 tint : source_color = vec4(1.0);
+uniform float alpha = 0.0;
+uniform vec3 sdir = vec3(0.0, 0.0, -1.0);
+uniform float stretch = 1.0;
+uniform vec2 near_fade = vec2(45.0, 190.0);
+uniform vec2 far_fade = vec2(700.0, 1100.0);
+varying float v_a;
+varying float v_seed;
+void vertex() {
+	vec3 wpos = MODEL_MATRIX[3].xyz;
+	float len = length(MODEL_MATRIX[0].xyz) * stretch;
+	float wid = length(MODEL_MATRIX[1].xyz);
+	vec3 campos = INV_VIEW_MATRIX[3].xyz;
+	vec3 tocam = normalize(campos - wpos);
+	vec3 d = normalize(sdir + MODEL_MATRIX[2].xyz * 0.0001);
+	vec3 side = cross(d, tocam);
+	side = length(side) < 0.01 ? INV_VIEW_MATRIX[0].xyz : normalize(side);
+	float bend = sin(VERTEX.x * 1.6 + COLOR.r * 12.0 + TIME * 0.35) * 0.35;   // a slow curl along its length
+	vec3 world = wpos + d * VERTEX.x * len + side * (VERTEX.y + bend) * wid;
+	VERTEX = (VIEW_MATRIX * vec4(world, 1.0)).xyz;
+	NORMAL = (VIEW_MATRIX * vec4(tocam, 0.0)).xyz;
+	float dist = distance(wpos, campos);
+	v_a = smoothstep(near_fade.x, near_fade.y, dist) * (1.0 - smoothstep(far_fade.x, far_fade.y, dist)) * COLOR.a;
+	v_seed = COLOR.r;
+}
+void fragment() {
+	vec2 uv = UV * 2.0 - 1.0;
+	float edge = 1.0 - smoothstep(0.0, 1.0, length(vec2(uv.x * 0.85, uv.y)));   // feathered all round
+	float threads = 0.7 + 0.3 * sin(uv.y * 7.0 + uv.x * 2.0 + v_seed * 30.0 + TIME * 0.6);   // soft strands in it
+	ALBEDO = tint.rgb;
+	ALPHA = clamp(pow(edge, 1.7) * threads * alpha * v_a, 0.0, 1.0);
+}
+"""
 var _neb_fog_on := false
 static var _puff_tex: ImageTexture
 static var _puff_sh: Shader
@@ -5634,7 +5678,7 @@ func _build_nebula(d: Dictionary) -> void:
 		mmi.position = nd["center"]
 		mmi.custom_aabb = AABB(-Vector3.ONE * r * 1.6, Vector3.ONE * r * 3.2)
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		var mat := _puff_mat(nd["color"], Data.NEBULA_PUFF_ALPHA, Vector2(0.3, 1.0))
+		var mat := _puff_mat(nd["color"], Data.NEBULA_PUFF_ALPHA, Data.NEBULA_PUFF_NEAR)   # v13.259: they fade well before you reach them (no flat edge up close)
 		mat.set_shader_parameter("flash_r", r * 0.5)
 		mmi.material_override = mat
 		holder.add_child(mmi)
@@ -5661,10 +5705,37 @@ func _build_nebula(d: Dictionary) -> void:
 	_neb_stream.top_level = true
 	_neb_stream.custom_aabb = AABB(-Vector3.ONE * 4e6, Vector3.ONE * 8e6)
 	_neb_stream.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	_neb_stream_mat = _puff_mat(nebula_color, 0.0, Vector2(0.12, 0.7))
+	_neb_stream_mat = _puff_mat(nebula_color, 0.0, Data.NEBULA_STREAM_NEAR)
 	_neb_stream.material_override = _neb_stream_mat
 	_neb_stream.visible = false
 	holder.add_child(_neb_stream)
+	# v13.259: the wisps
+	var wq := QuadMesh.new()
+	wq.size = Vector2(2.0, 2.0)
+	var wmm := MultiMesh.new()
+	wmm.transform_format = MultiMesh.TRANSFORM_3D
+	wmm.use_colors = true
+	wmm.mesh = wq
+	wmm.instance_count = Data.NEBULA_WISPS
+	_wisp_drift = []
+	for i in Data.NEBULA_WISPS:
+		var L := rng.randf_range(Data.NEBULA_WISP_LEN[0], Data.NEBULA_WISP_LEN[1])
+		wmm.set_instance_transform(i, Transform3D(Basis().scaled(Vector3(L, L * rng.randf_range(0.08, 0.2), 1.0)), Vector3(0, -1e6, 0)))
+		wmm.set_instance_color(i, Color(rng.randf(), 0, 0, rng.randf_range(0.55, 1.0)))
+		_wisp_drift.append(Vector3(rng.randfn(0, 1), rng.randfn(0, 0.5), rng.randfn(0, 1)).normalized() * rng.randf_range(4.0, 14.0))
+	_neb_wisps = MultiMeshInstance3D.new()
+	_neb_wisps.name = "NebulaWisps"
+	_neb_wisps.multimesh = wmm
+	_neb_wisps.top_level = true
+	_neb_wisps.custom_aabb = AABB(-Vector3.ONE * 4e6, Vector3.ONE * 8e6)
+	_neb_wisps.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var wsh := Shader.new()
+	wsh.code = WISP_SHADER
+	_neb_wisp_mat = ShaderMaterial.new()
+	_neb_wisp_mat.shader = wsh
+	_neb_wisps.material_override = _neb_wisp_mat
+	_neb_wisps.visible = false
+	holder.add_child(_neb_wisps)
 
 ## How deep you are in the deepest cloud (0..1), and which one.
 func _nebula_depth(p: Vector3) -> void:
@@ -5924,6 +5995,33 @@ func _update_weather(dt: float) -> void:
 ## further off it still fades into the cloud (hidden ships stay hidden).
 var _fogc_t := 0.0
 var fog_clear_ships := 0
+func _update_wisps(dt: float, pp: Vector3) -> void:
+	if not is_instance_valid(_neb_wisps): return
+	_neb_wisps.visible = Data.NEBULA_WISPS > 0 and in_nebula > 0.02
+	if not _neb_wisps.visible: return
+	var spd := vel.length()
+	var ahead: Vector3 = vel / spd if spd > 8.0 else -player.global_basis.z
+	_neb_wisp_mat.set_shader_parameter("tint", nebula_tint.lerp(Data.NEBULA_MIST, Data.NEBULA_MIST_MIX * 0.6))
+	_neb_wisp_mat.set_shader_parameter("alpha", Data.NEBULA_WISP_ALPHA * clampf(in_nebula * 1.4, 0.0, 1.0))
+	# along the way you fly (streaks rushing past); slow: they lie as they drift
+	var sd: Vector3 = ahead if spd > 8.0 else Vector3(cos(time * 0.05), 0.15, sin(time * 0.05))
+	_neb_wisp_mat.set_shader_parameter("sdir", sd)
+	_neb_wisp_mat.set_shader_parameter("stretch", 1.0 + clampf(spd / 300.0, 0.0, 1.5))
+	var cp: Vector3 = cam.global_position if is_instance_valid(cam) else pp
+	var R: float = Data.NEBULA_WISP_RANGE
+	var mm := _neb_wisps.multimesh
+	for i in mm.instance_count:
+		var t := mm.get_instance_transform(i)
+		t.origin += (_wisp_drift[i] as Vector3) * dt   # curling slowly on its own
+		var rel := t.origin - cp
+		if rel.length() < R and rel.dot(ahead) > -R * 0.15: 
+			mm.set_instance_transform(i, t)
+			continue
+		var side := Vector3(_rng.randfn(0, 1), _rng.randfn(0, 0.6), _rng.randfn(0, 1))
+		side -= ahead * side.dot(ahead)
+		t.origin = pp + ahead * _rng.randf_range(R * 0.25, R * 0.9) + side.normalized() * _rng.randf_range(40.0, R * 0.45)
+		mm.set_instance_transform(i, t)
+
 func _fog_clear_ships(dt: float) -> void:
 	# v13.236 (owner: "I would still like to see a little bit of the cloud fogginess around this big ship"): the
 	# ship keeps the cloud's haze; the fog thins while a ship is near you, so its colours show through
@@ -6014,11 +6112,15 @@ func _update_nebulae(dt: float) -> void:
 				e.fog_mode = Environment.FOG_MODE_EXPONENTIAL
 				e.fog_light_energy = 1.0
 				_neb_fog_on = true
-			e.fog_density = Data.NEBULA_FOG_DENSITY * pow(in_nebula, 1.5) * clear * ship_fog_k
+			if _fog_noise == null:
+				_fog_noise = FastNoiseLite.new()
+				_fog_noise.frequency = 1.0 / Data.NEBULA_FOG_PATCH
+			var patch := 0.5 + 0.5 * _fog_noise.get_noise_3dv(pp)   # v13.259: thicker in some places, clearer in others
+			e.fog_density = Data.NEBULA_FOG_DENSITY * Data.NEBULA_FOG_K * pow(in_nebula, 1.5) * clear * ship_fog_k * lerpf(Data.NEBULA_FOG_PATCHY[0], Data.NEBULA_FOG_PATCHY[1], patch)
 			# v6.7 (owner, Freelancer): inside it is a white, misty, smoky cloud, tinted only a little by the cloud's colour
 			e.fog_light_color = nebula_tint.lerp(Data.NEBULA_MIST, Data.NEBULA_MIST_MIX).lerp(Data.BEACON_LIGHT_COLOR, beacon_lit * 0.5).lerp(Color(0.92, 0.95, 1.0), nebula_flash * 0.7)
-			e.fog_sky_affect = clampf(in_nebula * 1.6, 0.0, 1.0) * clear   # (v1.9z: deep inside, no stars: you can't see out)
-			_cloud_dome(clampf(in_nebula * 1.6, 0.0, 1.0) * clear, e.fog_light_color, Data.NEBULA_DOME_CONTRAST)
+			e.fog_sky_affect = clampf(in_nebula * 1.6, 0.0, 1.0) * clear * Data.NEBULA_SKY_HIDE   # (v13.259: the stars still show faintly)
+			_cloud_dome(clampf(in_nebula * 1.6, 0.0, 1.0) * clear * Data.NEBULA_DOME_K, e.fog_light_color, Data.NEBULA_DOME_CONTRAST)   # v13.259: the cloud-pattern ball round you, way down
 		elif _neb_fog_on:
 			e.fog_enabled = false
 			_neb_fog_on = false
@@ -6027,6 +6129,7 @@ func _update_nebulae(dt: float) -> void:
 	# smoke streaming past: puffs left behind are put back ahead of the ship
 	if not is_instance_valid(_neb_stream): return
 	_neb_stream.visible = in_nebula > 0.02
+	_update_wisps(dt, pp)
 	if not _neb_stream.visible:
 		if is_instance_valid(_neb_wx): _neb_wx.visible = false
 		return

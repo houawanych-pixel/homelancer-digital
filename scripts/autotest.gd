@@ -7652,6 +7652,32 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if _flag("HL_WISPS"):   # v13.259 (owner: "swirling wisps ... see-through, feathered; not a sphere with a cloud filter")
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var s := _sp()
+		var nd: Dictionary = {}
+		for n in s.nebulae: if bool(n.get("main", false)): nd = n
+		if nd.is_empty() and not s.nebulae.is_empty(): nd = s.nebulae[0]
+		var c: Vector3 = nd["center"]
+		var r: float = float(nd.get("r", nd.get("radius", 20000.0)))
+		s.player.global_position = c + Vector3(r * 0.25, 0, 0)
+		s.yaw = 0.0
+		s.pitch = 0.0
+		await _wait(1.0)
+		for k in 3:
+			s.vel = -s.player.global_basis.z * 260.0
+			await _wait(0.8)
+			await _capture("wisps_fly_%d" % k)
+		s.vel = Vector3.ZERO
+		await _wait(1.5)
+		await _capture("wisps_still")
+		var on: bool = is_instance_valid(s._neb_wisps) and s._neb_wisps.visible
+		_check("v13.259: inside a cloud (%.2f deep): wisps %s, the cloud ball at %.2f" % [s.in_nebula, on, s.dome_alpha], s.in_nebula > 0.2 and (on or Data.NEBULA_WISPS == 0), "")
+		for r2 in results: print("[route] ", r2)
+		get_tree().quit()
+		return
 	if _flag("HL_V19Z"):   # the v1.9z cloud weather checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)

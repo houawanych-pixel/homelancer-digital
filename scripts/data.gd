@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.258"
+const VERSION := "v13.259"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -1275,7 +1275,18 @@ const NEBULA_MIST := Color(0.93, 0.95, 1.0)   # v6.7 (owner): white mist inside 
 const NEBULA_MIST_MIX := 0.65      # how far toward white (0 = the cloud's own colour)
 const NEBULA_DOME_SCALE := 0.55    # the cloud wall's noise is stretched this much (no repeating tiles)
 const NEBULA_DOME_CONTRAST := 0.45 # soft billows, not a hard pattern
-const NEBULA_STREAM_ALPHA := 0.75  # the smoke rushing past the ship
+const NEBULA_STREAM_ALPHA := 0.4   # the smoke rushing past the ship (v13.259: lighter, the wisps do the work; was 0.75)
+const NEBULA_STREAM_NEAR := Vector2(0.6, 1.6)   # v13.259: those puffs fade this many sizes off the camera (was 0.12-0.7: flat edges up close)
+const NEBULA_PUFF_NEAR := Vector2(0.8, 1.8)     # v13.259: the cloud's big puffs fade this many sizes off (was 0.3-1.0)
+const NEBULA_WISPS := 26                        # v13.259 (owner: "swirling wisps"): soft streaks of mist round the ship in a cloud
+const NEBULA_WISP_LEN := [90.0, 240.0]          # m, half-length of a wisp (its width 8-20 % of that)
+const NEBULA_WISP_ALPHA := 0.7                 # see-through
+const NEBULA_WISP_RANGE := 900.0                # m: kept within this of the camera, put back ahead when passed
+const NEBULA_DOME_K := 0.55                      # v13.259 (owner: "it looks like I'm inside a sphere with a cloud filter"): the cloud-pattern ball round you, this share
+const NEBULA_SKY_HIDE := 0.8                    # v13.259: the fog hides this share of the stars (they still show faintly)
+const NEBULA_FOG_K := 0.75                      # v13.259: the fog this much thinner
+const NEBULA_FOG_PATCH := 2500.0                # m: the size of the thicker / clearer patches of fog
+const NEBULA_FOG_PATCHY := [0.45, 1.25]         # the fog's density x this, clearest to thickest patch
 const NEBULA_DOME_R := 1400.0       # the cloud shell round the camera (beyond it, only haze)
 const NEBULA_HUD_TINT := 0.16         # the screen tint inside a cloud (the fog does most of the work now; was 0.36)
 const STATION_MODEL_YAW := {"hollow_requiem": 90.0}   # degrees: the dead liner lies across the docking approach
