@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.259"
+const VERSION := "v13.260"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -1049,6 +1049,11 @@ const ASTEROID_BUBBLE := 2500.0         # v9.0: the mineable block asteroids sta
 const ASTEROID_COUNT := 18                # block asteroids per field (they replace the old round rocks)
 const ASTEROID_SIZE := [4, 8]             # blocks across (most are small: the size leans to the low end)
 const ASTEROID_BIG := [3, 11]             # [how many big ones, blocks across]
+const ASTEROID_SMOOTH := 3           # v13.260 (owner: "not so blocky, like real asteroids"): rounding passes over the block surface (0 = blocks)
+const ASTEROID_SMOOTH_K := 0.5        # how far each corner moves toward its neighbours per pass
+const ASTEROID_LUMPS := 0.35          # lumps and dents, in blocks
+const ROCK_BUMP := 2.2                # the rock bump texture's strength (craters, cracks, grit)
+const ROCK_PATTERN_M := 2.5           # the rock pattern repeats every this many blocks (rock sizes)
 const ASTEROID_CELL := 6.0                # m per block (v1.8d owner: big blocks, like the planet; was 3)
 const ASTEROID_TREASURE := {"gold": 0.4, "diamond": 0.15}   # chance an asteroid hides a gold / diamond cluster in its core
 # v1.8d (owner): asteroids break like the arcade game: whole -> 2 big pieces -> 4 each -> 4 each -> destroyed.
@@ -1272,7 +1277,7 @@ const WARP_TUNNEL_TINT := Color(1.0, 0.42, 0.82)   # v10.6 (owner: "that amazing
 const WARP_HOLE_CLOUD := Color(0.75, 0.25, 0.6)   # the cloud each warp gate hides in
 const JUMP_TUNNEL_SPIN := [0.04, 0.22]   # v1.9z (owner): the jump-gate tunnel (his picture) spins, turns a second slow .. full speed
 const NEBULA_MIST := Color(0.93, 0.95, 1.0)   # v6.7 (owner): white mist inside a cloud, like Freelancer
-const NEBULA_MIST_MIX := 0.65      # how far toward white (0 = the cloud's own colour)
+const NEBULA_MIST_MIX := 0.3       # how far toward white (0 = the cloud's own colour) (v13.260 owner: "a green cloud turns white inside": was 0.65)
 const NEBULA_DOME_SCALE := 0.55    # the cloud wall's noise is stretched this much (no repeating tiles)
 const NEBULA_DOME_CONTRAST := 0.45 # soft billows, not a hard pattern
 const NEBULA_STREAM_ALPHA := 0.4   # the smoke rushing past the ship (v13.259: lighter, the wisps do the work; was 0.75)

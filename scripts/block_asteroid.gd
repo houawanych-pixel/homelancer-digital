@@ -25,11 +25,13 @@ var tier := 0                   # v1.8d: 0 = whole asteroid, 1 = half, 2 = quart
 var health := 1.0               # damage left before it splits
 var vel := Vector3.ZERO         # m/s drift (pieces fly apart; whole asteroids stay put)
 var _mat: StandardMaterial3D = null
+var seed_n := 0   # v13.260: its lumps (pieces keep their parent's)
 
 func setup(seed_v: int, size_cells: int, cell_m: float, is_ice: bool, treasure: Dictionary) -> void:
 	n = size_cells
 	cell = cell_m
 	ice = is_ice
+	seed_n = seed_v
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_v
 	var noise := FastNoiseLite.new()
@@ -162,14 +164,20 @@ const _FACES := [
 	[Vector3i(0, 0, -1), [Vector3(0, 0, 0), Vector3(0, 1, 0), Vector3(1, 1, 0), Vector3(1, 0, 0)]],
 ]
 
-## Rebuild the mesh: one quad per block side that faces open space, coloured by material (a little variation per
-## block, darker edges so the blocks read).
+## Rebuild the mesh: one quad per block side that faces open space, coloured by material.
+## v13.260 (owner: "the asteroids need to not look so blocky, more like real asteroids, without adding topology"): the
+## same quads, but their corners are shared and pulled toward their neighbours (rounded off like a subdivision cage),
+## nudged in and out by noise, and shaded smooth with a rocky bump texture. The blocks underneath stay (shooting and
+## mining hit them as before); only the look is a lumpy rock.
 func remesh() -> void:
-	var verts := PackedVector3Array()
-	var norms := PackedVector3Array()
 	var cols := PackedColorArray()
 	var idx := PackedInt32Array()
 	var off := Vector3.ONE * (n * 0.5)
+	var corner_id := {}   # grid corner -> vertex
+	var pos: Array = []   # Vector3 (grid units)
+	var col_sum: Array = []
+	var nb: Array = []    # neighbour vertex ids
+	var smooth := Data.ASTEROID_SMOOTH > 0
 	solid_count = 0
 	for x in n:
 		for y in n:
@@ -183,17 +191,54 @@ func remesh() -> void:
 				for f in _FACES:
 					var dv: Vector3i = f[0]
 					if at(Vector3i(x, y, z) + dv) != EMPTY: continue
-					var k := verts.size()
-					var nv := Vector3(dv)
-					var shade := 1.0 if dv.y >= 0 else 0.82
+					var q: Array = []
 					for corner: Vector3 in f[1]:
-						verts.append((Vector3(x, y, z) + corner - off) * cell)
-						norms.append(nv)
-						cols.append(Color(base.r * shade, base.g * shade, base.b * shade))
-					idx.append_array([k, k + 1, k + 2, k, k + 2, k + 3])
-	if verts.is_empty():
+						var g := Vector3i(x, y, z) + Vector3i(corner)
+						var key: Variant = g if smooth else Vector3i(pos.size(), 0, -1)   # (not smoothed: every quad its own corners)
+						if not corner_id.has(key):
+							corner_id[key] = pos.size()
+							pos.append(Vector3(g) - off)
+							col_sum.append(Color(0, 0, 0, 0))
+							nb.append({})
+						var vi: int = corner_id[key]
+						q.append(vi)
+						col_sum[vi] = (col_sum[vi] as Color) + Color(base.r, base.g, base.b, 1.0)
+					for a in 4:
+						(nb[q[a]] as Dictionary)[q[(a + 1) % 4]] = true
+						(nb[q[a]] as Dictionary)[q[(a + 3) % 4]] = true
+					idx.append_array([q[0], q[1], q[2], q[0], q[2], q[3]])
+	if pos.is_empty():
 		mesh = null
 		return
+	if smooth:
+		for it in Data.ASTEROID_SMOOTH:   # rounded off: each corner moves part way to its neighbours' middle
+			var nxt: Array = pos.duplicate()
+			for vi in pos.size():
+				var ks: Array = (nb[vi] as Dictionary).keys()
+				if ks.is_empty(): continue
+				var c := Vector3.ZERO
+				for k in ks: c += pos[k]
+				nxt[vi] = (pos[vi] as Vector3).lerp(c / ks.size(), Data.ASTEROID_SMOOTH_K)
+			pos = nxt
+	var verts := PackedVector3Array()
+	verts.resize(pos.size())
+	var nz := FastNoiseLite.new()
+	nz.seed = int(seed_n)
+	nz.frequency = 0.35
+	var norms := PackedVector3Array()
+	norms.resize(pos.size())
+	for t in range(0, idx.size(), 3):   # smooth normals: each corner's faces averaged
+		var a: Vector3 = pos[idx[t]]
+		var fn := ((pos[idx[t + 1]] as Vector3) - a).cross((pos[idx[t + 2]] as Vector3) - a)
+		for k in 3: norms[idx[t + k]] += fn
+	for vi in pos.size():
+		var nv := norms[vi].normalized() if norms[vi].length() > 0.0 else Vector3.UP
+		norms[vi] = nv
+		var p: Vector3 = pos[vi]
+		if smooth: p += nv * nz.get_noise_3dv(p) * Data.ASTEROID_LUMPS   # lumps and dents (in blocks)
+		verts[vi] = p * cell
+		var cs: Color = col_sum[vi]
+		cols.append(Color(cs.r / cs.a, cs.g / cs.a, cs.b / cs.a) if cs.a > 0.0 else Color.GRAY)
 	var arr := []
 	arr.resize(Mesh.ARRAY_MAX)
 	arr[Mesh.ARRAY_VERTEX] = verts
@@ -202,13 +247,55 @@ func remesh() -> void:
 	arr[Mesh.ARRAY_INDEX] = idx
 	var am := ArrayMesh.new()
 	am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
-	if _mat == null:
-		_mat = StandardMaterial3D.new()
-		_mat.vertex_color_use_as_albedo = true
-		_mat.roughness = 0.85
-		_mat.metallic_specular = 0.35
+	if _mat == null: _mat = rock_material(ice, cell)
 	am.surface_set_material(0, _mat)
 	mesh = am
+
+## v13.260: a rock's skin: its colour (from the vertices) under a grainy rock pattern, and a bump texture for craters,
+## cracks and grit, laid on from all three sides (no stretched seams). Shared by every rock of a size.
+static var _rock_mats := {}
+static func rock_material(is_ice: bool, scale_m: float) -> StandardMaterial3D:
+	var key := "%s|%d" % [is_ice, int(scale_m)]
+	if _rock_mats.has(key): return _rock_mats[key]
+	var m := StandardMaterial3D.new()
+	m.vertex_color_use_as_albedo = true
+	m.roughness = 0.4 if is_ice else 0.92
+	m.metallic_specular = 0.3
+	var fn := FastNoiseLite.new()
+	fn.noise_type = FastNoiseLite.TYPE_CELLULAR   # pits and ridges, like craters
+	fn.frequency = 0.03
+	fn.fractal_type = FastNoiseLite.FRACTAL_FBM
+	fn.fractal_octaves = 4
+	var nt := NoiseTexture2D.new()
+	nt.width = 256
+	nt.height = 256
+	nt.seamless = true
+	nt.as_normal_map = true
+	nt.bump_strength = 14.0
+	nt.noise = fn
+	m.normal_enabled = true
+	m.normal_texture = nt
+	m.normal_scale = Data.ROCK_BUMP
+	var fa := FastNoiseLite.new()
+	fa.frequency = 0.035
+	fa.fractal_octaves = 5
+	var at := NoiseTexture2D.new()
+	at.width = 256
+	at.height = 256
+	at.seamless = true
+	at.noise = fa
+	var gr := Gradient.new()   # grey grain, never black: the vertex colour still shows
+	gr.set_color(0, Color(0.32, 0.3, 0.29))   # dark pits and seams ...
+	gr.set_color(1, Color(1.12, 1.08, 1.02))   # ... to sunlit grit
+	gr.add_point(0.55, Color(0.82, 0.79, 0.76))
+	at.color_ramp = gr
+	m.albedo_texture = at
+	m.uv1_triplanar = true
+	m.uv1_world_triplanar = false
+	m.uv1_scale = Vector3.ONE / maxf(scale_m * Data.ROCK_PATTERN_M, 0.01)
+	m.uv1_triplanar_sharpness = 2.0
+	_rock_mats[key] = m
+	return m
 
 func tick(dt: float) -> void:
 	rotate_object_local(spin.normalized() if spin.length() > 0.0 else Vector3.UP, spin.length() * dt)

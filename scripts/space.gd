@@ -5148,25 +5148,34 @@ func _rock_mesh(seed_v: int, ice: bool) -> ArrayMesh:
 	var sm := SphereMesh.new()
 	sm.radius = 1.0
 	sm.height = 2.0
-	sm.radial_segments = 10
-	sm.rings = 6
+	sm.radial_segments = 12
+	sm.rings = 7
 	var arr := sm.get_mesh_arrays()
 	var verts: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
 	for i in verts.size():
 		var v := verts[i]
 		verts[i] = v * (1.0 + n.get_noise_3dv(v * 1.7) * 0.45) * Vector3(1.0, 0.8, 1.15)
+	# v13.260 (owner: "realistic asteroids, not blocky, without more topology"): the same few faces shaded smooth (shared
+	# corners: the seam welded), with the rock skin's bumps and grain instead of flat facets
+	var weld := {}
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var col := Color(0.72, 0.85, 0.95) if ice else Color(0.42, 0.37, 0.33)
+	var ids := PackedInt32Array()
+	var nv := 0
+	for i in verts.size():
+		var key := Vector3i((verts[i] * 1000.0).round())
+		if not weld.has(key):
+			weld[key] = nv
+			st.set_color(col)
+			st.add_vertex(verts[i])
+			nv += 1
+		ids.append(weld[key])
 	var idx: PackedInt32Array = arr[Mesh.ARRAY_INDEX]
-	for i in idx.size():
-		st.add_vertex(verts[idx[i]])
+	for i in idx.size(): st.add_index(ids[idx[i]])
 	st.generate_normals()
 	var m := st.commit()
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.72, 0.85, 0.95) if ice else Color(0.42, 0.37, 0.33)
-	mat.roughness = 0.35 if ice else 0.95
-	mat.metallic = 0.1
-	m.surface_set_material(0, mat)
+	m.surface_set_material(0, BlockAsteroid.rock_material(ice, 0.5))
 	return m
 
 func _build_belt(d: Dictionary) -> void:
@@ -5372,6 +5381,7 @@ func split_asteroid(ast, weapon: String) -> Array:
 		child.name = "AsteroidPiece"
 		child.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		holder.add_child(child)
+		child.seed_n = int(ast.seed_n)   # v13.260: the piece keeps its rock's lumps
 		var local: Vector3 = child.setup_from(grp, int(ast.n), float(ast.cell), bool(ast.ice), tier + 1)
 		child.global_transform = Transform3D(ast.global_transform.basis, ast.global_transform * local)
 		var away: Vector3 = child.global_position - at

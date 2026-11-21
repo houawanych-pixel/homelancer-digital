@@ -7652,6 +7652,53 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if _flag("HL_ROCKS"):   # v13.260 (owner: "asteroids not so blocky, realistic"; "a green cloud turns white inside")
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var s := _sp()
+		var bc: Vector3 = s.belt_center
+		_tp(bc + Vector3(0, 30, s.belt_radius + 120), bc)
+		await _until(func(): return s.in_belt or not s.asteroids.is_empty(), 10.0)
+		for i in 60:
+			s.move = Vector2(0, 1)
+			await get_tree().process_frame
+		s.move = Vector2.ZERO
+		await _wait(1.0)
+		var big: Node3D = null
+		for a2 in s.asteroids:
+			if is_instance_valid(a2) and (big == null or float(a2.radius) > float(big.radius)): big = a2
+		if big != null:
+			var away := Vector3(0.4, 0.25, 1.0).normalized() * (float(big.radius) * 3.2 + 30.0)
+			_tp(big.global_position + away, big.global_position)
+			await _wait(0.6)
+			await _capture("rock_close")
+			var side_v: Vector3 = (s.sys["sun_dir"] as Vector3).normalized().cross(Vector3.UP).normalized()
+			_tp(big.global_position + side_v * (float(big.radius) * 3.2 + 30.0), big.global_position)
+			await _wait(0.6)
+			await _capture("rock_side")
+			_tp(big.global_position + away * 4.0, big.global_position)
+			await _wait(0.6)
+			await _capture("rock_field")
+		var am: ArrayMesh = big.mesh if big != null else null
+		var smooth_ok: bool = am != null and am.surface_get_array_index_len(0) > 0 and (big.get("_mat") as StandardMaterial3D).normal_enabled
+		_check("v13.260: the block asteroids are lumpy rocks (rounded, smooth-shaded, a bump skin), the blocks still underneath", smooth_ok and big.solid_count > 0, "")
+		await _asteroid_mining(s)
+		var green: Dictionary = {}
+		for nd in s.nebulae:
+			var cc: Color = nd["color"]
+			if cc.g > cc.r * 1.2 and cc.g > cc.b * 1.05 and green.is_empty(): green = nd
+		if green.is_empty() and not s.nebulae.is_empty(): green = s.nebulae[0]
+		if not green.is_empty():
+			var gr: float = float(green.get("r", green.get("radius", 20000.0)))
+			_tp((green["center"] as Vector3) + Vector3(gr * 0.2, 0, 0), green["center"])
+			await _until(func(): return s.in_nebula > 0.5, 6.0)
+			await _wait(1.0)
+			await _capture("cloud_colour")
+			print("[route] cloud colour %s, fog %s" % [str(green["color"]), str(s.env.environment.fog_light_color)])
+		for r2 in results: print("[route] ", r2)
+		get_tree().quit()
+		return
 	if _flag("HL_WISPS"):   # v13.259 (owner: "swirling wisps ... see-through, feathered; not a sphere with a cloud filter")
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
