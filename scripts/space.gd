@@ -1017,6 +1017,92 @@ var port_bases: Array = []     # (tests) v13.240: the bases standing on the port
 ## SHIELD GENERATOR (the whole base is its hit area: knock the shield down, then the hull to half, and the generator is
 ## gone, as a battleship's) under a shield dome, and its guard mechs. Shield down: land by it and INFILTRATE (its three
 ## floors). Done, it's gone.
+## v13.256 (owner: "copy its object shape and give it a transparent blue shield scaled a little over it, until the
+## shield is destroyed, then it goes away, with sparks"): a shield shell. Every mesh of the model drawn again, pushed out
+## along its normals by grow_m metres, as a see-through glowing blue skin. _shell_break flickers it, throws sparks over
+## it and fades it out.
+const SHELL_SHADER := """
+shader_type spatial;
+render_mode unshaded, blend_add, cull_back, depth_draw_never, shadows_disabled;
+uniform vec4 col : source_color = vec4(0.3, 0.72, 1.0, 1.0);
+uniform float grow = 0.0;
+uniform float k = 1.0;
+varying vec3 wp;
+void vertex() {
+	VERTEX += NORMAL * grow;
+	wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+}
+void fragment() {
+	float rim = pow(1.0 - abs(dot(NORMAL, VIEW)), 2.0);
+	float band = 0.5 + 0.5 * sin(wp.y * 0.35 - TIME * 2.2);
+	ALBEDO = col.rgb;
+	ALPHA = clamp((0.08 + rim * 0.75) * (0.7 + 0.3 * band) * k, 0.0, 1.0);
+}
+"""
+static var _shell_shader: Shader
+func _shield_shell(src: Node3D, grow_m: float) -> Node3D:
+	if _shell_shader == null:
+		_shell_shader = Shader.new()
+		_shell_shader.code = SHELL_SHADER
+	var root := Node3D.new()
+	root.name = "ShieldShell"
+	var mats: Array = []
+	for mi in src.find_children("*", "MeshInstance3D", true, false):
+		var m0 := mi as MeshInstance3D
+		if m0.mesh == null: continue
+		var nm := str(m0.name).to_lower()
+		if _HULL_SKIP.any(func(w): return nm.contains(w)): continue
+		var xf := Transform3D.IDENTITY   # (its place in src, without needing the tree)
+		var n: Node = m0
+		while n != null and n != src:
+			if n is Node3D: xf = (n as Node3D).transform * xf
+			n = n.get_parent()
+		var sc := xf.basis.get_scale() * src.scale
+		var c := MeshInstance3D.new()
+		c.mesh = m0.mesh
+		c.transform = xf
+		c.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var mt := ShaderMaterial.new()
+		mt.shader = _shell_shader
+		mt.set_shader_parameter("grow", grow_m / maxf(maxf(absf(sc.x), absf(sc.y)), maxf(absf(sc.z), 0.0001)))
+		c.material_override = mt
+		root.add_child(c)
+		mats.append(mt)
+	root.set_meta("mats", mats)
+	src.add_child(root)
+	return root
+
+func _shell_k(root: Node3D, k: float) -> void:
+	if not is_instance_valid(root): return
+	for mt in root.get_meta("mats", []): (mt as ShaderMaterial).set_shader_parameter("k", k)
+
+func _shell_break(root: Node3D) -> void:
+	if not is_instance_valid(root) or bool(root.get_meta("breaking", false)): return
+	root.set_meta("breaking", true)
+	var bb := AABB()
+	var first := true
+	for c in root.get_children():
+		if c is MeshInstance3D:
+			var a: AABB = (c as MeshInstance3D).global_transform * (c as MeshInstance3D).get_aabb() if root.is_inside_tree() else AABB()
+			bb = a if first else bb.merge(a)
+			first = false
+	var tw := root.create_tween()
+	for f in [0.15, 1.3, 0.05, 1.0, 0.25, 1.1]:   # the flicker
+		tw.tween_callback(_shell_k.bind(root, f))
+		tw.tween_interval(0.07)
+	for i in 14:   # sparks crackling over it as it fades
+		tw.tween_callback(func():
+			if not is_instance_valid(root) or bb.size == Vector3.ZERO: return
+			var p := bb.get_center() + Vector3(randf_range(-0.5, 0.5) * bb.size.x, randf_range(-0.1, 0.5) * bb.size.y, randf_range(-0.5, 0.5) * bb.size.z)
+			_spark(p, Color(0.45, 0.85, 1.0), maxf(bb.size.length() * 0.05, 6.0), 0.45)
+			_shell_k(root, 1.0 - float(i) / 14.0))
+		tw.tween_interval(0.08)
+	tw.tween_callback(func():
+		if is_instance_valid(root):
+			root.visible = false
+			root.queue_free())
+	Sfx.play("explosion", -6.0, 1.6)
+
 var raid_base: Dictionary = {}   # the generator unit (tests)
 func raid_site_here() -> Dictionary:
 	var m: Dictionary = GS.mission
@@ -1040,26 +1126,11 @@ func _raid_setup(h: Node3D, site: Dictionary) -> void:
 	e["raid_base"] = true
 	e["walker"] = false
 	(e["node"] as Node3D).name = "%s shield generator" % str(site["name"])
-	var dome := MeshInstance3D.new()   # the shield: a dome over the base
-	var sm := SphereMesh.new()
-	sm.radius = half * 1.25
-	sm.height = half * 1.6
-	sm.radial_segments = 32
-	sm.rings = 16
-	dome.mesh = sm
-	var mat := StandardMaterial3D.new()
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	mat.albedo_color = Color(0.35, 0.8, 1.0, 0.16)
-	mat.emission_enabled = true
-	mat.emission = Color(0.3, 0.7, 1.0)
-	dome.material_override = mat
-	dome.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	dome.name = "RaidShield"
-	(e["node"] as Node3D).add_child(dome)
-	dome.position = Vector3(0, -half * 0.35, 0)
-	e["raid_dome"] = dome
+	var shells: Array = [_shield_shell(h, Data.SHELL_GROW_BASE)]   # v13.256: the shield, the shape of the base's own buildings
+	for n in tile_root.get_children():
+		if n is Node3D and n != h and str(n.get_meta("raid_of", "")) == str(site["name"]): shells.append(_shield_shell(n as Node3D, Data.SHELL_GROW_BASE))
+	e["raid_dome"] = shells[0]
+	e["shells"] = shells
 	h.set_meta("raid_e", e)
 	raid_base = e
 	spawn_ground_mechs(Vector3(c.x, g, c.z), str(site.get("faction", "Savagers")), int(Data.RAID_GUARDS[lv]), -43, 1 if lv >= 3 else 0)
@@ -1068,7 +1139,7 @@ func _raid_setup(h: Node3D, site: Dictionary) -> void:
 func _raid_open(e: Dictionary) -> void:
 	e["shield_broken"] = true
 	e["sh"] = 0.0
-	if is_instance_valid(e.get("raid_dome", null)): (e["raid_dome"] as Node3D).visible = false
+	for sh in e.get("shells", [e.get("raid_dome", null)]): if is_instance_valid(sh): _shell_break(sh)   # v13.256: flicker, sparks, gone
 	_spark((e["node"] as Node3D).global_position, Color(0.4, 0.85, 1.0), 60.0, 0.6)
 	Sfx.play("explosion", -2.0, 0.7)
 	message.emit("SHIELD GENERATOR DOWN! Land by the base and INFILTRATE it.")
@@ -1082,7 +1153,8 @@ func facility_base_at(site_name: String) -> Array:
 
 ## v13.241: a fixed facility you blew stays down while you're here (it's rebuilt when you come back).
 func base_blown(site_name: String) -> void:
-	if not raid_base.is_empty() and is_instance_valid(raid_base.get("raid_dome", null)): (raid_base["raid_dome"] as Node3D).visible = false
+	if not raid_base.is_empty():
+		for sh in raid_base.get("shells", [raid_base.get("raid_dome", null)]): if is_instance_valid(sh): (sh as Node3D).visible = false
 	for n in tile_root.get_children() if is_instance_valid(tile_root) else []:
 		if n is Node3D and (str(n.get_meta("raid_of", "")) == site_name or (n.has_meta("facility") and str((n.get_meta("facility") as Dictionary).get("name", "")) == site_name)):
 			(n as Node3D).visible = false
@@ -1678,6 +1750,8 @@ func _boardable(e: Dictionary) -> void:
 	bay.visible = false   # (lit only while the shield is at 0)
 	e["bay_node"] = bay
 	e["boardable"] = true
+	if Data.SHIELD_SHELLS and not is_instance_valid(e.get("shell", null)):   # v13.256: its shield, the shape of the ship
+		e["shell"] = _shield_shell(hd, Data.SHELL_GROW_SHIP)
 
 ## v11.55: is this battleship's hangar open (its shield stripped to 0)?
 static func board_open(e: Dictionary) -> bool:
@@ -1720,6 +1794,7 @@ func _board_outside() -> void:
 			e["sh"] = 0.0
 		var open := board_open(e)
 		e["shield_down"] = open
+		if open and is_instance_valid(e.get("shell", null)): _shell_break(e["shell"])   # v13.256: flicker, sparks, gone
 		if (e["bay_node"] as Node3D).visible != open:
 			(e["bay_node"] as Node3D).visible = open
 			if open: message.emit("%s: SHIELD DESTROYED! It stays down: fly close and press BOARD." % str(e["node"].name))

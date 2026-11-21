@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.255"
+const VERSION := "v13.256"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -2357,6 +2357,9 @@ const NUKE_FILM_S := 10.0          # v13.241: the mushroom cloud film over a blo
 const NUKE_FILM_HEIGHT := 4.5      # its column: this many base half-widths high
 const NUKE_FILM_RING := 14.0       # its shock ring races out to this many half-widths
 const NUKE_FILM_BACK := 9.0        # the camera holds this many half-widths back
+const SHIELD_SHELLS := true        # v13.256 (owner): shielded bases and boardable ships wear a blue shell the shape of the model
+const SHELL_GROW_BASE := 5.0       # m: how far the shell stands off a base's walls
+const SHELL_GROW_SHIP := 7.0       # m: off a battleship's hull
 const RAID_BASES := true            # v13.241 (owner): planet RAID jobs: a bunker base placed when you take the job
 const RAID_MIN_DOCK := 3000.0       # m: a raid base is at least this far from every port on the world
 const RAID_EDGE := 600.0            # m in from its tile's edges

@@ -1948,16 +1948,30 @@ func _run() -> void:
 		var hbase: Node3D = null
 		for h in s.planet_bases: if is_instance_valid(h) and h.has_meta("raid_e"): hbase = h
 		_check("v13.241: taking it puts the base on its tile: the bunker compound, its shield generator under a dome, %d guard mechs" % guards, not rb.is_empty() and hbase != null and is_instance_valid(rb.get("raid_dome", null)) and (rb["raid_dome"] as Node3D).visible and guards == int(Data.RAID_GUARDS[1]), "")
+		var shells: Array = rb.get("shells", [])
+		var shell_meshes := 0
+		for sh in shells: shell_meshes += (sh as Node3D).get_child_count()
+		_check("v13.256: the shield is a blue shell the shape of the base's buildings (%d shells, %d meshes)" % [shells.size(), shell_meshes], shells.size() >= 3 and shell_meshes >= shells.size(), "")
+		s.player.global_position = hbase.global_position + Vector3(0, float(hbase.get_meta("half", 80.0)) * 1.2, float(hbase.get_meta("half", 80.0)) * 4.0)
+		var dv0: Vector3 = (hbase.global_position - s.player.global_position).normalized()
+		s.yaw = atan2(-dv0.x, -dv0.z)
+		s.pitch = asin(clampf(dv0.y, -1.0, 1.0))
+		s._update_camera(1.0, true)
+		await _wait(0.8)
+		await _capture("raid_shell")
 		s.player.global_position = hbase.global_position + Vector3(120, 30, 0)
 		await _wait(0.5)
 		var shut: bool = s.facility_candidate().is_empty()
 		for i in 400:
 			if bool(rb.get("shield_broken", false)): break
 			s._damage_enemy(rb, 300.0)
-		var opened: bool = bool(rb.get("shield_broken", false)) and not (rb["raid_dome"] as Node3D).visible and s.enemies.has(rb) and float(rb["hp"]) > 0.0
+		var opened: bool = bool(rb.get("shield_broken", false)) and bool((rb["raid_dome"] as Node3D).get_meta("breaking", false)) and s.enemies.has(rb) and float(rb["hp"]) > 0.0
 		var edge: float = float(hbase.get_meta("half", 80.0)) + 25.0   # v13.255 (owner: "could not enter"): landed just outside its solid walls
 		s.player.global_position = Vector3(hbase.global_position.x + edge, s._ground(hbase.global_position.x + edge, hbase.global_position.z) + 4.0, hbase.global_position.z)
 		await _wait(0.3)
+		await _capture("raid_shell_break")
+		await _wait(0.5)
+		await _capture("raid_shell_break2")
 		var can_in: bool = not s.facility_candidate().is_empty()
 		_check("v13.241: shield up, it won't let you in; shield, then hull to half: the generator goes (never destroyed from outside) and you can INFILTRATE from just outside its walls", shut and opened and can_in, "shut %s opened %s in %s (half %d)" % [shut, opened, can_in, int(hbase.get_meta("half", 0))])
 		var site_in: Dictionary = s.facility_candidate()
@@ -10274,6 +10288,9 @@ func _job_v1145() -> void:
 	s._board_asked = false
 	await _frames(3)
 	var refused: bool = s.board_refused > r0 and not s.boarding and not (bs["bay_node"] as Node3D).visible
+	var shell_up: bool = is_instance_valid(bs.get("shell", null)) and (bs["shell"] as Node3D).visible and (bs["shell"] as Node3D).get_child_count() > 0
+	res.append("v13.256 shield shell up %s" % shell_up)
+	refused = refused and shell_up
 	s.player.global_position = (bs["bay_node"] as Node3D).global_position + Vector3(0, 0, 3000)
 	bs["sh"] = 0.0
 	bs["sh_cd"] = 99.0
@@ -10284,7 +10301,10 @@ func _job_v1145() -> void:
 	var stays_down: bool = float(bs["sh"]) <= 0.0 and SpaceSystem.board_open(bs) and (bs["bay_node"] as Node3D).visible
 	GS.form = form_a
 	res.append("refused while shield up %s, open at 0 %s, stays down %s" % [refused, opened, stays_down])
-	var shield_ok := refused and opened and stays_down
+	var shell_on: bool = is_instance_valid(bs.get("shell", null)) and (bs["shell"] as Node3D).get_child_count() > 0
+	var shell_gone: bool = not is_instance_valid(bs.get("shell", null)) or bool((bs["shell"] as Node3D).get_meta("breaking", false))
+	res.append("v13.256 blue shell the ship's shape %s, sparks and fades at 0 %s" % [shell_on or shell_gone, shell_gone])
+	var shield_ok := refused and opened and stays_down and shell_gone
 	var stopped := true
 	var silent := true
 	# v11.56 (owner): at the open hangar the ship turns into its mech and goes in: 3 rooms (breach hangar, reactor spine,
