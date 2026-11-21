@@ -1113,6 +1113,17 @@ func raid_site_here() -> Dictionary:
 		"difficulty": int(m.get("difficulty", 1)), "tile": tile, "spot": Vector2(float(pt.get("x", 0.0)), float(pt.get("z", 0.0))), "planet": planet_id, "raid": true}
 
 func _raid_setup(h: Node3D, site: Dictionary) -> void:
+	var pieces: Array = []
+	for n in tile_root.get_children():
+		if n is Node3D and n != h and str(n.get_meta("raid_of", "")) == str(site["name"]): pieces.append(n)
+	var e := _shield_base(h, site, pieces, int(Data.RAID_GUARDS[clampi(int(site.get("difficulty", 1)), 1, 4)]))
+	raid_base = e
+	message.emit("RAID: %s. Its shield generator is up and their mechs are on guard. Knock the shield down, then land by it and INFILTRATE." % str(site["name"]))
+
+## v13.257 (owner: "enemy factions' bases too ... you can go after them any time"): a hostile base's shield: its
+## generator (a unit you shoot: at half its hull the shield goes, never destroyed from outside), a blue shell over
+## every building, and guard mechs if any. Entry (facility_candidate) waits for it.
+func _shield_base(h: Node3D, site: Dictionary, pieces: Array, guards: int) -> Dictionary:
 	var lv := clampi(int(site.get("difficulty", 1)), 1, 4)
 	var half := float(h.get_meta("half", 80.0))
 	var g := _ground(h.position.x, h.position.z)
@@ -1127,14 +1138,12 @@ func _raid_setup(h: Node3D, site: Dictionary) -> void:
 	e["walker"] = false
 	(e["node"] as Node3D).name = "%s shield generator" % str(site["name"])
 	var shells: Array = [_shield_shell(h, Data.SHELL_GROW_BASE)]   # v13.256: the shield, the shape of the base's own buildings
-	for n in tile_root.get_children():
-		if n is Node3D and n != h and str(n.get_meta("raid_of", "")) == str(site["name"]): shells.append(_shield_shell(n as Node3D, Data.SHELL_GROW_BASE))
+	for n in pieces: if is_instance_valid(n): shells.append(_shield_shell(n as Node3D, Data.SHELL_GROW_BASE))
 	e["raid_dome"] = shells[0]
 	e["shells"] = shells
 	h.set_meta("raid_e", e)
-	raid_base = e
-	spawn_ground_mechs(Vector3(c.x, g, c.z), str(site.get("faction", "Savagers")), int(Data.RAID_GUARDS[lv]), -43, 1 if lv >= 3 else 0)
-	message.emit("RAID: %s. Its shield generator is up and their mechs are on guard. Knock the shield down, then land by it and INFILTRATE." % str(site["name"]))
+	if guards > 0: spawn_ground_mechs(Vector3(c.x, g, c.z), str(site.get("faction", "Savagers")), guards, -43, 1 if lv >= 3 else 0)
+	return e
 
 func _raid_open(e: Dictionary) -> void:
 	e["shield_broken"] = true
@@ -1165,7 +1174,7 @@ func raid_clear(site_name: String) -> void:
 	for n in tile_root.get_children() if is_instance_valid(tile_root) else []:
 		if n is Node3D and (str(n.get_meta("raid_of", "")) == site_name or (n.has_meta("facility") and str((n.get_meta("facility") as Dictionary).get("name", "")) == site_name and bool((n.get_meta("facility") as Dictionary).get("raid", false)))):
 			n.queue_free()
-	planet_bases = planet_bases.filter(func(b): return is_instance_valid(b) and not (b.has_meta("raid_e")))
+	planet_bases = planet_bases.filter(func(b): return is_instance_valid(b) and not (b.has_meta("raid_e") and bool((b.get_meta("facility", {}) as Dictionary).get("raid", false))))   # (v13.257: an enemy faction's own shielded bases stay)
 	if not raid_base.is_empty() and enemies.has(raid_base):
 		if is_instance_valid(raid_base.get("node", null)): (raid_base["node"] as Node3D).queue_free()
 		enemies.erase(raid_base)
@@ -1215,13 +1224,21 @@ func _planet_bases() -> void:
 					ph.name = "%s %s" % [str(site["name"]), str(pc[0]).trim_prefix("HL_Asset_")]
 					if site.get("raid", false): ph.set_meta("raid_of", str(site["name"]))
 			if site.get("raid", false): _raid_setup(h, site)
+			elif Data.ENEMY_BASE_SHIELDS and _fac_side(site) == "hostile":   # v13.257: an enemy faction's own base: shielded, no job needed
+				var bp: Array = []
+				for n in tile_root.get_children():
+					if n is Node3D and str(n.name).begins_with(str(site["name"]) + " "): bp.append(n)
+				_shield_base(h, site, bp, 0)
 			continue
 		if _fac_side(site) == "hostile":   # its defences: gun batteries either side and a generator behind
+			var defs: Array = []
 			for k in 3:
 				var part := "HL_Asset_GunBattery" if k < 2 else "HL_Asset_Generator"
 				var off := Vector2((-1.0 if k == 0 else 1.0) * Data.BASE_WIDTH * 0.75, 0.0) if k < 2 else Vector2(0.0, -Data.BASE_WIDTH * 0.8)
 				var p := Vector2(h.position.x, h.position.z) + off
-				_ground_prop("res://assets/bases3d/%s.glb" % part, Data.BASE_PART_WIDTH, p, true)
+				var dp := _ground_prop("res://assets/bases3d/%s.glb" % part, Data.BASE_PART_WIDTH, p, true)
+				if dp != null: defs.append(dp)
+			if Data.ENEMY_BASE_SHIELDS: _shield_base(h, site, defs, 0)   # v13.257: an enemy faction's own base: shielded, no job needed
 
 ## v12.54 (owner: "ally factions: five-ship patrols per tile, they can call for backup, five or ten more; an enemy
 ## world: ten to twenty ships per tile in groups, and they call twenty or thirty"): the planet's patrols on this sector.

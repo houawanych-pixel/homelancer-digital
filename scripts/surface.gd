@@ -405,11 +405,13 @@ static func facility_sites(planet_id: String) -> Array:
 	var P: Dictionary = PLANETS.get(planet_id, {})
 	var g := int(P.get("grid", 1))
 	var sides := planet_sides(planet_id, P)
-	var per := clampi(g, 1, 3)
+	# v13.257 (owner: "we can't flood it: a one-tile world gets one random base, a bigger one maybe two"): a faction's
+	# bases on a world: one on a one-tile world, two on a bigger one (an enemy world: only theirs)
+	var per := 1 if g <= 1 else 2
 	var owners: Array = []
 	if sides.is_empty():
 		var ef := str((Data.SYSTEMS.get(sid, {}) as Dictionary).get("faction", "Enemy"))
-		for i in per * 2: owners.append(ef if ef != "" else "Enemy")
+		for i in per: owners.append(ef if ef != "" else "Enemy")
 	else:
 		for i in per:
 			owners.append(sides[0])

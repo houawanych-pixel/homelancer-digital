@@ -2004,8 +2004,47 @@ func _run() -> void:
 		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.nuke_film.is_empty() and main.space.controls, 30.0)
 		await _wait(1.0)
 		_check("v13.241: blow its generator and the base goes up as a MUSHROOM CLOUD (the film plays, then you fly on)", filmed and _sp().nuke_films >= 1 and _sp().controls, "")
-		var gone: bool = _sp().raid_base.is_empty() and _sp().planet_bases.all(func(b): return not is_instance_valid(b) or not b.has_meta("raid_e"))
+		var gone: bool = _sp().raid_base.is_empty() and _sp().planet_bases.all(func(b): return not is_instance_valid(b) or not b.has_meta("raid_e") or not bool((b.get_meta("facility", {}) as Dictionary).get("raid", false)))
 		_check("v13.241: in its three floors, done: paid the job (%d cr), the base is gone" % (GS.credits - cr0), inside and GS.mission.is_empty() and GS.credits > cr0 and gone, "inside %s mission %s gone %s" % [inside, GS.mission.is_empty(), gone])
+		# v13.257 (owner: "enemy factions' bases ... you can go after them any time, no mission"): an enemy world's own base
+		var epid := ""
+		var esite: Dictionary = {}
+		for pid in Surface.PLANETS:
+			if epid != "" or bool(Surface.PLANETS[pid].get("sun", false)) or not Surface.planet_sides(pid, Surface.PLANETS[pid]).is_empty(): continue
+			for st in Surface.facility_sites(pid):
+				if epid == "": epid = pid; esite = st
+		if epid != "":
+			var nsites: int = Surface.facility_sites(epid).size()
+			var eg := int(Surface.PLANETS[epid].get("grid", 1))
+			main._load_surface(epid, int(esite["tile"]))
+			await _until(func(): return is_instance_valid(main.space) and main.space.surface_mode and main.space.planet_id == epid and not main.space.planet_bases.is_empty(), 60.0)
+			await _wait(2.0)
+			var s2 := _sp()
+			var eh: Node3D = null
+			for h in s2.planet_bases: if is_instance_valid(h) and h.has_meta("facility") and str((h.get_meta("facility") as Dictionary).get("name", "")) == str(esite["name"]): eh = h
+			var ee: Dictionary = eh.get_meta("raid_e", {}) if eh != null else {}
+			var shelled: bool = not ee.is_empty() and (ee.get("shells", []) as Array).size() >= 1 and s2.enemies.has(ee)
+			var ed: float = float(eh.get_meta("half", 80.0)) + 25.0 if eh != null else 0.0
+			if eh != null:
+				s2.player.global_position = Vector3(eh.global_position.x + ed, s2._ground(eh.global_position.x + ed, eh.global_position.z) + 4.0, eh.global_position.z)
+			await _wait(0.3)
+			var e_shut: bool = s2.facility_candidate().is_empty()
+			if eh != null:
+				s2.player.global_position = eh.global_position + Vector3(0, float(eh.get_meta("half", 80.0)) * 1.2, float(eh.get_meta("half", 80.0)) * 4.0)
+				var dv2: Vector3 = (eh.global_position - s2.player.global_position).normalized()
+				s2.yaw = atan2(-dv2.x, -dv2.z)
+				s2.pitch = asin(clampf(dv2.y, -1.0, 1.0))
+				s2._update_camera(1.0, true)
+				await _wait(0.8)
+				await _capture("enemy_base_shell")
+			for i in 400:
+				if ee.is_empty() or bool(ee.get("shield_broken", false)): break
+				s2._damage_enemy(ee, 300.0)
+			if eh != null: s2.player.global_position = Vector3(eh.global_position.x + ed, s2._ground(eh.global_position.x + ed, eh.global_position.z) + 4.0, eh.global_position.z)
+			await _wait(0.3)
+			var e_in: bool = not s2.facility_candidate().is_empty()
+			_check("v13.257: an enemy world (%s, %d tiles) has %d base(s) of its own, shielded (shell %s), shut till the shield's down (%s), then INFILTRATE without a job (%s)" % [epid, eg * eg, nsites, shelled, e_shut, e_in],
+				nsites == (1 if eg <= 1 else 2) and shelled and e_shut and e_in and GS.mission.is_empty(), "")
 		_finish_group()
 		return
 	if _flag("HL_PORTBASE"):   # v13.240 (owner: "put a base on the floating land dock, expand the land to fit"; "an invisible ceiling I was standing on")
@@ -5672,7 +5711,7 @@ func _run() -> void:
 			var sites: Array = Surface.facility_sites(pid)
 			var enemy: bool = Surface.planet_sides(pid, P).is_empty()
 			var want_d := 0 if enemy or bool(P.get("uninhabited", false)) else (1 if bool(P.get("moon", false)) else 2)   # (v12.66: lifeless worlds none, a moon one)
-			var want_f := clampi(g, 1, 3) * 2
+			var want_f := (1 if g <= 1 else 2) * (1 if enemy else 2)   # v13.257: one base per side on a one-tile world, two on a bigger one
 			var gap_ok := true
 			for i in sites.size():
 				for j in range(i + 1, sites.size()):
@@ -5682,7 +5721,7 @@ func _run() -> void:
 				lines.append("%s %dx%d: %d docks %s, %d facilities%s" % [pid, g, g, docks.size(), docks.map(func(l): return str(l.get("faction", ""))), sites.size(), "" if gap_ok else " (close)"])
 				if enemy: enemy_seen = true
 				elif g == 1: one_seen = true
-		_check("v12.54 (owner): every friendly world has 2 sky docks (its own faction's and the rival's), enemy worlds none; facilities 2 / 4 / 6 by size, half each side, spread apart: %s" % "; ".join(lines), ok, str(lines))
+		_check("v12.54 (owner): every friendly world has 2 sky docks (its own faction's and the rival's), enemy worlds none; facilities one per side on a one-tile world, two on a bigger one (an enemy world: only theirs), spread apart: %s" % "; ".join(lines), ok, str(lines))
 		SpaceSystem.patrols_on = true
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
