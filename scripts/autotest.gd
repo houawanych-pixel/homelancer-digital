@@ -7694,6 +7694,50 @@ func _run() -> void:
 		for r2 in results: print("[route] ", r2)
 		get_tree().quit()
 		return
+	if _flag("HL_WCARDS"):   # v13.269 (owner: "weapons from the side, all the same across the board")
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		Packs.request("wing_guns")
+		await Packs.wait("wing_guns", 120.0)
+		main.dock(_sp().station)
+		await _until(func(): return main.state == "hub", 15.0)
+		var hb = main.hub
+		hb.eq_view = "ship"
+		hb.eq_sel = -1
+		hb.eq_tab = "weapon"
+		hb.eq_card = ""
+		hb.show_screen("equipment")
+		await _wait(0.5)
+		await _until(func(): return hb.part_icons != null and hb.part_icons._queue.is_empty() and not hb.part_icons._busy, 120.0)
+		await _wait(0.5)
+		var shot := 0
+		var cards := 0
+		for c in hb.find_children("Card_*", "Button", true, false):
+			var id := str(c.name).substr(5)
+			if not (Data.WEAPONS.has(id) or Data.MOUNT_PODS.has(id)): continue
+			cards += 1
+			var pic: TextureRect = (c as Node).find_child("Pic", true, false)
+			if pic != null and pic.texture != null and PartIcons.cache.has("wpn_" + id) and pic.texture == PartIcons.cache["wpn_" + id]: shot += 1
+		await _capture("weapon_cards")
+		var dirp := OS.get_environment("HL_SHOT_DIR")
+		if dirp != "":   # a sheet of the weapon photos to look at
+			var ids: Array = Data.WEAPON_ORDER.duplicate()
+			ids.append_array(Data.MOUNT_PODS.keys())
+			var sheet := Image.create(6 * 192, ceili(ids.size() / 6.0) * 192, false, Image.FORMAT_RGBA8)
+			sheet.fill(Color(0.08, 0.12, 0.2))
+			var k := 0
+			for id in ids:
+				if PartIcons.cache.has("wpn_" + str(id)):
+					var im: Image = (PartIcons.cache["wpn_" + str(id)] as ImageTexture).get_image()
+					im.convert(Image.FORMAT_RGBA8)
+					sheet.blend_rect(im, Rect2i(0, 0, 192, 192), Vector2i((k % 6) * 192, (k / 6) * 192))
+				k += 1
+			sheet.save_png(dirp + "/weapon_sheet.png")
+		_check("v13.269: weapon cards show their 3D model from the side (%d of %d cards)" % [shot, cards], cards >= 8 and shot >= cards * 0.9, "")
+		for r2 in results: print("[route] ", r2)
+		get_tree().quit()
+		return
 	if _flag("HL_TRADE"):   # v13.268 (owner: "light trade: goods, valuables, contraband, delivery; keep it simple")
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)

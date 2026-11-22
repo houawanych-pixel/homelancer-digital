@@ -2334,6 +2334,20 @@ func _market_page() -> void:
 		e.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(e)
 
+## v13.269: a weapon's picture: its painted icon at once, then the photo of its 3D model from the side once it's
+## taken (all cards framed the same: mech parts from the front, ship parts from the top, weapons from the side).
+func _weapon_pic(id: String, pic: TextureRect) -> void:
+	var ip: String = Data.weapon_icon(id, _eq_mech())
+	if ip != "" and ResourceLoader.exists(ip): pic.texture = load(ip)
+	if not Data.WEAPON_SIDE_PICS: return
+	var d: Dictionary = Data.WEAPONS.get(id, Data.MOUNT_PODS.get(id, {}))
+	var model := str(d.get("model", ""))
+	if model == "" or not ShipFactory.has_real_model(model): return
+	if not Packs.is_ready("wing_guns"):
+		Packs.request("wing_guns")
+		return
+	_icons().get_icon("wpn_" + id, PartIcons.weapon.bind(id), pic)
+
 func _part_cards(v: Container, kind: String, parts: Array, ids: Array, back: String) -> void:
 	for part in parts:
 		var pl := _label(17, GOLD)
@@ -3699,8 +3713,7 @@ func _weapon_row(id: String, kind: String) -> Control:
 	pic.custom_minimum_size = Vector2(84, 0)
 	pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	var ip: String = Data.weapon_icon(id, _eq_mech())
-	if ip != "" and ResourceLoader.exists(ip): pic.texture = load(ip)
+	_weapon_pic(id, pic)
 	row.add_child(pic)
 	var col := VBoxContainer.new()
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -3995,8 +4008,10 @@ func _card(id: String, kind: String) -> Control:
 	pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	pic.custom_minimum_size = Vector2(0, 84 if kind != "module" else 40)
-	var ipath: String = str(d["icon"]) if kind == "module" else Data.weapon_icon(id, _eq_mech())
-	if ipath != "" and ResourceLoader.exists(ipath): pic.texture = load(ipath)
+	if kind == "module":
+		var ipath: String = str(d["icon"])
+		if ipath != "" and ResourceLoader.exists(ipath): pic.texture = load(ipath)
+	else: _weapon_pic(id, pic)
 	col.add_child(pic)
 	for ln in [[nm.to_upper(), 12, Color(1, 1, 1) if not owned else GOLD], [line2, 10, Color(0.7, 0.88, 1.0)],
 			["%s  ·  %s" % ["OWNED" if owned else "%d cr" % int(d["price"]), tag], 10, GOLD if owned else Color(1.0, 0.82, 0.4)]]:

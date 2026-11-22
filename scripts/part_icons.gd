@@ -172,3 +172,20 @@ static func ship_part(sid: String, part: String) -> Array:
 		mi.mesh = mesh
 		root.add_child(mi)
 	return [root, "top"]
+
+## v13.269 (owner: "weapons from the side"): a gun or missile pod on its own, barrel pointing right. Guns that share a
+## model (the Nexus blasters) get a light in their own colour, so each card still looks like its gun.
+static func weapon(id: String) -> Array:
+	var d: Dictionary = Data.WEAPONS.get(id, Data.MOUNT_PODS.get(id, {}))
+	var key := str(d.get("model", ""))
+	if key == "" or not ShipFactory.has_real_model(key): return []
+	var root := Node3D.new()
+	root.add_child(ShipFactory.build(key))
+	if d.has("color"):
+		var l := OmniLight3D.new()
+		l.light_color = d["color"]
+		l.light_energy = 2.5
+		l.omni_range = 40.0
+		l.position = Vector3(20.0, 4.0, 0.0)
+		root.add_child(l)
+	return [root, "side"]
