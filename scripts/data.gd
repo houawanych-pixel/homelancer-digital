@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.261"
+const VERSION := "v13.262"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -2391,6 +2391,8 @@ const CREW_DOOR_STEP := 22.0      # m: they line up this far in front of a door,
 const CREW_REACH := 10.0           # m: a door or spot reached
 const CREW_COWER_Y := 0.6          # on an alarm they crouch (their standee this tall)
 const CREW_PLEA_R := 90.0          # m: they plead when you come this close on an alarm
+const FACTION_PANELS := true    # v13.265 (owner): each faction's ships, stations and facilities wear their own wall panels
+const MAP_ICONS := true         # v13.264 (owner): the deck plan's icons (lifts, card pads, terminals, the way out) and their key
 const PILOT_PARKOUR := false      # v13.263 (owner: "Titanfall: wall-running and grapple, the booster only a certain amount")
 const WALLRUN_REACH := 7.0       # m: a wall this close at the pilot's side can be run
 const WALLRUN_MIN := 18.0        # m/s: fast enough to run it

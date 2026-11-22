@@ -7653,6 +7653,61 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if _flag("HL_PANELS"):   # v13.265 (owner: "each faction its own texture panels")
+		var dirp := OS.get_environment("HL_SHOT_DIR")
+		var made := 0
+		for f in Boarding.PANEL_STYLE:
+			for fl in [false, true]:
+				var m: StandardMaterial3D = Boarding.panel_mat(f, fl)
+				var img: Image = (m.albedo_texture as ImageTexture).get_image()
+				var out := Image.create(128, 128, false, Image.FORMAT_RGB8)
+				for y in 128:
+					for x in 128:
+						var c := img.get_pixel(x, y)
+						out.set_pixel(x, y, Color(c.r * m.albedo_color.r, c.g * m.albedo_color.g, c.b * m.albedo_color.b))
+				if dirp != "": out.save_png("%s/panel_%s_%s.png" % [dirp, f, "floor" if fl else "wall"])
+				made += 1
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main.dock(_sp().station)
+		await _until(func(): return main.state == "hub", 15.0)
+		main.board_station("visit")
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding, 90.0)
+		await _wait(2.0)
+		await _capture("panels_unity_station")
+		_check("v13.265: every faction has its own wall and floor panels (%d made); Liberty Hub (Unity) wears Unity's" % made, made == Boarding.PANEL_STYLE.size() * 2 and Boarding.PANEL_FACTION == "Unity", Boarding.PANEL_FACTION)
+		for r2 in results: print("[route] ", r2)
+		get_tree().quit()
+		return
+	if _flag("HL_MAPICONS"):   # v13.264 (owner: "a library of the map icons - lifts, lock pads, terminals")
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main.dock(_sp().station)
+		await _until(func(): return main.state == "hub", 15.0)
+		main.board_station("visit")
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding, 90.0)
+		await _wait(2.0)
+		var s := _sp()
+		var before: Dictionary = {}
+		main.hud.pmap_3d = false   # (the flat deck plan)
+		main.open_map()
+		await _wait(0.8)
+		before = main.hud.map_icons_drawn.duplicate()
+		await _capture("mapicons_start")
+		var seen := {}
+		for k in Boarding.ROOMS: seen[k] = true
+		s.board["seen"] = seen
+		await _wait(0.6)
+		var after: Dictionary = main.hud.map_icons_drawn.duplicate()
+		await _capture("mapicons_explored")
+		main.open_map()
+		_check("v13.264: the deck plan's icons: lifts and the way out from the start (%s); card pads and terminals fill in as you explore (%s)" % [str(before), str(after)],
+			int(before.get("lift", 0)) >= 1 and int(after.get("terminal", 0)) > int(before.get("terminal", 0)), "")
+		for r2 in results: print("[route] ", r2)
+		get_tree().quit()
+		return
 	if _flag("HL_PARKOUR"):   # v13.263 (owner: "pilot like Titanfall: wall-running, grapple, the booster only a certain amount")
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -7668,25 +7723,28 @@ func _run() -> void:
 		# the biggest room on this deck: run along its north wall, in the air
 		var best := ""
 		var area := 0.0
+		var dyc: float = Boarding.deck_y(s.player.global_position)   # (the deck you're on: it's built)
 		for k in Boarding.ROOMS:
 			var r: Array = Boarding.ROOMS[k]["r"]
-			if absf(float(Boarding.ROOMS[k]["y"][0])) > 1.0 or Boarding.ROOMS[k].has("lift"): continue
+			if absf(float(Boarding.ROOMS[k]["y"][0]) - dyc) > 1.0 or Boarding.ROOMS[k].has("lift"): continue
 			var a2: float = (float(r[1]) - float(r[0])) * (float(r[3]) - float(r[2]))
 			if a2 > area and float(r[1]) - float(r[0]) > 120.0: area = a2; best = k
 		var r0: Array = Boarding.ROOMS[best]["r"]
-		var y0: float = Boarding.floor_at(Vector3((float(r0[0]) + float(r0[1])) * 0.5, 0, (float(r0[2]) + float(r0[3])) * 0.5))
+		var y0: float = float(Boarding.ROOMS[best]["y"][0])   # (this deck's floor: floor_at over a spot can answer for another deck)
 		var start := Vector3(float(r0[0]) + 30.0, y0 + 14.0, float(r0[2]) + 4.0)
 		for i in 3:
 			s.player.global_position = start
 			await get_tree().process_frame
 		s.yaw = -PI * 0.5   # facing +x, the wall on the left
 		s.vel = Vector3(30, 4, 0)
+		print("[pkdbg] best=%s r=%s y0=%.0f dyc=%.0f floor_at=%.0f room_at=%s esc=%s ground=%s pos=%s" % [best, str(r0), y0, dyc, Boarding.floor_at(start), Boarding.room_at(start), s.escape_pilot, s.ground_mode, str(s.player.global_position)])
 		s.move = Vector2(0, 1)
 		var ran := false
 		var y_hold := 0.0
 		for i in 40:
 			await get_tree().process_frame
 			if s.wallrunning: ran = true
+			if i % 10 == 0: print("[pkdbg] i=%d pos=%s vel=%s grounded=%s wall=%s" % [i, str(s.player.global_position), str(s.vel), s.grounded, str(s._wall_side(Basis.from_euler(Vector3(0, s.yaw, 0))))])
 		y_hold = s.player.global_position.y - y0
 		await _capture("parkour_wallrun")
 		s.move = Vector2.ZERO

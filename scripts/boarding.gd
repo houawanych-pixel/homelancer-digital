@@ -966,6 +966,88 @@ static func is_door(d: Dictionary, pair: Array) -> bool:
 # ---------------------------------------------------------------- building (greybox)
 static var _grid_tex: ImageTexture
 ## The greybox material: flat grey with a 10 m grid laid on in world space (so every surface reads its size).
+## v13.265 (owner: "every ship, station and facility unique to its faction, with that faction's own texture panels"):
+## a faction's wall / floor panels, drawn in code (one small picture each, laid on from all sides like the grey grid):
+## its own pattern and colour. "" = the plain grey grid.
+static var PANEL_FACTION := ""
+const PANEL_STYLE := {
+	"Unity": ["plates", Color(0.55, 0.6, 0.72), Color(0.85, 0.72, 0.35)],
+	"Elyza": ["arcs", Color(0.7, 0.78, 0.7), Color(0.75, 0.68, 0.3)],
+	"Imperium": ["rivets", Color(0.42, 0.4, 0.42), Color(0.7, 0.2, 0.18)],
+	"Savagers": ["patched", Color(0.5, 0.4, 0.32), Color(0.7, 0.45, 0.2)],
+	"Liberator": ["hazard", Color(0.5, 0.48, 0.45), Color(0.95, 0.55, 0.15)],
+	"Covenant": ["hex", Color(0.5, 0.45, 0.6), Color(0.7, 0.5, 0.95)],
+	"Orion": ["ribs", Color(0.55, 0.55, 0.5), Color(0.35, 0.6, 0.35)],
+	"Solarion": ["chevron", Color(0.6, 0.55, 0.45), Color(0.95, 0.8, 0.35)],
+	"Kaijurai": ["scales", Color(0.4, 0.3, 0.3), Color(0.8, 0.25, 0.2)],
+}
+static var _panel_tex := {}
+static func panel_mat(fac: String, floor_: bool) -> StandardMaterial3D:
+	var st: Array = PANEL_STYLE.get(fac, ["plates", Color(0.5, 0.5, 0.52), Color(0.4, 0.75, 1.0)])
+	var key := "%s|%s" % [st[0], floor_]
+	key = "%s|%s" % [fac, floor_]
+	if not _panel_tex.has(key): _panel_tex[key] = _panel_image(str(st[0]), floor_, st[1], st[2])
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(0.78, 0.78, 0.78) if floor_ else Color.WHITE
+	m.albedo_texture = _panel_tex[key]
+	m.uv1_triplanar = true
+	m.uv1_world_triplanar = true
+	m.uv1_scale = Vector3.ONE / (16.0 if floor_ else 20.0)
+	m.roughness = 0.7
+	m.metallic = 0.25
+	return m
+
+## One 128 px panel picture, white-ish with darker seams (the material's colour tints it); the accent stripes are kept
+## light so the faction colour reads on them.
+static func _panel_image(style: String, floor_: bool, base := Color(0.5, 0.5, 0.52), accent := Color(0.4, 0.75, 1.0)) -> ImageTexture:
+	var S := 128
+	var img := Image.create(S, S, true, Image.FORMAT_RGB8)
+	var seam := Color(0.42, 0.42, 0.44)
+	for y in S:
+		for x in S:
+			var v := 1.0
+			var u := float(x) / S
+			var w := float(y) / S
+			match style:
+				"plates":   # big clean plates, thin seams, a small inset
+					if x % 64 < 2 or y % 64 < 2: v = 0.42
+					elif (x % 64 > 8 and x % 64 < 56) and (y % 64 == 8 or y % 64 == 55): v = 0.8
+				"arcs":   # flowing arcs
+					var a := fmod(sqrt(pow(u - 0.5, 2.0) + pow(w + 0.3, 2.0)) * 6.0, 1.0)
+					v = 0.45 if a < 0.04 else (0.95 if a < 0.5 else 1.0)
+				"rivets":   # heavy plates with rivets at the corners
+					if x % 32 < 3 or y % 64 < 3: v = 0.38
+					elif Vector2(x % 32 - 7, y % 64 - 7).length() < 2.5 or Vector2(x % 32 - 25, y % 64 - 7).length() < 2.5: v = 0.55
+				"patched":   # mismatched patches
+					var px := int(x / 40)
+					var py := int(y / 28 + (px % 2) * 0.5)
+					v = 0.78 + 0.22 * fmod(float(px * 7 + py * 13) * 0.37, 1.0)
+					if x % 40 < 2 or (y + (px % 2) * 14) % 28 < 2: v = 0.4
+				"hazard":   # plates, a band of hazard stripes along the bottom
+					if y > 100 and ((x + y) / 12) % 2 == 0: v = 0.55
+					elif x % 64 < 2 or y % 64 < 2: v = 0.42
+				"hex":   # hex cells
+					var q := Vector2(u * 6.0, w * 6.0 * 1.1547)
+					var r := Vector2(fmod(q.x + (0.5 if int(q.y) % 2 == 1 else 0.0), 1.0) - 0.5, fmod(q.y, 1.0) - 0.5)
+					v = 0.45 if absf(r.x) > 0.44 or absf(r.y) > 0.44 else 1.0
+				"ribs":   # upright ribs
+					v = 0.5 if x % 16 < 3 else (0.85 if x % 16 < 5 else 1.0)
+					if y % 64 < 2: v = 0.45
+				"chevron":   # chevrons
+					v = 0.55 if (absi(x % 32 - 16) + y) % 24 < 3 else 1.0
+				"scales":   # scales
+					var c := Vector2(fmod(u * 8.0, 1.0) - 0.5, fmod(w * 8.0 + (0.5 if int(u * 8.0) % 2 == 1 else 0.0), 1.0))
+					v = 0.5 if absf(c.length() - 0.5) < 0.06 else 0.95
+			if floor_: v = lerpf(v, 0.85, 0.35)   # (the floor quieter than the walls)
+			var c := Color(base.r * v, base.g * v, base.b * v)
+			# the faction's accent: a trim line along each wall panel (the floor: a thin inlay), hazard stripes in it
+			var trim: bool = (y % 64 >= 28 and y % 64 < 31) if not floor_ else (x % 64 >= 31 and x % 64 < 33 and y % 16 < 8)
+			if style == "hazard" and y > 100 and ((x + y) / 12) % 2 == 0: trim = true
+			if trim and v > 0.5: c = accent * (0.85 if floor_ else 1.0)
+			img.set_pixel(x, y, c)
+	img.generate_mipmaps()
+	return ImageTexture.create_from_image(img)
+
 static func grey(col: Color) -> StandardMaterial3D:
 	if _grid_tex == null:
 		var s := 64
@@ -992,8 +1074,8 @@ static func grey(col: Color) -> StandardMaterial3D:
 ## a lift to them); INF builds them all, as before.
 static func build(root: Node3D, tint: Color, deck_y := INF) -> Dictionary:
 	var boxes: Array = []
-	var wall_m := grey(Color(0.44, 0.45, 0.48))
-	var deck_m := grey(Color(0.36, 0.37, 0.4))
+	var wall_m := grey(Color(0.44, 0.45, 0.48)) if PANEL_FACTION == "" else panel_mat(PANEL_FACTION, false)
+	var deck_m := grey(Color(0.36, 0.37, 0.4)) if PANEL_FACTION == "" else panel_mat(PANEL_FACTION, true)
 	var roof_m := grey(Color(0.22, 0.23, 0.26))
 	var trim := ShipFactory.mat(tint.lerp(Color(0.3, 0.8, 1.0), 0.5) * 0.55, true)   # (a dim coloured glow: pure white strips glared)
 	var door_m := grey(Color(0.62, 0.58, 0.48))

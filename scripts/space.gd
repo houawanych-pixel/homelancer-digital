@@ -1890,6 +1890,7 @@ func setup_boarding(info: Dictionary) -> void:
 	_bolt_halo.size = Vector3(Data.BOLT_HALO_W, Data.BOLT_HALO_W, Data.BOLT_LEN * 1.3)
 	var fac := str(info["faction"])
 	var tint: Color = Factions.def(fac).get("primary_color", Color(0.9, 0.7, 0.3))
+	Boarding.PANEL_FACTION = fac if Data.FACTION_PANELS else ""   # v13.265: its own wall panels
 	_build_board_env(tint)
 	var far := Vector3(0, -1000000, 0)
 	planet = _placeholder(sys["planet"]["name"], "planet", far, sys["planet"])

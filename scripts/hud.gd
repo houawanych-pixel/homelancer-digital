@@ -3507,6 +3507,76 @@ func _pmap_gesture(e: InputEvent) -> bool:
 		return true
 	return false
 
+## v13.264 (owner: "the Alien: Isolation map icons - lifts, lock pads, keycards, terminals, exits - a library of icons and
+## their functions on our maps"): the deck plan's icons. Lifts and the way out always show; card pads and service
+## terminals once you have been in that room (the map fills in as you explore).
+var map_icons_drawn := {}   # (tests) icons drawn on the deck plan by kind
+func _map_icon(kind: String, at: Vector2, col: Color, r := 8.0, count := true) -> void:
+	if count: map_icons_drawn[kind] = int(map_icons_drawn.get(kind, 0)) + 1
+	match kind:
+		"lift":   # a car with up / down arrows
+			draw_rect(Rect2(at - Vector2(r, r), Vector2(r, r) * 2.0), Color(0.05, 0.05, 0.02, 0.85))
+			draw_rect(Rect2(at - Vector2(r, r), Vector2(r, r) * 2.0), col, false, 2.0)
+			draw_colored_polygon(PackedVector2Array([at + Vector2(0, -r * 0.8), at + Vector2(r * 0.5, -r * 0.15), at + Vector2(-r * 0.5, -r * 0.15)]), col)
+			draw_colored_polygon(PackedVector2Array([at + Vector2(0, r * 0.8), at + Vector2(r * 0.5, r * 0.15), at + Vector2(-r * 0.5, r * 0.15)]), col)
+		"pad":   # a lock pad: a small keypad in its card colour
+			draw_rect(Rect2(at - Vector2(r * 0.7, r * 0.9), Vector2(r * 1.4, r * 1.8)), Color(0.03, 0.03, 0.05, 0.9))
+			draw_rect(Rect2(at - Vector2(r * 0.7, r * 0.9), Vector2(r * 1.4, r * 1.8)), col, false, 2.0)
+			for i in 2:
+				for j in 2: draw_circle(at + Vector2(-r * 0.3 + i * r * 0.6, -r * 0.35 + j * r * 0.6), r * 0.16, col)
+		"terminal":   # a screen on a stand
+			draw_rect(Rect2(at + Vector2(-r, -r * 0.9), Vector2(r * 2.0, r * 1.3)), Color(0.02, 0.06, 0.1, 0.9))
+			draw_rect(Rect2(at + Vector2(-r, -r * 0.9), Vector2(r * 2.0, r * 1.3)), col, false, 2.0)
+			draw_line(at + Vector2(0, r * 0.4), at + Vector2(0, r * 0.9), col, 2.0)
+			draw_line(at + Vector2(-r * 0.5, r * 0.9), at + Vector2(r * 0.5, r * 0.9), col, 2.0)
+		"exit":   # a door with an arrow out
+			draw_rect(Rect2(at + Vector2(-r * 0.8, -r), Vector2(r * 1.1, r * 2.0)), Color(0.02, 0.08, 0.03, 0.9))
+			draw_rect(Rect2(at + Vector2(-r * 0.8, -r), Vector2(r * 1.1, r * 2.0)), col, false, 2.0)
+			draw_line(at + Vector2(-r * 0.2, 0), at + Vector2(r * 1.1, 0), col, 2.5)
+			draw_colored_polygon(PackedVector2Array([at + Vector2(r * 1.3, 0), at + Vector2(r * 0.7, -r * 0.45), at + Vector2(r * 0.7, r * 0.45)]), col)
+
+func _map_icons(mr: Rect2, to_map: Callable, deck: String, fl: Dictionary) -> void:
+	map_icons_drawn = {}
+	var seen: Dictionary = space.board.get("seen", {})
+	var on_deck := func(k: String) -> bool: return Boarding.ROOMS.has(k) and Boarding.deck_name(float(Boarding.ROOMS[k]["y"][0])) == deck
+	var mid := func(k: String) -> Vector2:
+		var r: Array = Boarding.ROOMS[k]["r"]
+		return to_map.call((float(r[0]) + float(r[1])) * 0.5, (float(r[2]) + float(r[3])) * 0.5)
+	var F: Dictionary = Boarding.INFO.get("fleet", {})
+	for e in F.get("elev", []):   # LIFTS (always: you need them to find your way)
+		for k in e.get("rooms", []):
+			if on_deck.call(str(k)): _map_icon("lift", mid.call(str(k)), Color(1.0, 0.85, 0.2), 8.0)
+	for d in space.board_doors:   # CARD PADS, in the rooms you have seen
+		if int(d.get("key", 0)) <= 0 or not d.has("pads"): continue
+		for at: Vector3 in d["pads"]:
+			var rk := Boarding.room_at(at)
+			if rk == "" or not on_deck.call(rk) or not seen.has(rk): continue
+			_map_icon("pad", to_map.call(at.x, at.z), ShipInterior.KEY_COL[int(d["key"])], 6.0)
+	if bool(Boarding.INFO.get("station", false)):   # SERVICE TERMINALS (a station's shops, medical, missions ...): one per service, its biggest room
+		var best := {}
+		for k in Boarding.ROOMS:
+			if not seen.has(k) or not on_deck.call(k): continue
+			var lab := str(Boarding.ROOMS[k].get("label", ""))
+			for sv in SpaceSystem.STATION_ROOM_SCREENS:
+				if lab.containsn(str(sv[0])) and not lab.containsn("Crew Room"):
+					var r: Array = Boarding.ROOMS[k]["r"]
+					var ar: float = (float(r[1]) - float(r[0])) * (float(r[3]) - float(r[2]))
+					if not best.has(sv[2]) or ar > float(best[sv[2]][1]): best[sv[2]] = [k, ar]
+					break
+		for nm in best:
+			var q: Vector2 = mid.call(str(best[nm][0]))
+			_map_icon("terminal", q, CYAN_HI, 7.0)
+			_text(q + Vector2(10, 4), str(nm), 9, Color(CYAN_HI, 0.9))
+	var ex := str((F.get("exit", {}) as Dictionary).get("room", "sbay"))   # THE WAY OUT
+	if on_deck.call(ex): _map_icon("exit", mid.call(ex), Color(0.35, 1.0, 0.5), 9.0)
+	# the key, bottom right
+	var lx := mr.end.x - 430.0
+	var ly := mr.end.y - 28.0
+	for it in [["lift", "LIFT", Color(1.0, 0.85, 0.2)], ["pad", "CARD PAD", ShipInterior.KEY_COL[1]], ["terminal", "TERMINAL", CYAN_HI], ["exit", "WAY OUT", Color(0.35, 1.0, 0.5)]]:
+		_map_icon(str(it[0]), Vector2(lx, ly), it[2], 6.0, false)
+		_text(Vector2(lx + 12, ly + 4), str(it[1]), 9, Color(it[2], 0.9))
+		lx += 104.0
+
 func _fleet_map(mr: Rect2) -> void:
 	var deck := Boarding.deck_name(Boarding.deck_y(space.player.global_position))   # v13.96: the deck you are on
 	var path := str((Boarding.INFO.get("plan_tex_decks", {}) as Dictionary).get(deck, Boarding.INFO["plan_tex"]))
@@ -3557,6 +3627,7 @@ func _fleet_map(mr: Rect2) -> void:
 	var fv := Vector2(f3.x, f3.z).normalized() if Vector2(f3.x, f3.z).length() > 0.01 else Vector2(0, -1)
 	draw_colored_polygon(PackedVector2Array([yv + fv * 12.0, yv + fv.orthogonal() * 7.0 - fv * 6.0, yv - fv.orthogonal() * 7.0 - fv * 6.0]), WHITE)
 	draw_arc(yv, 14.0, 0, TAU, 20, Color(CYAN_HI, 0.9), 2.0)
+	if Data.MAP_ICONS: _map_icons(mr, to_map, deck, fl)   # v13.264
 	for k in range(1, maxi(4, (fl.get("cards", []) as Array).size())):   # the cards you carry (bottom left, clear of CLOSE)
 		var has: bool = (fl.get("cards", []) as Array).size() > k and bool(fl["cards"][k])
 		var cr := Rect2(Vector2(mr.position.x + 18 + (k - 1) * 68, mr.end.y - 40), Vector2(60, 22))
