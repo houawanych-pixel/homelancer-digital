@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.265"
+const VERSION := "v13.266"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -1026,6 +1026,14 @@ const MISSION_FALLBACK_ENEMIES := ["Kaijurai", "Phenom", "Cybermorph", "Solrath"
 const BOUNTY_ALIVE_RANK := 1                    # named pilots of this rank and up are wanted ALIVE (bring them back); below, dead (paid on the spot)
 const REP_MISSION := 3.0                        # standing gained with the giver's faction per job done
 const CARGO_HOLD := 8                           # pods and crates a ship carries
+# v13.266 (owner: "the cargo hold scales with your ship's level; swapped-out parts go in; you lose it if destroyed")
+const HOLD_BY_LEVEL := [8, 12, 16]   # Level 1 / 2 / 3 ships (by price below)
+const HOLD_L2_PRICE := 6000
+const HOLD_L3_PRICE := 10000
+const HOLD_CARGO_SHIP := 24          # a cargo ship (the Hauler)
+const CARGO_STACK := 10              # ore and goods: pieces per hold slot
+const PART_SELL_K := 0.5             # a spare part sells for half its price
+const CARGO_LOST_ON_DEATH := true    # shot down: the hold goes with the ship (prisoners are kept in the brig pod)
 const ESCORT_HULL := 600.0                      # the escorted freighter's hull
 const ESCORT_FIRE := 25.0                       # hull it loses a second per attacker within ESCORT_RANGE
 const ESCORT_RANGE := 500.0

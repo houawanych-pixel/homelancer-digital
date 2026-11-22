@@ -7694,6 +7694,57 @@ func _run() -> void:
 		for r2 in results: print("[route] ", r2)
 		get_tree().quit()
 		return
+	if _flag("HL_HOLD"):   # v13.266 (owner: "old parts go to the cargo hold, keep or sell; hold by ship level; lost if destroyed")
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		GS.credits = 200000
+		GS.cargo = []
+		var sizes := []
+		for sid in ["cadet", "unity_fighter_l2", "unity_fighter_l3", "hauler"]:
+			GS.ship_id = sid
+			sizes.append(GS.hold_size())
+		GS.ship_id = "cadet"
+		_check("v13.266: the hold by ship level: Level 1 / 2 / 3 / cargo ship = %s" % str(sizes), sizes == [8, 12, 16, 24], "")
+		main.dock(_sp().station)
+		await _until(func(): return main.state == "hub", 15.0)
+		var fr: Array = []
+		for f in Data.MECH_ORDER:
+			if not (f in GS.owned_mechs) and fr.size() < 2: fr.append(f)
+		var a: String = fr[0]
+		var b: String = fr[1]
+		GS.buy_part("mech", a, "head")
+		var u0 := GS.hold_used()
+		GS.buy_part("mech", b, "head")
+		var a_in := GS.hold_has("mech:%s:head" % a)
+		var said := GS.fit_mech_part("head", a)
+		var swapped: bool = str(GS.mech_parts["head"]) == a and GS.hold_has("mech:%s:head" % b) and not GS.hold_has("mech:%s:head" % a)
+		var said2 := GS.unequip_part("mech", "head")
+		var both: bool = GS.hold_used() == 2 and GS.owns_mech_part(a, "head") and GS.owns_mech_part(b, "head")
+		_check("v13.266: a new part pushes the old one into the hold (%d then %s), EQUIP takes it back out (%s), UNEQUIP puts it in (%s; hold %d)" % [u0, str(a_in), said, said2, GS.hold_used()], u0 == 0 and a_in and swapped and both, "")
+		main.hub.show_screen("ship")
+		await _wait(0.5)
+		var sb: Button = main.hub.content.find_child("SellPart_0", true, false)
+		var cr0: int = GS.credits
+		var had_btn := sb != null
+		if sb != null: sb.pressed.emit()
+		await _wait(0.5)
+		var cl: Label = main.hub.content.find_child("Cargo", true, false)
+		_check("v13.266: SELL a spare part from the hold (+%d cr, hold %d, page: %s)" % [GS.credits - cr0, GS.hold_used(), cl.text.split("\n")[0] if cl != null else "?"], had_btn and GS.credits > cr0 and GS.hold_used() == 1 and cl != null and cl.text.begins_with("CARGO HOLD  1 / 8"), "")
+		var got := 0
+		for k in 120:
+			if GS.add_ore("diamond") > 0: got += 1
+		_check("v13.266: ore stacks %d a slot and stops when the hold is full (%d pieces in, hold %d / %d)" % [Data.CARGO_STACK, got, GS.hold_used(), GS.hold_size()], got == 7 * Data.CARGO_STACK and GS.hold_used() == GS.hold_size(), "")
+		GS.cargo.append({"kind": "pilot", "id": "x", "name": "Prisoner", "note": "bounty prisoner"})
+		main.launch()
+		await _until(func(): return main.state == "flight", 15.0)
+		await _wait(1.0)
+		main.space._die()
+		await _wait(0.5)
+		_check("v13.266: shot down, the hold is lost (left: %s)" % str(GS.cargo.map(func(c): return c.get("kind", ""))), GS.cargo.size() == 1 and GS.cargo[0]["kind"] == "pilot", "")
+		for r2 in results: print("[route] ", r2)
+		get_tree().quit()
+		return
 	if _flag("HL_CARDS"):   # v13.268 (owner: "picture cards: the picture, the info, the price, equip, buy and equip, unequip")
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -13579,7 +13630,7 @@ func _job_ai() -> void:
 	await _frames(2)
 	var wl: Label = main.hub.content.find_child("Weapons", true, false)
 	var cl: Label = main.hub.content.find_child("Cargo", true, false)
-	var ship_page: bool = wl != null and cl != null and wl.text.find("Guns") >= 0 and wl.text.find("MISSILE") >= 0 and cl.text.find("CARGO HOLD  0 / %d" % Data.CARGO_HOLD) >= 0 and main.hub.content.find_child("DropJob", true, false) != null
+	var ship_page: bool = wl != null and cl != null and wl.text.find("Guns") >= 0 and wl.text.find("MISSILE") >= 0 and cl.text.find("CARGO HOLD  0 / %d" % GS.hold_size()) >= 0 and main.hub.content.find_child("DropJob", true, false) != null
 	await _shot("ai_ship_page", 0.3)
 	main.hub.visible = false
 	_check("Job AI: the MISSIONS page lists the jobs with ACCEPT, taking one shows it as the current job; YOUR SHIP lists guns, racks and the hold, and can drop the job", rows_ok and taken and ship_page, "rows %s taken %s ship %s" % [rows_ok, taken, ship_page])

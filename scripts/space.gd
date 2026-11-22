@@ -10415,6 +10415,9 @@ func _die() -> void:
 	player.visible = false
 	lane_abort()
 	fire_lock = false
+	if Data.CARGO_LOST_ON_DEATH:   # v13.266 (owner): the hold goes down with the ship
+		var lost := GS.lose_cargo()
+		if lost > 0: message.emit("Your cargo hold went down with the ship (%d lost)." % lost)
 	player_destroyed.emit()
 
 ## v11.97: is this a Level 3 fighter (a faction's fighter_l3)?
@@ -13399,6 +13402,10 @@ func _update_loot(dt: float) -> void:
 		elif d < 14.0:
 			if l.has("gem"):   # v1.8l: ore goes into the hold; a base buys it
 				var have := GS.add_ore(str(l["gem"]))
+				if have == 0:   # v13.266: the hold is full: it stays out there
+					if l.get("full_said", false) == false: message.emit("Cargo hold full (%d / %d). Sell at a station or planet base." % [GS.hold_used(), GS.hold_size()])
+					l["full_said"] = true
+					continue
 				_popup(n.global_position, "%s x%d IN HOLD" % [str(l["gem"]).to_upper(), have], Color(1.0, 0.85, 0.35))
 				if have == 1: message.emit("%s is in your hold. Sell it at any station or planet base, under YOUR SHIP." % Data.ORE_NAME.get(l["gem"], "Ore"))
 			else:

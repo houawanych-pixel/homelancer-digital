@@ -2246,7 +2246,8 @@ func _part_card(kind: String, id: String, part: String, back: String) -> Control
 	var on := fitted == id
 	var pr := GS.part_price(kind, id)
 	var price := _label(13, GOLD)
-	price.text = "OWNED" if owned else "%d cr" % pr
+	var in_hold: bool = GS.hold_has("%s:%s:%s" % [kind, id, part])
+	price.text = ("IN HOLD" if in_hold else "OWNED") if owned else "%d cr" % pr
 	col.add_child(price)
 	var b := Button.new()
 	b.name = "Btn"
@@ -6534,8 +6535,18 @@ func _ship_page() -> void:
 			var op: int = GS.ore_price(str(item["id"]), str(base["name"]))
 			lines.append("%s x%d (%d cr each here = %d cr)" % [Data.ORE_NAME.get(item["id"], "Ore"), int(item["n"]), op, op * int(item["n"])])
 		else: lines.append("%s (%s)" % [item.get("name", item.get("kind", "?")), item.get("note", item.get("kind", ""))])
-	c.text = "CARGO HOLD  %d / %d\n%s" % [GS.cargo.size(), Data.CARGO_HOLD, "\n".join(lines) if not lines.is_empty() else "Empty."]
+	c.text = "CARGO HOLD  %d / %d\n%s" % [GS.hold_used(), GS.hold_size(), "\n".join(lines) if not lines.is_empty() else "Empty."]
 	v.add_child(c)
+	for ci in GS.cargo.size():   # v13.266 (owner: "keep it or sell it"): a SELL button for each spare part in the hold
+		var it: Dictionary = GS.cargo[ci]
+		if it.get("kind", "") != "part": continue
+		var pb := Button.new()
+		pb.name = "SellPart_%d" % ci
+		pb.text = "SELL %s  +%d cr" % [str(it.get("name", "part")).to_upper(), GS.part_sell_price(str(it["key"]))]
+		pb.custom_minimum_size = Vector2(0, 50)
+		pb.add_theme_color_override("font_color", GOLD)
+		pb.pressed.connect(func(): status.text = GS.sell_cargo(ci); Sfx.play("pickup", -6.0); show_screen("ship"))
+		v.add_child(pb)
 	_home_row(v)   # v12.61 (owner): SET HOME POINT in your quarters
 	var worth: int = GS.ore_worth(str(base["name"]))
 	if worth > 0:

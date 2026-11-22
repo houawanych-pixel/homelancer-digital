@@ -202,6 +202,10 @@ func load_game() -> bool:
 	for p in ["arms", "core", "legs"]:   # v1.9i
 		if not Data.MECHS.has(str(mech_parts.get(p, ""))) or not owns_mech_part(str(mech_parts.get(p, "")), p): mech_parts[p] = "blackgold"
 	if not ("blackgold" in owned_mechs): owned_mechs.append("blackgold")
+	for k in owned_parts.duplicate():   # v13.266: single parts not fitted move into the hold
+		var b := str(k).split(":")
+		if b.size() == 3 and (Data.MECHS if b[0] == "mech" else Data.SHIPS).has(b[1]) and _fitted(b[0], b[2]) != b[1] and not hold_has(str(k)): _hold_put_part(b[0], b[1], b[2])
+	owned_parts.clear()
 	changed.emit()
 	return true
 
@@ -522,11 +526,13 @@ var build_mats := {}   # v12.25: building materials the mech carries (material -
 func build_count(m: String) -> int: return int(build_mats.get(m, 0))
 
 ## v1.8l: a mined piece goes into the hold: one stack per mineral ({kind: "ore", id, n}).
-func add_ore(mat: String) -> int:
+func add_ore(mat: String) -> int:   # (v13.266: 0 = the hold is full)
 	for c in cargo:
 		if c.get("kind", "") == "ore" and c.get("id", "") == mat:
+			if int(c.get("n", 0)) % Data.CARGO_STACK == 0 and hold_free() < 1: return 0
 			c["n"] = int(c.get("n", 0)) + 1
 			return int(c["n"])
+	if hold_free() < 1: return 0
 	cargo.append({"kind": "ore", "id": mat, "n": 1})
 	return 1
 
@@ -672,8 +678,85 @@ func buy_mech(id: String) -> String:
 
 ## Fit one part (arms / core / legs) from a frame you own. Arms are always a matched pair.
 ## v13.268: you own a part when you own its whole frame / ship, or bought that part on its own.
-func owns_mech_part(fid: String, part: String) -> bool: return fid in owned_mechs or ("mech:%s:%s" % [fid, part]) in owned_parts
-func owns_ship_part(sid: String, part: String) -> bool: return sid in owned_ships or ("ship:%s:%s" % [sid, part]) in owned_parts
+## v13.266 (owner: "when you equip a new part the old one goes to your cargo hold, keep it or sell it"): a single part
+## is yours while it is fitted or in the hold. (A frame or ship you own keeps all its parts in the hangar.)
+func owns_mech_part(fid: String, part: String) -> bool: return fid in owned_mechs or _fitted("mech", part) == fid or ("mech:%s:%s" % [fid, part]) in owned_parts or hold_has("mech:%s:%s" % [fid, part])
+func owns_ship_part(sid: String, part: String) -> bool: return sid in owned_ships or _fitted("ship", part) == sid or ("ship:%s:%s" % [sid, part]) in owned_parts or hold_has("ship:%s:%s" % [sid, part])
+func _fitted(kind: String, part: String) -> String:
+	if kind == "mech": return str(mech_parts.get(part, mech_parts.get("core", "")))
+	var id := str(ship_parts.get(part, ""))
+	return id if id != "" else ship_id
+## A fitted part that's only yours as a single part (not from a frame / ship you own): it goes to the hold when swapped.
+func _loose(kind: String, id: String) -> bool:
+	if id == "": return false
+	return not (id in owned_mechs) if kind == "mech" else (id != ship_id and not (id in owned_ships))
+
+# ---------------------------------------------------------------- v13.266 (owner): the cargo hold
+## How much your ship carries: by its level (Level 1 / 2 / 3 fighters), a cargo ship the most.
+func hold_size() -> int:
+	var s: Dictionary = Data.SHIPS.get(ship_id, {})
+	if str(s.get("class", "")).to_lower().find("cargo") >= 0: return Data.HOLD_CARGO_SHIP
+	var pr := int(s.get("price", 0))
+	return int(Data.HOLD_BY_LEVEL[2 if pr >= Data.HOLD_L3_PRICE else (1 if pr >= Data.HOLD_L2_PRICE else 0)])
+## Space one hold item takes: a part or crate 1, a stack 1 per CARGO_STACK pieces, a prisoner none (the brig).
+static func hold_slots(c: Dictionary) -> int:
+	if c.get("kind", "") == "pilot": return 0
+	if c.has("n"): return maxi(1, ceili(float(c["n"]) / float(Data.CARGO_STACK)))
+	return 1
+func hold_used() -> int:
+	var n := 0
+	for c in cargo: n += hold_slots(c)
+	return n
+func hold_free() -> int: return hold_size() - hold_used()
+func hold_has(key: String) -> bool:
+	for c in cargo:
+		if c.get("kind", "") == "part" and str(c.get("key", "")) == key: return true
+	return false
+func _hold_take(key: String) -> bool:
+	for i in cargo.size():
+		if cargo[i].get("kind", "") == "part" and str(cargo[i].get("key", "")) == key:
+			cargo.remove_at(i)
+			return true
+	return false
+func _hold_put_part(kind: String, id: String, part: String) -> void:
+	var D: Dictionary = (Data.MECHS if kind == "mech" else Data.SHIPS)[id]
+	cargo.append({"kind": "part", "key": "%s:%s:%s" % [kind, id, part], "name": "%s %s" % [str(D.get("short", D["name"])), part], "note": "spare part"})
+## What a station pays for a part from your hold.
+func part_sell_price(key: String) -> int:
+	var b := key.split(":")
+	if b.size() < 3 or not (Data.MECHS if b[0] == "mech" else Data.SHIPS).has(b[1]): return 0
+	return int(part_price(b[0], b[1]) * Data.PART_SELL_K)
+## SELL one thing from the hold (a part; ore has its own SELL ORE).
+func sell_cargo(i: int) -> String:
+	if i < 0 or i >= cargo.size() or cargo[i].get("kind", "") != "part": return "Nothing to sell."
+	var c: Dictionary = cargo[i]
+	var pr := part_sell_price(str(c["key"]))
+	cargo.remove_at(i)
+	add_credits(pr)
+	save_game()
+	return "%s sold for %d cr." % [str(c.get("name", "Part")), pr]
+## Shot down: the hold goes with the ship (prisoners ride in the brig pod and are kept). Returns how many were lost.
+func lose_cargo() -> int:
+	var lost := 0
+	for c in cargo: if c.get("kind", "") != "pilot": lost += 1
+	cargo = cargo.filter(func(c): return c.get("kind", "") == "pilot")
+	if lost > 0: changed.emit()
+	return lost
+## Swap a part in: the new one comes out of the hold if it was there, the old one goes in if it's a single part.
+func _swap_part(kind: String, part: String, id: String) -> String:
+	var old := _fitted(kind, part)
+	var key := "%s:%s:%s" % [kind, id, part]
+	var from_hold := hold_has(key)
+	var old_in := _loose(kind, old) and old != id
+	if old_in and not from_hold and hold_free() < 1: return "Hold full: sell something first."
+	if from_hold: _hold_take(key)
+	if old_in: _hold_put_part(kind, old, part)
+	owned_parts.erase("%s:%s:%s" % [kind, old, part])
+	owned_parts.erase(key)
+	if kind == "mech": mech_parts[part] = id
+	else: ship_parts[part] = "" if id == ship_id else id
+	changed.emit()
+	return ""
 func part_price(kind: String, id: String) -> int:
 	var full: int = int((Data.MECHS if kind == "mech" else Data.SHIPS)[id].get("price", 0))
 	return maxi(Data.PART_PRICE_MIN, int(full * Data.PART_PRICE_K))
@@ -682,27 +765,30 @@ func buy_part(kind: String, id: String, part: String) -> String:
 	if (kind == "mech" and owns_mech_part(id, part)) or (kind == "ship" and owns_ship_part(id, part)): return fit_mech_part(part, id) if kind == "mech" else fit_ship_part(part, id)
 	var pr := part_price(kind, id)
 	if credits < pr: return "Not enough credits (%d cr)." % pr
+	if _loose(kind, _fitted(kind, part)) and hold_free() < 1: return "Hold full: sell something first."
 	credits -= pr
-	owned_parts.append("%s:%s:%s" % [kind, id, part])
-	var said := fit_mech_part(part, id) if kind == "mech" else fit_ship_part(part, id)
-	return "Bought for %d cr. %s" % [pr, said]
+	_swap_part(kind, part, id)
+	var D: Dictionary = (Data.MECHS if kind == "mech" else Data.SHIPS)[id]
+	return "Bought for %d cr. %s %s fitted." % [pr, str(D["name"]), part]
 ## UNEQUIP: the frame's / ship's own part back (the core's own head, arms, legs; your ship's own cockpit, wings, tail).
 func unequip_part(kind: String, part: String) -> String:
 	if kind == "mech":
 		if part == "core": return "The core is the frame itself: fit another core instead."
-		mech_parts[part] = str(mech_parts.get("core", "blackgold"))
-		changed.emit()
-		return "Back to the %s's own %s." % [Data.MECHS[str(mech_parts["core"])]["name"], part]
-	ship_parts[part] = ""
-	changed.emit()
-	return "Back to the %s's own %s." % [Data.SHIPS[ship_id]["name"], part]
+		var note := " The old one is in your hold." if _loose("mech", _fitted("mech", part)) else ""
+		var why := _swap_part("mech", part, str(mech_parts.get("core", "blackgold")))
+		if why != "": return why
+		return "Back to the %s's own %s.%s" % [Data.MECHS[str(mech_parts["core"])]["name"], part, note]
+	var note2 := " The old one is in your hold." if _loose("ship", _fitted("ship", part)) else ""
+	var why2 := _swap_part("ship", part, ship_id)
+	if why2 != "": return why2
+	return "Back to the %s's own %s.%s" % [Data.SHIPS[ship_id]["name"], part, note2]
 
 func fit_mech_part(part: String, id: String) -> String:
 	if not (part in ["arms", "core", "legs", "head"]) or not Data.MECHS.has(id): return "No such part."
 	if not owns_mech_part(id, part): return "Buy that part first."
-	if mech_parts.get(part, "") == id: return "Already fitted."
-	mech_parts[part] = id
-	changed.emit()
+	if _fitted("mech", part) == id: return "Already fitted."
+	var why := _swap_part("mech", part, id)
+	if why != "": return why
 	return "%s %s fitted." % [Data.MECHS[id]["name"], str(Data.MECH_PART_NAMES[part]).to_lower()]
 
 ## v13.266 (owner: "switch out the ship's cockpit, body, wings and tail"): fit one part of your ship from another ship
@@ -710,11 +796,11 @@ func fit_mech_part(part: String, id: String) -> String:
 func fit_ship_part(part: String, id: String) -> String:
 	if not (part in ShipParts.PARTS): return "No such part."
 	if id != "" and (not Data.SHIPS.has(id) or not owns_ship_part(id, part)): return "Buy that part first."
-	if id == ship_id: id = ""
-	if str(ship_parts.get(part, "")) == id: return "Already fitted."
-	ship_parts[part] = id
-	changed.emit()
-	return "%s %s fitted." % [Data.SHIPS[id if id != "" else ship_id]["name"], part]
+	if id == "": id = ship_id
+	if _fitted("ship", part) == id: return "Already fitted."
+	var why := _swap_part("ship", part, id)
+	if why != "": return why
+	return "%s %s fitted." % [Data.SHIPS[id]["name"], part]
 
 ## The model key of each part of your ship (all the same when nothing is swapped).
 func ship_keys() -> Dictionary:
