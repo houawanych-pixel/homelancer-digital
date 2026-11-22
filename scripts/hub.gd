@@ -2198,6 +2198,88 @@ func scroll_board(sc: ScrollContainer, d: int) -> void:
 	var to: float = clampf(sc.scroll_vertical + d * step, 0.0, maxf(0.0, sc.get_v_scroll_bar().max_value - sc.size.y))
 	create_tween().tween_property(sc, "scroll_vertical", int(to), 0.25)
 
+## v13.268 (owner: "a nice clean interface that shows the picture and the information, the price, equip, buy and equip,
+## and unequip"): one part as a card: its square picture (taken from the model: PartIcons), name, a line of info,
+## the price, and one button: EQUIPPED / UNEQUIP, EQUIP, or BUY & EQUIP.
+var part_icons: PartIcons
+func _icons() -> PartIcons:
+	if part_icons == null or not is_instance_valid(part_icons):
+		part_icons = PartIcons.new()
+		part_icons.name = "PartIcons"
+		add_child(part_icons)
+	return part_icons
+
+func _part_card(kind: String, id: String, part: String, back: String) -> Control:
+	var D: Dictionary = (Data.MECHS if kind == "mech" else Data.SHIPS)[id]
+	var card := PanelContainer.new()
+	card.name = "Card_%s_%s_%s" % [kind, id, part]
+	card.custom_minimum_size = Vector2(156, 0)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.02, 0.06, 0.12, 0.92)
+	sb.set_corner_radius_all(10)
+	sb.set_border_width_all(2)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 3)
+	card.add_child(col)
+	var pic := TextureRect.new()
+	pic.custom_minimum_size = Vector2(140, 140)
+	pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	col.add_child(pic)
+	var model := str(D.get("model", ""))
+	var pk := ShipFactory.pack_of(model)
+	if ShipFactory.has_real_model(model) and (pk == "" or Packs.is_ready(pk)):
+		if kind == "mech": _icons().get_icon("mech_%s_%s" % [id, part], PartIcons.mech_part.bind(id, part), pic)
+		else: _icons().get_icon("ship_%s_%s" % [id, part], PartIcons.ship_part.bind(id, part), pic)
+	elif pk != "": Packs.request(pk)
+	var nm := _label(15, Color(1, 1, 1))
+	nm.text = "%s %s" % [str(D.get("short", D["name"])), part.to_upper()]
+	nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	col.add_child(nm)
+	var info := _label(12, CYAN)
+	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	info.text = (str(D.get("class", "")) if kind == "ship" else "style only (same stats)")
+	col.add_child(info)
+	var owned: bool = GS.owns_mech_part(id, part) if kind == "mech" else GS.owns_ship_part(id, part)
+	var fitted: String = str(GS.mech_parts.get(part, GS.mech_parts.get("core", ""))) if kind == "mech" else (str(GS.ship_parts.get(part, "")) if str(GS.ship_parts.get(part, "")) != "" else GS.ship_id)
+	var base_id: String = str(GS.mech_parts.get("core", "")) if kind == "mech" else GS.ship_id
+	var on := fitted == id
+	var pr := GS.part_price(kind, id)
+	var price := _label(13, GOLD)
+	price.text = "OWNED" if owned else "%d cr" % pr
+	col.add_child(price)
+	var b := Button.new()
+	b.name = "Btn"
+	b.custom_minimum_size = Vector2(0, 44)
+	if on:
+		var fixed: bool = id == base_id or part == "core" or part == "body"
+		b.text = "EQUIPPED" if fixed else "UNEQUIP"
+		b.disabled = fixed
+		if not fixed: b.pressed.connect(func(): status.text = GS.unequip_part(kind, part); show_screen(back))
+	elif owned:
+		b.text = "EQUIP"
+		b.pressed.connect(func(): status.text = GS.fit_mech_part(part, id) if kind == "mech" else GS.fit_ship_part(part, id); show_screen(back))
+	else:
+		b.text = "BUY & EQUIP"
+		b.disabled = GS.credits < pr
+		b.pressed.connect(func(): status.text = GS.buy_part(kind, id, part); show_screen(back))
+	col.add_child(b)
+	sb.border_color = Color(GOLD, 0.9) if on else (Color(CYAN, 0.6) if owned else Color(0.3, 0.35, 0.45, 0.8))
+	card.add_theme_stylebox_override("panel", sb)
+	return card
+
+func _part_cards(v: Container, kind: String, parts: Array, ids: Array, back: String) -> void:
+	for part in parts:
+		var pl := _label(17, GOLD)
+		pl.text = str(Data.MECH_PART_NAMES.get(part, part)).to_upper() if kind == "mech" else str(part).to_upper()
+		v.add_child(pl)
+		var row := HFlowContainer.new()
+		row.name = "Cards_" + str(part)
+		row.add_theme_constant_override("h_separation", 8)
+		row.add_theme_constant_override("v_separation", 8)
+		for id in ids: row.add_child(_part_card(kind, str(id), str(part), back))
+		v.add_child(row)
+
 func _page_box() -> VBoxContainer:
 	# v11.4 (owner: "nothing outside, scroll"): every page in a tablet scrolls by hand when it is longer than the tablet
 	var sc := ScrollContainer.new()
@@ -4461,29 +4543,32 @@ func _mechs_page() -> void:
 	cap.text = "YOUR MECH  ·  Armour %d%%  ·  Gun power x%.2f  ·  Pace x%.2f" % [int(round(GS.mech_armor() * 100.0)), GS.mech_arm(), GS.mech_speed()]
 	cap.name = "MechStats"
 	list.add_child(cap)
-	for part in (["head", "arms", "core", "legs"] if Data.MECH_HEADS else ["arms", "core", "legs"]):   # v13.266: the head too
-		var row := HFlowContainer.new()
-		row.name = "Part_" + part
-		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_theme_constant_override("h_separation", 8)
-		row.add_theme_constant_override("v_separation", 6)
-		var pl := _label(17, GOLD)
-		pl.text = "%s:" % str(Data.MECH_PART_NAMES[part]).to_upper()
-		pl.custom_minimum_size = Vector2(0, 50)
-		row.add_child(pl)
-		for fid in Data.MECH_ORDER:
-			if not (fid in GS.owned_mechs): continue
-			var b := Button.new()
-			b.name = "Fit_%s_%s" % [part, fid]
-			b.custom_minimum_size = Vector2(150, 50)
-			b.clip_text = true
-			var nm := str(Data.MECHS[fid].get("short", Data.MECHS[fid]["name"]))
-			var fitted := str(GS.mech_parts.get(part, GS.mech_parts.get("core", "")))
-			b.text = ("[%s]" % nm) if fitted == fid else nm
-			b.disabled = fitted == fid
-			b.pressed.connect(func(): status.text = GS.fit_mech_part(part, fid); show_screen("mechs"))
-			row.add_child(b)
-		list.add_child(row)
+	if Data.PART_CARDS:   # v13.268: every frame's parts as picture cards
+		_part_cards(list, "mech", ["head", "arms", "core", "legs"] if Data.MECH_HEADS else ["arms", "core", "legs"], Data.MECH_ORDER.filter(func(f): return ShipFactory.has_real_model(str(Data.MECHS[f]["model"]))), "mechs")
+	else:
+		for part in (["head", "arms", "core", "legs"] if Data.MECH_HEADS else ["arms", "core", "legs"]):   # v13.266: the head too
+			var row := HFlowContainer.new()
+			row.name = "Part_" + part
+			row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			row.add_theme_constant_override("h_separation", 8)
+			row.add_theme_constant_override("v_separation", 6)
+			var pl := _label(17, GOLD)
+			pl.text = "%s:" % str(Data.MECH_PART_NAMES[part]).to_upper()
+			pl.custom_minimum_size = Vector2(0, 50)
+			row.add_child(pl)
+			for fid in Data.MECH_ORDER:
+				if not (fid in GS.owned_mechs): continue
+				var b := Button.new()
+				b.name = "Fit_%s_%s" % [part, fid]
+				b.custom_minimum_size = Vector2(150, 50)
+				b.clip_text = true
+				var nm := str(Data.MECHS[fid].get("short", Data.MECHS[fid]["name"]))
+				var fitted := str(GS.mech_parts.get(part, GS.mech_parts.get("core", "")))
+				b.text = ("[%s]" % nm) if fitted == fid else nm
+				b.disabled = fitted == fid
+				b.pressed.connect(func(): status.text = GS.fit_mech_part(part, fid); show_screen("mechs"))
+				row.add_child(b)
+			list.add_child(row)
 	var cap2 := _label(16, CYAN)
 	cap2.text = "FRAMES  ·  a frame gives you its arms, core and legs. Every frame has the same stats: the look is yours, builds come from weapons and abilities."   # v12.84
 	cap2.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -6387,7 +6472,16 @@ func _ship_page() -> void:
 	var head := _label(22, Color(1, 1, 1))
 	head.text = "%s  ·  %s" % [str(sh["name"]).to_upper(), sh["class"]]
 	v.add_child(head)
-	if Data.SHIP_PARTS and GS.owned_ships.size() > 1:   # v13.266 (owner): your cockpit, body, wings and tail, from any ship you own
+	if Data.SHIP_PARTS and Data.PART_CARDS:   # v13.268: the parts as picture cards (yours, and the base ships' to buy)
+		var cap0 := _label(16, CYAN)
+		cap0.text = "SHIP PARTS  ·  the look is yours, the stats stay the %s's" % str(sh["name"])
+		cap0.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(cap0)
+		var ids: Array = []
+		for sid in Data.PART_SHIPS + GS.owned_ships:
+			if Data.SHIPS.has(str(sid)) and not ids.has(str(sid)) and ShipFactory.has_real_model(str(Data.SHIPS[str(sid)]["model"])): ids.append(str(sid))
+		_part_cards(v, "ship", ShipParts.PARTS, ids, "ship")
+	elif Data.SHIP_PARTS and GS.owned_ships.size() > 1:   # v13.266 (owner): your cockpit, body, wings and tail, from any ship you own
 		var cap := _label(16, CYAN)
 		cap.text = "SHIP PARTS  ·  the look is yours, the stats stay the %s's" % str(sh["name"])
 		cap.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

@@ -7694,6 +7694,45 @@ func _run() -> void:
 		for r2 in results: print("[route] ", r2)
 		get_tree().quit()
 		return
+	if _flag("HL_CARDS"):   # v13.268 (owner: "picture cards: the picture, the info, the price, equip, buy and equip, unequip")
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		for pk in ["mechs", "ranger", "lancer"]: Packs.request(pk)
+		for pk in ["mechs", "ranger", "lancer"]: await Packs.wait(pk, 120.0)
+		GS.credits = 200000
+		main.dock(_sp().station)
+		await _until(func(): return main.state == "hub", 15.0)
+		main.hub.show_screen("mechs")
+		await _wait(0.5)
+		var cards: Array = main.hub.find_children("Card_mech_*", "PanelContainer", true, false)
+		await _until(func(): return main.hub.part_icons != null and main.hub.part_icons._queue.is_empty() and not main.hub.part_icons._busy, 120.0)
+		await _wait(0.5)
+		var with_pic := 0
+		for c in main.hub.find_children("Card_mech_*", "PanelContainer", true, false):
+			var tr: TextureRect = (c as Node).find_children("*", "TextureRect", true, false)[0]
+			if tr.texture != null: with_pic += 1
+		await _capture("cards_mech")
+		# buy and equip another frame's head, then unequip it
+		var other := ""
+		for f in Data.MECH_ORDER:
+			if f != str(GS.mech_parts["core"]) and ShipFactory.has_real_model(str(Data.MECHS[f]["model"])) and not GS.owns_mech_part(f, "head"): other = f; break
+		var cr0: int = GS.credits
+		var said1 := GS.buy_part("mech", other, "head")
+		var bought: bool = GS.owns_mech_part(other, "head") and str(GS.mech_parts.get("head", "")) == other and GS.credits == cr0 - GS.part_price("mech", other)
+		var said2 := GS.unequip_part("mech", "head")
+		var back: bool = str(GS.mech_parts.get("head", "")) == str(GS.mech_parts["core"])
+		_check("v13.268: the mech parts as picture cards (%d cards, %d with their picture); BUY & EQUIP one part (%s), UNEQUIP puts the frame's own back (%s)" % [cards.size(), with_pic, said1, said2], cards.size() >= 8 and with_pic >= cards.size() * 0.75 and bought and back, "")
+		main.hub.show_screen("ship")
+		await _wait(0.5)
+		await _until(func(): return main.hub.part_icons._queue.is_empty() and not main.hub.part_icons._busy, 120.0)
+		await _wait(0.5)
+		var sc: Array = main.hub.find_children("Card_ship_*", "PanelContainer", true, false)
+		await _capture("cards_ship")
+		_check("v13.268: the ship parts as picture cards, from the top (%d)" % sc.size(), sc.size() >= 8, "")
+		for r2 in results: print("[route] ", r2)
+		get_tree().quit()
+		return
 	if _flag("HL_PANELS"):   # v13.265 (owner: "each faction its own texture panels")
 		var dirp := OS.get_environment("HL_SHOT_DIR")
 		var made := 0
@@ -15577,8 +15616,8 @@ func _job_v19i() -> void:
 	await _until(func(): return main.state == "hub", 8.0)
 	main.hub.show_screen("mechs")
 	await _frames(3)
-	var page_ok: bool = main.hub.find_child("Part_arms", true, false) != null and main.hub.find_child("Mech_acmec", true, false) != null \
-		and main.hub.find_child("Fit_core_mecbrn", true, false) != null and main.hub.find_child("MechPreview", true, false) != null
+	var page_ok: bool = (main.hub.find_child("Cards_arms", true, false) != null if Data.PART_CARDS else main.hub.find_child("Part_arms", true, false) != null) and main.hub.find_child("Mech_acmec", true, false) != null \
+		and (main.hub.find_child("Card_mech_mecbrn_core", true, false) != null if Data.PART_CARDS else main.hub.find_child("Fit_core_mecbrn", true, false) != null) and main.hub.find_child("MechPreview", true, false) != null   # (v13.268: picture cards)
 	await _shot("v19i_mech_dealer", 0.4)
 	main.launch()
 	await _until(func(): return main.state == "flight", 8.0)

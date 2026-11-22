@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.264"
+const VERSION := "v13.265"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -2392,6 +2392,10 @@ const CREW_DOOR_STEP := 22.0      # m: they line up this far in front of a door,
 const CREW_REACH := 10.0           # m: a door or spot reached
 const CREW_COWER_Y := 0.6          # on an alarm they crouch (their standee this tall)
 const CREW_PLEA_R := 90.0          # m: they plead when you come this close on an alarm
+const PART_PRICE_K := 0.3      # v13.268: one part on its own costs this share of its whole frame / ship
+const PART_PRICE_MIN := 250
+const PART_CARDS := true
+const PART_SHIPS := ["cadet", "ranger", "lancer", "elyza", "hauler"]   # v13.268: the ships whose parts are always on sale (plus any you own)        # v13.268 (owner): parts shown as picture cards (EQUIP / BUY & EQUIP / UNEQUIP)
 const MECH_HEADS := true        # v13.266 (owner): the mech's head is its own part (another frame's head on yours)
 const SHIP_PARTS := true        # v13.266 (owner): swap your ship's cockpit, body, wings and tail for those of other ships you own
 const FACTION_PANELS := true    # v13.265 (owner): each faction's ships, stations and facilities wear their own wall panels
