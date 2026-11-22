@@ -13379,7 +13379,7 @@ func _scan_tick(dt: float) -> void:
 	scan_cool = Data.PATROL_SCAN_COOLDOWN
 	var roll: float = scan_force if scan_force >= 0.0 else randf()
 	if roll < Data.PATROL_SCAN_DETECT:
-		var said := GS.customs_scan(sys_id, 0.0)
+		var said := GS.customs_scan(sys_id, 0.0, str(by.get("faction", "")))
 		scans_done["caught"] += 1
 		hail.emit(who, "Contraband in your hold. It's confiscated, and you're fined.", true)
 		message.emit(said.replace("CUSTOMS SCAN", "PATROL SCAN"))
@@ -13388,9 +13388,18 @@ func _scan_tick(dt: float) -> void:
 		scans_done["clean"] += 1
 		hail.emit(who, "Scan's clean. Move along, pilot.", false)
 
-## (v13.271 fills these in: what happens to you after)
+## v13.271 (owner: "getting caught: the patrol turns hostile and your standing drops"): caught, you pay and your
+## standing with them drops (in customs_scan). Run from the scan and the patrol comes after you (guns, its hangar's
+## fighters) and your standing drops a little too.
 func _scan_caught(_by: Dictionary) -> void: pass
-func _scan_slipped(_by: Dictionary) -> void: pass
+func _scan_slipped(by: Dictionary) -> void:
+	if not Data.SCAN_RUN_HOSTILE: return
+	by["provoked"] = true
+	by["aggro"] = true
+	var fac := str(by.get("faction", ""))
+	if fac != "": Factions.adjust(fac, -Data.REP_SCAN_RUN)
+	hail.emit(str((by["node"] as Node3D).name), "You're running from a lawful scan. All ships: weapons free on that pilot!", true)
+	message.emit("You ran from the %s patrol: it's coming after you%s." % [fac, (", and your standing with %s drops" % fac) if Factions.normal(fac) else ""])
 
 ## v13.268: one valuable piece floating free (looted): the tractor pulls it into the hold like mined ore.
 func _drop_gem(at: Vector3, mat: String) -> void:

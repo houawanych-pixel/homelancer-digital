@@ -807,15 +807,16 @@ func contraband_worth() -> int:
 		if c.get("kind", "") == "goods" and is_contraband(str(c["id"])): t += int(goods_def(str(c["id"])).get("price", 0)) * int(c["n"])
 	return t
 ## Docking at a lawful base with contraband: a customs patrol may scan you: it's taken and you're fined. "" = clean.
-func customs_scan(here: String, roll: float) -> String:
+func customs_scan(here: String, roll: float, fac := "") -> String:
 	if shady(here): return ""
 	var worth := contraband_worth()
 	if worth <= 0 or roll >= Data.CONTRABAND_SCAN: return ""
+	if fac != "": Factions.adjust(fac, -Data.REP_CONTRABAND)   # v13.271: your standing with them drops
 	var fine := mini(credits, int(worth * Data.CONTRABAND_FINE_K))
 	cargo = cargo.filter(func(c): return not (c.get("kind", "") == "goods" and is_contraband(str(c["id"]))))
 	credits -= fine
 	changed.emit()
-	return "CUSTOMS SCAN: a patrol found contraband in your hold. It's confiscated and you're fined %d cr." % fine
+	return "CUSTOMS SCAN: a patrol found contraband in your hold. It's confiscated and you're fined %d cr.%s" % [fine, (" Your standing with %s drops." % fac) if fac != "" and Factions.normal(fac) else ""]
 
 ## Shot down: the hold goes with the ship (prisoners ride in the brig pod and are kept). Returns how many were lost.
 func lose_cargo() -> int:

@@ -7717,6 +7717,8 @@ func _run() -> void:
 		var no_scan: bool = s.scan.is_empty()
 		GS.add_goods("spice", s.sys_id, 3)
 		SpaceSystem.scan_force = 0.0
+		var fac0 := str(pat.get("faction", ""))
+		var st0: float = Factions.standing(fac0)
 		near.call()
 		var hails: Array = []
 		s.hail.connect(func(f, l, h): hails.append(l))
@@ -7726,6 +7728,8 @@ func _run() -> void:
 			near.call()
 			await _wait(1.0)
 		var caught: bool = s.scans_done["caught"] == 1 and GS.contraband_worth() == 0 and GS.credits < 5000
+		var st1: float = Factions.standing(fac0)
+		var still_calm: bool = s.fleet_peaceful(pat)
 		_check("v13.270: a patrol scans you in flight and finds the contraband (started %s, %s)" % [str(started), str(hails)], not pat.is_empty() and no_scan and started and caught, "")
 		s.scan_cool = 0.0
 		GS.add_goods("spice", s.sys_id, 3)
@@ -7736,6 +7740,12 @@ func _run() -> void:
 		s.player.global_position = pn2.global_position + Vector3(0, 0, Data.PATROL_SCAN_BREAK_RANGE + 800)
 		await _wait(1.0)
 		var slipped: bool = s.scans_done["slipped"] == 1 and GS.contraband_worth() > 0
+		var st2: float = Factions.standing(fac0)
+		var hostile_now: bool = not s.fleet_peaceful(pat)
+		_check("v13.271: caught, your standing with %s drops (%.1f -> %.1f) and the patrol lets you go; run and it turns on you (hostile %s) and standing drops again (-> %.1f)" % [fac0, st0, st1, str(hostile_now), st2],
+			st1 < st0 and still_calm and hostile_now and st2 < st1, "")
+		pat["provoked"] = false
+		pat["aggro"] = false
 		s.scan_cool = 0.0
 		SpaceSystem.scan_force = 0.99
 		near.call()
