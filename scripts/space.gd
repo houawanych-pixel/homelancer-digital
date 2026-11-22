@@ -8470,6 +8470,7 @@ func _process(dt: float) -> void:
 	_update_blasts(dt)
 	_update_mines(dt)
 	_update_loot(dt)
+	if Data.FLIGHT_SCANS: _scan_tick(dt)   # v13.270: patrols scan your hold for contraband
 	_update_asteroids(dt)   # v1.7x
 	_update_effects(dt)
 	if not roamers.is_empty(): _update_roamers(dt)   # v1.9d
@@ -13326,6 +13327,70 @@ func _drop_loot(at: Vector3, reward: int, outlaw := false) -> void:
 		pod.global_position = at
 		var dir := Vector3(_rng.randfn(0, 1), _rng.randfn(0, 0.5), _rng.randfn(0, 1)).normalized()
 		loot.append({"node": pod, "vel": dir * _rng.randf_range(8.0, 16.0), "value": maxi(10, int(reward * 0.4)), "life": 120.0})
+
+# ---------------------------------------------------------------- v13.270 (owner: "contraband: patrols scan you")
+## Fly near the system's own patrol (its battleship or cruiser) with contraband in the hold, in a lawful system, and
+## it hails you and scans: stay within SCAN_BREAK_RANGE for SCAN_TIME and, if the scan finds it (SCAN_DETECT), it's
+## confiscated and you're fined (as at the dock). Fly out of range and you slip the scan. One scan per SCAN_COOLDOWN.
+var scan := {}                 # the scan running now: {by (patrol dict), t}
+var scan_cool := 0.0
+var scans_done := {"caught": 0, "clean": 0, "slipped": 0}   # (tests)
+static var scan_force := -1.0  # (tests: the detection roll; -1 = random)
+func _scan_patrol() -> Dictionary:
+	var fac := str(sys.get("faction", ""))
+	var best := {}
+	var bd := Data.PATROL_SCAN_RANGE
+	for e in fleet_patrols:
+		if str(e.get("faction", "")) != fac or e.get("raider", false) or e.get("aggro", false) or e.get("provoked", false): continue
+		if not is_instance_valid(e.get("node")): continue
+		var d := player.global_position.distance_to((e["node"] as Node3D).global_position)
+		if d < bd: bd = d; best = e
+	return best
+
+func _scan_tick(dt: float) -> void:
+	scan_cool = maxf(0.0, scan_cool - dt)
+	if boarding or surface_mode or not controls or not is_instance_valid(player) or GS.shady(sys_id) or GS.contraband_worth() <= 0:
+		scan = {}
+		return
+	if scan.is_empty():
+		if scan_cool > 0.0: return
+		var e := _scan_patrol()
+		if e.is_empty(): return
+		scan = {"by": e, "t": Data.PATROL_SCAN_TIME}
+		hail.emit(str((e["node"] as Node3D).name), "This is the %s patrol. Hold your course, pilot: we're scanning your hold." % str(e["faction"]), false)
+		message.emit("PATROL SCAN: stay close %d s, or fly out of range to slip it." % int(Data.PATROL_SCAN_TIME))
+		return
+	var by: Dictionary = scan["by"]
+	if not is_instance_valid(by.get("node")):
+		scan = {}
+		return
+	var d := player.global_position.distance_to((by["node"] as Node3D).global_position)
+	var who := str((by["node"] as Node3D).name)
+	if d > Data.PATROL_SCAN_BREAK_RANGE:   # you ran
+		scan = {}
+		scan_cool = Data.PATROL_SCAN_COOLDOWN
+		scans_done["slipped"] += 1
+		message.emit("You slipped out of the patrol's scan range.")
+		_scan_slipped(by)
+		return
+	scan["t"] = float(scan["t"]) - dt
+	if float(scan["t"]) > 0.0: return
+	scan = {}
+	scan_cool = Data.PATROL_SCAN_COOLDOWN
+	var roll: float = scan_force if scan_force >= 0.0 else randf()
+	if roll < Data.PATROL_SCAN_DETECT:
+		var said := GS.customs_scan(sys_id, 0.0)
+		scans_done["caught"] += 1
+		hail.emit(who, "Contraband in your hold. It's confiscated, and you're fined.", true)
+		message.emit(said.replace("CUSTOMS SCAN", "PATROL SCAN"))
+		_scan_caught(by)
+	else:
+		scans_done["clean"] += 1
+		hail.emit(who, "Scan's clean. Move along, pilot.", false)
+
+## (v13.271 fills these in: what happens to you after)
+func _scan_caught(_by: Dictionary) -> void: pass
+func _scan_slipped(_by: Dictionary) -> void: pass
 
 ## v13.268: one valuable piece floating free (looted): the tractor pulls it into the hold like mined ore.
 func _drop_gem(at: Vector3, mat: String) -> void:

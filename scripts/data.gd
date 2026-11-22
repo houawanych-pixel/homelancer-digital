@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.269"
+const VERSION := "v13.270"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -1061,6 +1061,13 @@ const TRADE_JUMPS_MAX := 5
 const TRADE_BUY_LOT := 5        # BUY takes this many at a time
 const CONTRABAND_SCAN := 0.4    # chance a customs patrol scans you as you dock at a lawful base with contraband
 const CONTRABAND_FINE_K := 0.5  # fine: this share of what was found (and it's taken)
+# v13.270 (owner: "contraband: patrols scan you"): in flight too
+const FLIGHT_SCANS := true
+const PATROL_SCAN_RANGE := 1500.0        # m: a patrol this close (the system's own battleship or cruiser) starts a scan
+const PATROL_SCAN_BREAK_RANGE := 2600.0  # m: get this far away before it finishes and you slip it
+const PATROL_SCAN_TIME := 8.0            # s the scan takes
+const PATROL_SCAN_DETECT := 0.6          # chance a finished scan finds the contraband
+const PATROL_SCAN_COOLDOWN := 120.0      # s before another patrol scan
 const LOOT_VALUABLE_CHANCE := 0.22      # a crate from a kill is a valuable (silver / gold / orb) instead of credits
 const LOOT_CONTRABAND_CHANCE := 0.12    # a pirate's or raider's crate is contraband
 const DELIVERY_CRATES := [2, 4]         # crates a delivery job puts in your hold (one slot each)

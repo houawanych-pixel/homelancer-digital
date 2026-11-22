@@ -7694,6 +7694,61 @@ func _run() -> void:
 		for r2 in results: print("[route] ", r2)
 		get_tree().quit()
 		return
+	if _flag("HL_FSCAN"):   # v13.270 (owner: "contraband: patrols scan you")
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var s: Node = _sp()
+		Packs.request("faction_fleet")
+		await Packs.wait("faction_fleet", 180.0)
+		await _wait(1.0)
+		if s.fleet_patrols.is_empty(): s._fleet_patrols()
+		var pat: Dictionary = {}
+		for e in s.fleet_patrols:
+			if str(e.get("faction", "")) == str(s.sys.get("faction", "")) and not e.get("raider", false): pat = e; break
+		var near := func():
+			var pn: Node3D = pat["node"]
+			s.player.global_position = pn.global_position + Vector3(0, 200, 700)
+			s.vel = Vector3.ZERO
+		GS.cargo = []
+		GS.credits = 5000
+		near.call()
+		await _wait(2.0)
+		var no_scan: bool = s.scan.is_empty()
+		GS.add_goods("spice", s.sys_id, 3)
+		SpaceSystem.scan_force = 0.0
+		near.call()
+		var hails: Array = []
+		s.hail.connect(func(f, l, h): hails.append(l))
+		await _until(func(): return not s.scan.is_empty(), 5.0)
+		var started: bool = not s.scan.is_empty()
+		for k in int(Data.PATROL_SCAN_TIME) + 3:
+			near.call()
+			await _wait(1.0)
+		var caught: bool = s.scans_done["caught"] == 1 and GS.contraband_worth() == 0 and GS.credits < 5000
+		_check("v13.270: a patrol scans you in flight and finds the contraband (started %s, %s)" % [str(started), str(hails)], not pat.is_empty() and no_scan and started and caught, "")
+		s.scan_cool = 0.0
+		GS.add_goods("spice", s.sys_id, 3)
+		near.call()
+		await _until(func(): return not s.scan.is_empty(), 5.0)
+		await _wait(1.0)
+		var pn2: Node3D = pat["node"]
+		s.player.global_position = pn2.global_position + Vector3(0, 0, Data.PATROL_SCAN_BREAK_RANGE + 800)
+		await _wait(1.0)
+		var slipped: bool = s.scans_done["slipped"] == 1 and GS.contraband_worth() > 0
+		s.scan_cool = 0.0
+		SpaceSystem.scan_force = 0.99
+		near.call()
+		await _until(func(): return not s.scan.is_empty(), 5.0)
+		for k in int(Data.PATROL_SCAN_TIME) + 3:
+			near.call()
+			await _wait(1.0)
+		var clean: bool = s.scans_done["clean"] == 1 and GS.contraband_worth() > 0
+		_check("v13.270: fly out of range and you slip the scan (%s); a scan can come up clean (%s)" % [str(slipped), str(clean)], slipped and clean, str(s.scans_done))
+		SpaceSystem.scan_force = -1.0
+		for r2 in results: print("[route] ", r2)
+		get_tree().quit()
+		return
 	if _flag("HL_WCARDS"):   # v13.269 (owner: "weapons from the side, all the same across the board")
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
