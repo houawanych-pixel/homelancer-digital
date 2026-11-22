@@ -701,6 +701,7 @@ func hold_size() -> int:
 ## Space one hold item takes: a part or crate 1, a stack 1 per CARGO_STACK pieces, a prisoner none (the brig).
 static func hold_slots(c: Dictionary) -> int:
 	if c.get("kind", "") == "pilot": return 0
+	if c.has("crates"): return int(c["crates"])
 	if c.has("n"): return maxi(1, ceili(float(c["n"]) / float(Data.CARGO_STACK)))
 	return 1
 func hold_used() -> int:
@@ -750,6 +751,72 @@ func sell_cargo(i: int) -> String:
 	add_credits(pr)
 	save_game()
 	return "%s sold for %d cr." % [str(c.get("name", "Part")), pr]
+# ---------------------------------------------------------------- v13.268 (owner): light trade
+static func goods_def(id: String) -> Dictionary: return Data.TRADE_GOODS.get(id, Data.CONTRABAND.get(id, {}))
+static func is_contraband(id: String) -> bool: return Data.CONTRABAND.has(id)
+static func shady(sys_id: String) -> bool: return sys_id in Data.SHADY_SYSTEMS
+## Jumps between two systems (far if there's no route).
+static func jumps(a: String, b: String) -> int:
+	var r: Array = Data.gate_route(a, b)
+	return Data.TRADE_JUMPS_MAX if r.is_empty() else r.size() - 1
+func goods_buy_price(id: String, kind: String) -> int:
+	return maxi(1, int(round(float(goods_def(id).get("price", 0)) * (Data.PLANET_BUY_K if kind == "planet" else Data.STATION_BUY_K))))
+## What this base pays for one: planets little, stations more, and more for every jump from where it was bought.
+func goods_sell_price(id: String, from_sys: String, kind: String, here: String) -> int:
+	if is_contraband(id) and not shady(here): return 0
+	var k: float = Data.PLANET_SELL_K if kind == "planet" else Data.STATION_SELL_K
+	k *= 1.0 + Data.TRADE_JUMP_K * mini(jumps(from_sys, here), Data.TRADE_JUMPS_MAX)
+	return maxi(1, int(round(float(goods_def(id).get("price", 0)) * k)))
+## n of one good into the hold (stacks by good and where it came from). False = no room.
+func add_goods(id: String, from_sys: String, n: int) -> bool:
+	for c in cargo:
+		if c.get("kind", "") == "goods" and c.get("id", "") == id and c.get("from", "") == from_sys:
+			var more := ceili(float(int(c["n"]) + n) / Data.CARGO_STACK) - ceili(float(int(c["n"])) / Data.CARGO_STACK)
+			if more > hold_free(): return false
+			c["n"] = int(c["n"]) + n
+			changed.emit()
+			return true
+	if ceili(float(n) / Data.CARGO_STACK) > hold_free(): return false
+	cargo.append({"kind": "goods", "id": id, "from": from_sys, "n": n, "name": str(goods_def(id).get("name", id)), "note": "contraband" if is_contraband(id) else "trade goods"})
+	changed.emit()
+	return true
+## BUY a lot of goods here (contraband only at a smugglers' base).
+func buy_goods(id: String, kind: String, here: String, n := Data.TRADE_BUY_LOT) -> String:
+	if goods_def(id).is_empty(): return "No such goods."
+	if is_contraband(id) and not shady(here): return "Nobody here sells that."
+	var cost := goods_buy_price(id, kind) * n
+	if credits < cost: return "Not enough credits (%d cr)." % cost
+	if not add_goods(id, here, n): return "Hold full (%d / %d)." % [hold_used(), hold_size()]
+	credits -= cost
+	changed.emit()
+	return "Bought %d %s for %d cr. Stations farther away pay more." % [n, str(goods_def(id)["name"]), cost]
+## SELL one stack of goods from the hold here.
+func sell_goods(i: int, kind: String, here: String) -> String:
+	if i < 0 or i >= cargo.size() or cargo[i].get("kind", "") != "goods": return "Nothing to sell."
+	var c: Dictionary = cargo[i]
+	var each := goods_sell_price(str(c["id"]), str(c.get("from", here)), kind, here)
+	if each <= 0: return "Nobody here will touch that. Try a smugglers' base (Shroud)."
+	var tot := each * int(c["n"])
+	cargo.remove_at(i)
+	add_credits(tot)
+	save_game()
+	return "Sold %d %s for %d cr." % [int(c["n"]), str(c.get("name", "goods")), tot]
+func contraband_worth() -> int:
+	var t := 0
+	for c in cargo:
+		if c.get("kind", "") == "goods" and is_contraband(str(c["id"])): t += int(goods_def(str(c["id"])).get("price", 0)) * int(c["n"])
+	return t
+## Docking at a lawful base with contraband: a customs patrol may scan you: it's taken and you're fined. "" = clean.
+func customs_scan(here: String, roll: float) -> String:
+	if shady(here): return ""
+	var worth := contraband_worth()
+	if worth <= 0 or roll >= Data.CONTRABAND_SCAN: return ""
+	var fine := mini(credits, int(worth * Data.CONTRABAND_FINE_K))
+	cargo = cargo.filter(func(c): return not (c.get("kind", "") == "goods" and is_contraband(str(c["id"]))))
+	credits -= fine
+	changed.emit()
+	return "CUSTOMS SCAN: a patrol found contraband in your hold. It's confiscated and you're fined %d cr." % fine
+
 ## Shot down: the hold goes with the ship (prisoners ride in the brig pod and are kept). Returns how many were lost.
 func lose_cargo() -> int:
 	var lost := 0

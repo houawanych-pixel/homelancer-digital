@@ -7694,6 +7694,80 @@ func _run() -> void:
 		for r2 in results: print("[route] ", r2)
 		get_tree().quit()
 		return
+	if _flag("HL_TRADE"):   # v13.268 (owner: "light trade: goods, valuables, contraband, delivery; keep it simple")
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var s: Node = main.space
+		var n0: int = s.loot.size()
+		for k in 60: s._drop_loot(s.player.global_position + Vector3(0, 0, -300), 3000, true)
+		var gems := {}
+		var cb := 0
+		for l in s.loot.slice(n0):
+			if l.has("gem"): gems[l["gem"]] = int(gems.get(l["gem"], 0)) + 1
+			if l.has("goods"): cb += 1
+		_check("v13.268: kills drop valuables (%s) and outlaws drop contraband (%d crates)" % [str(gems), cb], gems.has("silver") and gems.has("orb") and gems.has("gold") and cb > 0, "")
+		for l in s.loot.slice(n0): (l["node"] as Node).queue_free()
+		s.loot = s.loot.slice(0, n0)
+		GS.cargo = []
+		GS.credits = 50000
+		main.dock(s.station)
+		await _until(func(): return main.state == "hub", 15.0)
+		var here: String = GS.system_id
+		main.hub.show_screen("market")
+		await _wait(0.5)
+		var bw: Button = main.hub.content.find_child("Buy_water", true, false)
+		var no_spice: bool = main.hub.content.find_child("Buy_spice", true, false) == null
+		var had_bw := bw != null
+		if bw != null: bw.pressed.emit()
+		await _wait(0.3)
+		var got_water: bool = GS.cargo.any(func(c): return c.get("kind", "") == "goods" and c["id"] == "water" and int(c["n"]) == Data.TRADE_BUY_LOT)
+		var far := ""
+		var near := ""
+		for sid in Data.SYSTEMS:
+			var j: int = GS.jumps(here, sid)
+			if j == 1 and near == "": near = sid
+			if j == 3 and far == "": far = sid
+		var pb: int = GS.goods_buy_price("water", "planet")
+		var s0: int = GS.goods_sell_price("water", here, "station", here)
+		var s1: int = GS.goods_sell_price("water", here, "station", near)
+		var s3: int = GS.goods_sell_price("water", here, "station", far)
+		_check("v13.268: MARKET: BUY a lot of water (%s); planets sell cheap (%d), stations pay more the farther (here %d, 1 jump %d, 3 jumps %d); no contraband on a lawful market" % [str(got_water), pb, s0, s1, s3], had_bw and got_water and no_spice and pb < s1 and s0 < s1 and s1 < s3 and pb < GS.goods_buy_price("water", "station"), "")
+		var ci := -1
+		for i in GS.cargo.size(): if GS.cargo[i].get("kind", "") == "goods": ci = i
+		var cr0: int = GS.credits
+		var said := GS.sell_goods(ci, "station", here)
+		_check("v13.268: SELL the goods back (%s)" % said, GS.credits > cr0 and GS.cargo.is_empty(), "")
+		GS.add_goods("spice", here, 3)
+		GS.add_goods("rations", "shroud", 10)
+		GS.add_ore("orb")
+		var lawful: int = GS.goods_sell_price("spice", here, "station", here)
+		var shady: int = GS.goods_sell_price("spice", here, "station", "shroud")
+		var clean: String = GS.customs_scan("shroud", 0.0)
+		var cr1: int = GS.credits
+		var caught: String = GS.customs_scan(here, 0.0)
+		_check("v13.268: contraband: nobody lawful buys it (%d), Shroud does (%d cr each); a patrol scan at a lawful base takes it and fines you (%s)" % [lawful, shady, caught], lawful == 0 and shady > 300 and clean == "" and caught != "" and not GS.cargo.any(func(c): return c.get("id", "") == "spice") and GS.credits < cr1, "")
+		var offers: Array = Missions.offers(here, str(main.hub.base["id"]))
+		var dv: Dictionary = {}
+		for o in offers: if o["kind"] == "delivery": dv = o
+		var acc := Missions.accept(dv) if not dv.is_empty() else ""
+		var crates_in: int = Missions._crates_held()
+		var wp: Dictionary = Missions.waypoint(main.space)
+		print("TRADEWP ", wp.get("line", "none"))
+		main.hub.show_screen("market")
+		await _wait(0.5)
+		await _capture("market")
+		var wrong := Missions.claim_at("nowhere")
+		var cr2: int = GS.credits
+		var paid := Missions.claim_at(str(dv.get("dest", "")))
+		_check("v13.268: a delivery job: %s; %d crates in the hold, paid only at %s (%s)" % [str(dv.get("title", "none")), crates_in, str(dv.get("dest", "")), paid], not dv.is_empty() and crates_in == int(dv["crates"]) and wrong == "" and GS.credits == cr2 + int(dv["pay"]) and Missions._crates_held() == 0 and GS.mission.is_empty(), acc)
+		Missions.accept(dv)
+		GS.lose_cargo()
+		var failed := Missions.restart_after_death()
+		_check("v13.268: shot down with the crates: the delivery fails (%s)" % failed, GS.mission.is_empty() and failed.find("FAILED") >= 0, "")
+		for r2 in results: print("[route] ", r2)
+		get_tree().quit()
+		return
 	if _flag("HL_WDROP"):   # v13.267 (owner: "enemies drop weapons you tractor in; better enemies drop more")
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -13650,7 +13724,7 @@ func _job_ai() -> void:
 		elif o["kind"] == "convoy": cvy = o
 	var same: bool = Missions.offers(s.sys_id, sid).map(func(o): return o["title"]) == offers.map(func(o): return o["title"])
 	_check("Job AI: a station's MISSIONS board offers a patrol threats job, an elite threats job (slot 05, paid more) and an escort, from a faction hostile to the owner, the same offers for the whole visit",
-		kinds.filter(func(k): return k != "disturbance") == ["threats", "threats_hard", "escort", "convoy", "outlaws", "invasion"] and int(hard["slot"]) == 5 and int(easy["slot"]) == Data.MISSION_PATROL_SLOT and int(hard["pay"]) > int(easy["pay"]) and same and Factions.has_fighters(str(easy["faction"])) and (easy["points"] as Array).size() == 2,
+		kinds.filter(func(k): return k != "disturbance") == ["threats", "threats_hard", "escort", "convoy", "outlaws", "invasion", "delivery"] and int(hard["slot"]) == 5 and int(easy["slot"]) == Data.MISSION_PATROL_SLOT and int(hard["pay"]) > int(easy["pay"]) and same and Factions.has_fighters(str(easy["faction"])) and (easy["points"] as Array).size() == 2,
 		str(kinds) + " " + str(easy.get("faction", "")))
 	var pbid: String = str(Data.SYSTEMS[s.sys_id]["planet"]["id"])
 	var pkinds: Array = Missions.offers(s.sys_id, pbid, "", "planet").map(func(o): return str(o["kind"]))

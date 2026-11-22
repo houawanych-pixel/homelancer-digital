@@ -154,6 +154,18 @@ static func _all_offers(sys_id: String, station_id: String, owner: String, pid: 
 			"giver": station_id, "giver_sys": sys_id, "sys": sys_id, "left": int(Data.INVASION["battleships"]),
 			"brief": "A %s invasion fleet is coming into the %s system: one heavy battleship and a Star Command Station launching fighters. Our wing and a frigate fly with you. Destroy the battleship. Knock out the station to slow their fighters. This is a war, not a patrol." % [enemy, sys["name"]],
 			"points": _points(rng, 1).map(func(p): p["dist"] = float(Data.INVASION["dist"]); p["y"] = 0.0; return p)})
+	# v13.268 (owner: "delivery jobs as well; keep it simple"): crates to another system's station, paid there
+	var drng := RandomNumberGenerator.new()   # (its own dice: the older offers keep theirs)
+	drng.seed = hash(station_id + ":delivery") + GS.missions_done * 7919
+	var dd := delivery_dest(sys_id, drng)
+	if dd != "":
+		var hops := GS.jumps(sys_id, dd)
+		var crates: int = drng.randi_range(int(Data.DELIVERY_CRATES[0]), int(Data.DELIVERY_CRATES[1]))
+		var dst: Dictionary = Data.SYSTEMS[dd]["station"]
+		out.append({"kind": "delivery", "faction": "", "slot": 2, "pay": Data.DELIVERY_PAY_PER_JUMP * hops + 150 * crates, "crates": crates,
+			"title": "Deliver %d crates to %s" % [crates, dst["name"]], "giver": station_id, "giver_sys": sys_id, "sys": dd, "dest": str(dst["id"]), "dest_sys": dd,
+			"brief": "%d crates of supplies for %s in the %s system, %d jump%s away. They go in your hold (%d slots). Get them there and you're paid on docking. Lose your ship and the crates are gone." % [crates, dst["name"], Data.SYSTEMS[dd]["name"], hops, "" if hops == 1 else "s", crates],
+			"points": []})
 	return out
 
 ## v12.56: the planet's own jobs (besides the strike and the base-to-base escort): INTERCEPT a raiding wing, the
@@ -295,6 +307,24 @@ static func ground_pos(space: SpaceSystem, i: int) -> Vector3:
 	var z := float(pts[i]["z"]) + dz * Surface.TILE
 	return Vector3(x, (space._ground(x, z) if dx == 0 and dz == 0 else 0.0) + Data.MISSION_GROUND_ALT, z)
 
+## v13.268: where a delivery from this system goes: a station 1 to 3 jumps away (not an enemy home, not the void).
+static func delivery_dest(sys_id: String, rng: RandomNumberGenerator) -> String:
+	var seen := {sys_id: 0}
+	var q: Array = [sys_id]
+	var picks: Array = []
+	while not q.is_empty():
+		var cur: String = q.pop_front()
+		if int(seen[cur]) >= 3: continue
+		for g in Data.SYSTEMS[cur].get("gates", []):
+			var nx := str(g.get("to", ""))
+			if nx == "" or seen.has(nx) or not Data.SYSTEMS.has(nx): continue
+			seen[nx] = int(seen[cur]) + 1
+			q.append(nx)
+			var sy: Dictionary = Data.SYSTEMS[nx]
+			if sy.has("station") and (sy["station"] as Dictionary).has("id") and not (str(sy.get("faction", "")) in ["Enemy", "Void"]): picks.append(nx)
+	if picks.is_empty(): return ""
+	return str(picks[rng.randi() % picks.size()])
+
 ## v1.7w: where a cargo run from this system goes: the system through its first jump gate ("" = no gate out).
 static func convoy_dest(sys_id: String) -> String:
 	for g in Data.SYSTEMS[sys_id].get("gates", []):
@@ -345,14 +375,25 @@ static func accept(offer: Dictionary) -> String:
 	var dropped := ""
 	if not GS.mission.is_empty() or not GS.bounty.is_empty():   # v12.60 (owner): accepting a job disengages the one you had
 		dropped = disengage() + " "
+	if offer.get("kind", "") == "delivery" and GS.hold_free() + _crates_held() < int(offer["crates"]):
+		return "Not enough room in your hold for %d crates (%d free). Sell something first." % [int(offer["crates"]), GS.hold_free()]
 	var m := offer.duplicate(true)
 	m["stage"] = 0
 	m["spawned"] = -1
 	m["escort_hp"] = Data.ESCORT_HULL
 	m["start"] = m.duplicate(true)   # v1.9r: how the job looked when taken (dying restarts it from here)
 	GS.mission = m
+	if m["kind"] == "delivery":   # v13.268: the crates go into your hold
+		_drop_crates()
+		GS.cargo.append({"kind": "delivery", "crates": int(m["crates"]), "name": "Delivery crates x%d" % int(m["crates"]), "note": "for %s" % Data.SYSTEMS[str(m["dest_sys"])]["station"]["name"]})
 	GS.changed.emit()
 	return "%sJob taken: %s. %s A mission waypoint is set: follow the gold marker." % [dropped, m["title"], m["brief"]]
+static func _crates_held() -> int:
+	var n := 0
+	for c in GS.cargo: if c.get("kind", "") == "delivery": n += int(c.get("crates", 0))
+	return n
+static func _drop_crates() -> void:
+	GS.cargo = GS.cargo.filter(func(c): return c.get("kind", "") != "delivery")
 
 ## The bounty board's jobs go through here too: the target's record stays in GS.bounty (older code reads it); the
 ## chain of points is the mission.
@@ -439,6 +480,7 @@ static func tracking_line(here: String) -> String:
 			for g in Data.SYSTEMS[here]["gates"]:
 				if str(g["to"]) == str(route[1]): gate_name = str(g["name"])
 		return "Tracking: %s. Waypoint: %s, %d jump%s away (first take the %s)." % [m["title"], Data.SYSTEMS[where]["name"], route.size() - 1, "" if route.size() == 2 else "s", gate_name]
+	if m.get("kind", "") == "delivery": return "Tracking: %s. Waypoint: dock at %s." % [m["title"], Data.SYSTEMS[str(m["dest_sys"])]["station"]["name"]]
 	if m.get("kind", "") == "ground": return "Tracking: %s. Waypoint: down on %s, %s." % [m["title"], Surface.PLANETS[m["planet"]]["name"], sector_name(str(m["planet"]), int(m["tile"]))]
 	return "Tracking: %s. Waypoint: mission point %d of %d in this system." % [m["title"], int(m.get("stage", 0)) + 1, (m.get("points", []) as Array).size()]
 
@@ -471,6 +513,12 @@ static func restart_after_death() -> String:
 	if GS.mission.is_empty(): return ""
 	var m: Dictionary = GS.mission
 	var title := str(m.get("title", "the job"))
+	if str(m.get("kind", "")) == "delivery":   # v13.268: the crates went down with the ship: that job is over
+		_drop_crates()
+		GS.mission = {}
+		GS.mission_fails += 1
+		GS.changed.emit()
+		return "MISSION FAILED: %s. The crates went down with your ship." % title
 	var fresh: Dictionary = (m.get("start", {}) as Dictionary).duplicate(true)
 	if fresh.is_empty():   # (a job taken before v1.9r)
 		fresh = m.duplicate(true)
@@ -489,6 +537,7 @@ static func restart_after_death() -> String:
 
 static func abandon() -> void:
 	if GS.mission.is_empty(): return
+	_drop_crates()   # (v13.268: the delivery crates aren't yours)
 	if GS.mission.get("kind", "") == "bounty" and GS.bounty.get("state", "") == "hunt": GS.bounty = {}
 	GS.mission = {}
 	GS.changed.emit()
@@ -499,6 +548,7 @@ static func waypoint(space: SpaceSystem) -> Dictionary:
 	if m.is_empty() or not is_instance_valid(space.player): return {}
 	var kind := str(m["kind"])
 	var stage := int(m["stage"])
+	if kind == "delivery": return _to_place(space, str(m["dest_sys"]), "Deliver the crates to %s" % Data.SYSTEMS[str(m["dest_sys"])]["station"]["name"])   # v13.268
 	if kind == "land_escort" and space.surface_mode and space.planet_id == str(m["planet"]):   # v1.9a: the freighter is the waypoint
 		if is_instance_valid(space.escort_node):
 			return {"node": space.escort_node, "title": space.escort_node.name, "line": "Escort: stay with the freighter to %s (hull %d%%)" % [land_base(m, "to")["name"], int(100.0 * float(m["escort_hp"]) / Data.ESCORT_HULL)], "hops": 0}
@@ -623,6 +673,7 @@ static func tick(space: SpaceSystem, dt: float) -> void:
 	var m: Dictionary = GS.mission
 	if m.is_empty() or not is_instance_valid(space.player) or str(m["sys"]) != space.sys_id: return
 	var kind := str(m["kind"])
+	if kind == "delivery": return   # (v13.268: nothing to fight: dock there)
 	var land: bool = on_land(m)
 	if land != space.surface_mode: return   # v1.8m: a ground job runs down on the planet, the others in space
 	if land and space.planet_id != str(m.get("planet", "")): return
@@ -786,6 +837,16 @@ static func on_kill(space: SpaceSystem, e: Dictionary) -> void:
 ## Docking at the giver with the pilot in the hold: paid. "" = nothing to pay here.
 static func claim_at(station_id: String, where_kind := "station") -> String:
 	var m: Dictionary = GS.mission
+	if m.get("kind", "") == "delivery":   # v13.268: paid on docking at the station the crates are for
+		if str(m["dest"]) != station_id or _crates_held() < int(m["crates"]): return ""
+		_drop_crates()
+		last_paid = {"giver_sys": str(m["giver_sys"]), "pay": int(m["pay"]), "title": str(m.get("title", ""))}
+		GS.add_credits(int(m["pay"]))
+		GS.missions_done += 1
+		Factions.adjust(str(Data.SYSTEMS[m["giver_sys"]].get("faction", "")), Data.REP_MISSION)
+		GS.mission = {}
+		GS.changed.emit()
+		return "DELIVERED: %d crates handed over at %s. Paid %d cr." % [int(m["crates"]), Data.SYSTEMS[str(m["dest_sys"])]["station"]["name"], int(m["pay"])]
 	if m.get("kind", "") != "bounty" or GS.bounty.get("state", "") != "captured": return ""
 	if str(m.get("giver", "")) != station_id: return "%s is in your hold. The bounty is paid at %s." % [Data.roster_pilot(str(m["id"])).get("name", "The pilot"), giver_name(m)]
 	last_paid = {"giver_sys": str(m["giver_sys"]), "pay": int(m["pay"]), "title": str(m.get("title", ""))}   # v13.267: the giver's congratulations call

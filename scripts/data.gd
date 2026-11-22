@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.267"
+const VERSION := "v13.268"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -602,16 +602,16 @@ const LAVA_DPS := 25.0               # hull per second while in lava (ship and m
 # v1.6c mining. Gold and diamond veins from the seed: deep (diamond often in the obsidian round a lava pocket), and on
 # some worlds a few right out on the surface. Very tough. Breaking one drops pickup pieces (they never fuse back); the
 # blast destroys the rest, so careful digging keeps more (MINING_KEEP by weapon). The tractor beam pulls them in.
-const VALUABLE_COLOR := {"gold": Color(1.0, 0.78, 0.22), "diamond": Color(0.78, 0.95, 1.0)}
+const VALUABLE_COLOR := {"gold": Color(1.0, 0.78, 0.22), "diamond": Color(0.78, 0.95, 1.0), "silver": Color(0.85, 0.88, 0.92), "orb": Color(0.75, 0.45, 1.0)}
 const MINE_VEINS := {"gold": 6, "diamond": 3}
 const VEIN_DEPTH := {"gold": [25.0, 120.0], "diamond": [80.0, 170.0]}
 const SURFACE_TREASURE_CHANCE := 0.6   # chance a world has a few veins right out on the surface
 const MINING_KEEP := {"gun": 0.75, "thrust": 0.75, "thrust_soft": 0.75, "missile": 0.5, "heavy": 0.35, "special": 0.2}
-const MINE_VALUE := {"gold": 40, "diamond": 120}   # base credits per piece (v1.8l: paid when you SELL it at a base)
+const MINE_VALUE := {"gold": 40, "diamond": 120, "silver": 22, "orb": 220}   # (v13.268: + silver and energy orbs, looted)   # base credits per piece (v1.8l: paid when you SELL it at a base)
 # v1.8l (owner): mined gold / diamond goes into the hold (one stack each in GS.cargo) and is sold at a station or planet
 # base under YOUR SHIP. Every base pays its own fixed share of the base price (from its name, nothing stored).
 const ORE_PRICE_SWING := [0.8, 1.5]
-const ORE_NAME := {"gold": "Gold", "diamond": "Diamond"}
+const ORE_NAME := {"gold": "Gold", "diamond": "Diamond", "silver": "Silver", "orb": "Energy Orb"}
 # v1.6d world generation, part 1. Caves: a few self-contained pockets of winding tunnels (3D noise in a rounded box),
 # sealed. The bottom of the ground (BLOCK_DEPTH_FLOOR down) is the KILL FLOOR under a KILL_CAP of obsidian: dug open
 # it glows; water, lava and rubble reaching it are gone; the ship touching it is destroyed.
@@ -1044,6 +1044,27 @@ const WEAPON_DROP_NEXT_K := 0.45        # each further weapon is this much less 
 const WEAPON_DROP_PRICE_BASE := 800     # the dearest gun a kill can drop: this + reward x K
 const WEAPON_DROP_PRICE_K := 4
 const WEAPON_DROP_LIFE := 150.0         # s the gun case floats before it's gone
+# v13.268 (owner: "light trade: rations, water, oxygen, ammo, parts; valuables gold, silver, diamond, orbs (mined or
+# looted, not bought); contraband: big pay, patrols scan you, sold only at shady places like Shroud; planets sell
+# cheap, stations pay more the farther away; delivery jobs too; keep it simple")
+const TRADE_GOODS := {"rations": {"name": "Rations", "price": 30}, "water": {"name": "Water", "price": 20}, "oxygen": {"name": "Oxygen", "price": 40},
+	"ammo": {"name": "Ammo Crates", "price": 70}, "parts": {"name": "Spare Parts", "price": 90}}
+const TRADE_ORDER := ["rations", "water", "oxygen", "ammo", "parts"]
+const CONTRABAND := {"spice": {"name": "Black Spice", "price": 260}, "stolen_tech": {"name": "Stolen Tech", "price": 380}}
+const SHADY_SYSTEMS := ["shroud", "omega", "nullpoint"]   # smugglers' bases: contraband is bought and sold here only
+const PLANET_BUY_K := 0.7       # a planet sells goods cheap
+const STATION_BUY_K := 1.0
+const PLANET_SELL_K := 0.6      # what a base pays (x the base price), before the distance bonus
+const STATION_SELL_K := 0.85
+const TRADE_JUMP_K := 0.35      # + this share for every jump from where it was bought
+const TRADE_JUMPS_MAX := 5
+const TRADE_BUY_LOT := 5        # BUY takes this many at a time
+const CONTRABAND_SCAN := 0.4    # chance a customs patrol scans you as you dock at a lawful base with contraband
+const CONTRABAND_FINE_K := 0.5  # fine: this share of what was found (and it's taken)
+const LOOT_VALUABLE_CHANCE := 0.22      # a crate from a kill is a valuable (silver / gold / orb) instead of credits
+const LOOT_CONTRABAND_CHANCE := 0.12    # a pirate's or raider's crate is contraband
+const DELIVERY_CRATES := [2, 4]         # crates a delivery job puts in your hold (one slot each)
+const DELIVERY_PAY_PER_JUMP := 900
 const ESCORT_HULL := 600.0                      # the escorted freighter's hull
 const ESCORT_FIRE := 25.0                       # hull it loses a second per attacker within ESCORT_RANGE
 const ESCORT_RANGE := 500.0
@@ -1446,7 +1467,7 @@ const LOC_ROOM_ALIAS := {"vega_vegasecundus": "vega_vegaminor", "aurelion_solari
 const ROOM_FACTIONS := ["liberator", "savagers", "orion", "covenant", "imperium", "solarion", "elyza", "unity"]
 const ROOM_OF := {"hub": "main_hub", "ships": "shipyard", "mechs": "mech_dealer", "repair": "medical_bay", "board": "mission_center",
 	"missions": "mission_center", "bounty": "mission_center", "ship": "private_quarters", "faction": "command", "surface": "main_hub",
-	"lounge": "pilots_lounge", "supplies": "supplies", "command": "command", "loadout": "mech_dealer"}   # v9.5: SUPPLIES and COMMAND have their own links
+	"lounge": "pilots_lounge", "supplies": "supplies", "command": "command", "loadout": "mech_dealer", "market": "supplies"}   # v9.5: SUPPLIES and COMMAND have their own links
 # v11.84 (owner: "Freelancer used GLB characters ... we have them and rigs, we just need a toon shader"): the 3D crowd.
 # Per room: count, share walking, and the floor at the back and front of the room as [feet line, body height] in shares
 # of the strip's height (read off the picture's own people). Rooms not listed have no 3D crowd.

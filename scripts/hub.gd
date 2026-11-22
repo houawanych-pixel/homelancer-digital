@@ -744,7 +744,7 @@ func show_screen(s: String) -> void:
 	screen = s
 	_refresh_credits()
 	var sysname: String = Data.SYSTEMS[GS.system_id]["name"]
-	header.text = base["name"].to_upper() if s == "hub" else {"equipment": "WEAPONS & EQUIPMENT DEALER", "ships": "SHIP DEALER", "mechs": "MECH DEALER", "repair": "MEDICAL BAY", "supplies": "SUPPLIES", "command": "COMMAND", "bounty": "MISSION BOARD", "missions": "MISSION BOARD", "boarding": "MISSION BOARD", "board": "MISSION BOARD", "ship": "YOUR SHIP", "faction": "FACTION", "surface": "PLANET DESTINATIONS", "lounge": "PILOTS' LOUNGE", "loadout": "LOADOUT"}[s]
+	header.text = base["name"].to_upper() if s == "hub" else {"equipment": "WEAPONS & EQUIPMENT DEALER", "ships": "SHIP DEALER", "mechs": "MECH DEALER", "repair": "MEDICAL BAY", "supplies": "SUPPLIES", "command": "COMMAND", "bounty": "MISSION BOARD", "missions": "MISSION BOARD", "boarding": "MISSION BOARD", "board": "MISSION BOARD", "ship": "YOUR SHIP", "faction": "FACTION", "surface": "PLANET DESTINATIONS", "lounge": "PILOTS' LOUNGE", "loadout": "LOADOUT", "market": "MARKET"}[s]
 	subheader.text = "%s  ·  %s  ·  %s SYSTEM" % [str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id])).to_upper(), "ORBITAL STATION" if kind == "station" else "PLANET SURFACE", sysname.to_upper()]   # v8.2 (owner): faction and station
 	for box in [left, content, leftwin]:   # take the old page out at once, so the new buttons keep their own names
 		for c in box.get_children():
@@ -837,6 +837,7 @@ func show_screen(s: String) -> void:
 				if pk != "": Packs.request(pk)
 			_mechs_page()
 		"repair", "supplies": _repair_page()   # v9.5: in the medical bay, or in the supplies room
+		"market": _market_page()   # v13.268
 		"board": show_screen(board_tab)
 		"boarding":
 			board_tab = "boarding"
@@ -2115,7 +2116,7 @@ func nav_cats() -> Array:
 	if _surface_planet() != "": hubp.insert(3, ["surface", "SURFACE"])
 	return [["hub", "HUB", hubp], ["lounge", "LOUNGE", [["lounge", "LOUNGE"]]],
 		["hangar", "HANGAR", [["ships", "SHIPYARD"], ["mechs", "MECHS"], ["equipment", "WEAPONS"], ["loadout", "LOADOUT"]]],
-		["supplies", "SUPPLIES", [["supplies", "REPAIR & AMMO"], ["repair", "MEDICAL BAY"]]], ["pilot", "PILOT", [["ship", "MY QUARTERS"], ["faction", "FACTION"]]]]
+		["supplies", "SUPPLIES", [["supplies", "REPAIR & AMMO"], ["market", "MARKET"], ["repair", "MEDICAL BAY"]]], ["pilot", "PILOT", [["ship", "MY QUARTERS"], ["faction", "FACTION"]]]]
 
 ## v13.02: the rebuilt interior of the station you are docked at ("" = not rebuilt, or not the system's main station).
 ## v13.173 (owner, Liberty Hub: "walk the station needs to be the same station as the boarding stations ... get rid of
@@ -2268,6 +2269,70 @@ func _part_card(kind: String, id: String, part: String, back: String) -> Control
 	sb.border_color = Color(GOLD, 0.9) if on else (Color(CYAN, 0.6) if owned else Color(0.3, 0.35, 0.45, 0.8))
 	card.add_theme_stylebox_override("panel", sb)
 	return card
+
+## v13.268 (owner: "light trade: planets sell cheap, stations pay more the farther away; contraband only at shady
+## places; keep it simple"): BUY goods here (a lot at a time), SELL what's in your hold at this base's price.
+func _market_page() -> void:
+	var v := _page_box()
+	var here := GS.system_id
+	var bk := str(base.get("kind", "station"))
+	var sh: bool = GS.shady(here)
+	var head := _label(16, CYAN)
+	head.name = "MarketHead"
+	head.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	head.text = "%s  ·  hold %d / %d\n%s" % ["SMUGGLERS' MARKET" if sh else ("PLANET MARKET: goods are cheap here" if bk == "planet" else "STATION MARKET"), GS.hold_used(), GS.hold_size(),
+		"Buy low at planets, sell at stations: the farther (more jumps) from where you bought, the more they pay." + (" Contraband changes hands here, no questions." if sh else "")]
+	v.add_child(head)
+	var bl := _label(17, GOLD)
+	bl.text = "BUY (%d at a time)" % Data.TRADE_BUY_LOT
+	v.add_child(bl)
+	var ids: Array = Data.TRADE_ORDER.duplicate()
+	if sh: ids.append_array(Data.CONTRABAND.keys())
+	for id in ids:
+		var b := Button.new()
+		b.name = "Buy_" + str(id)
+		var each: int = GS.goods_buy_price(str(id), bk)
+		b.text = "%s%s\n%d cr each" % [str(GS.goods_def(str(id))["name"]).to_upper(), "  (CONTRABAND)" if GS.is_contraband(str(id)) else "", each]
+		b.custom_minimum_size = Vector2(0, 62)
+		b.clip_text = true
+		b.disabled = GS.credits < each * Data.TRADE_BUY_LOT
+		b.pressed.connect(func(): status.text = GS.buy_goods(str(id), bk, here); Sfx.play("pickup", -6.0); show_screen("market"))
+		v.add_child(b)
+	var sl := _label(17, GOLD)
+	sl.text = "SELL FROM YOUR HOLD"
+	v.add_child(sl)
+	var any := false
+	for ci in GS.cargo.size():
+		var c: Dictionary = GS.cargo[ci]
+		if c.get("kind", "") != "goods": continue
+		any = true
+		var each2: int = GS.goods_sell_price(str(c["id"]), str(c.get("from", here)), bk, here)
+		var sb := Button.new()
+		sb.name = "SellGoods_%d" % ci
+		var hops: int = GS.jumps(str(c.get("from", here)), here)
+		sb.text = ("SELL %s x%d  +%d cr\n%d each · %d jump%s from %s" % [str(c.get("name", "")).to_upper(), int(c["n"]), each2 * int(c["n"]), each2, hops, "" if hops == 1 else "s", Data.SYSTEMS.get(str(c.get("from", here)), {}).get("name", "?")]) if each2 > 0 else "%s x%d\nnobody here buys it" % [str(c.get("name", "")).to_upper(), int(c["n"])]
+		sb.custom_minimum_size = Vector2(0, 62)
+		sb.clip_text = true
+		sb.disabled = each2 <= 0
+		sb.add_theme_color_override("font_color", GOLD)
+		sb.pressed.connect(func(): status.text = GS.sell_goods(ci, bk, here); Sfx.play("pickup", -6.0); show_screen("market"))
+		v.add_child(sb)
+	var worth: int = GS.ore_worth(str(base["name"]))
+	if worth > 0:
+		any = true
+		var ob := Button.new()
+		ob.name = "SellOreMarket"
+		ob.text = "SELL VALUABLES  +%d cr\ngold, silver, diamond, orbs" % worth
+		ob.custom_minimum_size = Vector2(0, 62)
+		ob.clip_text = true
+		ob.add_theme_color_override("font_color", GOLD)
+		ob.pressed.connect(func(): status.text = GS.sell_ore(str(base["name"])); Sfx.play("pickup", -6.0); show_screen("market"))
+		v.add_child(ob)
+	if not any:
+		var e := _label(15, CYAN)
+		e.text = "Nothing to sell. Valuables (gold, silver, diamond, orbs) are mined or looted, not bought."
+		e.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(e)
 
 func _part_cards(v: Container, kind: String, parts: Array, ids: Array, back: String) -> void:
 	for part in parts:
@@ -6534,6 +6599,7 @@ func _ship_page() -> void:
 		if item.get("kind", "") == "ore":   # v1.8l: mined gold / diamond, with what this base pays
 			var op: int = GS.ore_price(str(item["id"]), str(base["name"]))
 			lines.append("%s x%d (%d cr each here = %d cr)" % [Data.ORE_NAME.get(item["id"], "Ore"), int(item["n"]), op, op * int(item["n"])])
+		elif item.get("kind", "") == "goods": lines.append("%s x%d (%s, from %s)" % [item.get("name", "?"), int(item["n"]), item.get("note", ""), Data.SYSTEMS.get(str(item.get("from", "")), {}).get("name", "?")])
 		else: lines.append("%s (%s)" % [item.get("name", item.get("kind", "?")), item.get("note", item.get("kind", ""))])
 	c.text = "CARGO HOLD  %d / %d\n%s" % [GS.hold_used(), GS.hold_size(), "\n".join(lines) if not lines.is_empty() else "Empty."]
 	v.add_child(c)
@@ -6546,16 +6612,18 @@ func _ship_page() -> void:
 		if it["kind"] == "weapon" and not (str(it["id"]) in GS.owned_weapons):   # v13.267: a salvaged gun: KEEP or SELL
 			var kb := Button.new()
 			kb.name = "KeepWeapon_%d" % ci
-			kb.text = "KEEP %s" % str(it.get("name", "weapon")).to_upper()
-			kb.custom_minimum_size = Vector2(0, 50)
+			kb.text = "KEEP\n%s" % str(it.get("name", "weapon")).to_upper()
+			kb.custom_minimum_size = Vector2(0, 62)
+			kb.clip_text = true
 			kb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			kb.add_theme_color_override("font_color", CYAN)
 			kb.pressed.connect(func(): status.text = GS.keep_weapon(ci); Sfx.play("pickup", -6.0); show_screen("ship"))
 			row.add_child(kb)
 		var pb := Button.new()
 		pb.name = ("SellPart_%d" if it["kind"] == "part" else "SellWeapon_%d") % ci
-		pb.text = "SELL %s  +%d cr" % [str(it.get("name", "part")).to_upper(), GS.cargo_sell_price(it)]
-		pb.custom_minimum_size = Vector2(0, 50)
+		pb.text = "SELL +%d cr\n%s" % [GS.cargo_sell_price(it), str(it.get("name", "part")).to_upper()]
+		pb.custom_minimum_size = Vector2(0, 62)
+		pb.clip_text = true
 		pb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		pb.add_theme_color_override("font_color", GOLD)
 		pb.pressed.connect(func(): status.text = GS.sell_cargo(ci); Sfx.play("pickup", -6.0); show_screen("ship"))

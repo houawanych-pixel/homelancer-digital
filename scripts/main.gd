@@ -1428,6 +1428,8 @@ func dock(n: Node3D) -> void:
 		paid = "BOARDING MISSION COMPLETE: %s. %s handed over. Paid %d cr." % [str(bj["title"]), "The captain" if str(bj.get("kind", "")) == "capture" else "The hostage", int(bj["pay"])]
 		hub.board_job = {}
 		board_ship = null
+	var scan: String = GS.customs_scan(GS.system_id, randf())   # v13.268 (owner: "contraband: patrols scan you")
+	if scan != "": paid = (paid + "\n" if paid != "" else "") + scan
 	if paid != "":
 		hub.status.text = paid
 		hub._refresh_credits()

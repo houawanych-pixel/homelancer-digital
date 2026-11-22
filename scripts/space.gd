@@ -10901,7 +10901,7 @@ func _destroy_unit(e: Dictionary) -> void:
 		var lk: String = str(e.get("l3_key", e["def"].get("model", "")))
 		if not GS.l3_found.has(lk): GS.l3_found.append(lk)
 		message.emit("LEVEL 3 FIND: %s. Its blueprint is logged (%d found)." % [str(e.get("l3_name", e["def"]["name"])), GS.l3_found.size()])
-	_drop_loot(n.global_position, reward)
+	_drop_loot(n.global_position, reward, str(e["def"].get("zone", "")) == "pirates" or str(e["def"].get("class", "")) == "pirate" or str(e.get("faction", "")) == "Savagers")
 	if Data.WEAPON_DROPS and not e.has("part_role"):   # (a battleship part shot off drops none; the ship itself does)
 		for wid in weapon_drops(reward, _rng): _drop_weapon(n.global_position, str(wid))
 	enemy_killed.emit(reward, n.name)
@@ -13293,9 +13293,18 @@ func fire_slot(i: int) -> bool:
 	return trigger_system(item)
 
 # ---------------------------------------------------------------- loot pods + tractor beam
-func _drop_loot(at: Vector3, reward: int) -> void:
+func _drop_loot(at: Vector3, reward: int, outlaw := false) -> void:
 	var n := 1 + _rng.randi() % 2
 	for i in n:
+		var r := _rng.randf()   # v13.268 (owner): a crate can be a valuable (silver, gold, an energy orb) or, from outlaws, contraband
+		if r < Data.LOOT_VALUABLE_CHANCE:
+			var orb_k := clampf(float(reward) / 3000.0, 0.05, 0.4)
+			var q := _rng.randf()
+			_drop_gem(at, "orb" if q < orb_k else ("gold" if q < orb_k + 0.3 else "silver"))
+			continue
+		if outlaw and r < Data.LOOT_VALUABLE_CHANCE + Data.LOOT_CONTRABAND_CHANCE:
+			_drop_goods(at, Data.CONTRABAND.keys()[_rng.randi() % Data.CONTRABAND.size()])
+			continue
 		var pod := MeshInstance3D.new()
 		var ck: String = ["crate_a", "crate_b", "crate_c"][_rng.randi() % 3]
 		if ShipFactory.has_real_model(ck):      # the owner's cargo containers
@@ -13317,6 +13326,51 @@ func _drop_loot(at: Vector3, reward: int) -> void:
 		pod.global_position = at
 		var dir := Vector3(_rng.randfn(0, 1), _rng.randfn(0, 0.5), _rng.randfn(0, 1)).normalized()
 		loot.append({"node": pod, "vel": dir * _rng.randf_range(8.0, 16.0), "value": maxi(10, int(reward * 0.4)), "life": 120.0})
+
+## v13.268: one valuable piece floating free (looted): the tractor pulls it into the hold like mined ore.
+func _drop_gem(at: Vector3, mat: String) -> void:
+	var col: Color = Data.VALUABLE_COLOR.get(mat, Color.WHITE)
+	var gem := MeshInstance3D.new()
+	var pm: PrimitiveMesh = SphereMesh.new() if mat == "orb" else (PrismMesh.new() if mat == "diamond" else BoxMesh.new())
+	if pm is SphereMesh:
+		(pm as SphereMesh).radius = 1.0
+		(pm as SphereMesh).height = 2.0
+	elif pm is PrismMesh: (pm as PrismMesh).size = Vector3(1.6, 2.2, 1.6)
+	else: (pm as BoxMesh).size = Vector3(1.8, 1.0, 1.2)
+	gem.mesh = pm
+	gem.material_override = ShipFactory.mat(col, true)
+	var glow := MeshInstance3D.new()
+	var gm := SphereMesh.new()
+	gm.radius = 2.2
+	gm.height = 4.4
+	glow.mesh = gm
+	glow.material_override = _glow_mat(col)
+	gem.add_child(glow)
+	gem.name = "Gem"
+	add_child(gem)
+	gem.global_position = at
+	var dir := Vector3(_rng.randfn(0, 1), _rng.randfn(0, 0.5), _rng.randfn(0, 1)).normalized()
+	loot.append({"node": gem, "vel": dir * _rng.randf_range(6.0, 12.0), "value": int(Data.MINE_VALUE.get(mat, 20)), "life": 150.0, "gem": mat})
+
+## v13.268: a crate of contraband (from outlaws): into the hold, sold only at a smugglers' base.
+func _drop_goods(at: Vector3, id: String) -> void:
+	var pod := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(2.0, 1.4, 2.0)
+	pod.mesh = bm
+	pod.material_override = ShipFactory.mat(Color(0.35, 0.12, 0.12), false, 0.5)
+	var glow := MeshInstance3D.new()
+	var gm := SphereMesh.new()
+	gm.radius = 2.6
+	gm.height = 5.2
+	glow.mesh = gm
+	glow.material_override = _glow_mat(Color(1.0, 0.3, 0.3))   # red: contraband
+	pod.add_child(glow)
+	pod.name = "Contraband"
+	add_child(pod)
+	pod.global_position = at
+	var dir := Vector3(_rng.randfn(0, 1), _rng.randfn(0, 0.5), _rng.randfn(0, 1)).normalized()
+	loot.append({"node": pod, "vel": dir * _rng.randf_range(6.0, 12.0), "value": 0, "life": 150.0, "goods": id})
 
 ## v13.267 (owner: "enemies drop weapons you tractor in; better enemies drop more"): what one kill drops. The chance
 ## and the count go up with the kill's reward, and a better enemy drops a better gun (up to its reward x a share).
@@ -13442,7 +13496,14 @@ func _update_loot(dt: float) -> void:
 			n.queue_free()
 			loot.remove_at(i)
 		elif d < 14.0:
-			if l.has("weapon"):   # v13.267: a dropped weapon goes into the hold
+			if l.has("goods"):   # v13.268: a contraband crate into the hold
+				if not GS.add_goods(str(l["goods"]), sys_id, 1):
+					if l.get("full_said", false) == false: message.emit("Cargo hold full (%d / %d). Sell at a station or planet base." % [GS.hold_used(), GS.hold_size()])
+					l["full_said"] = true
+					continue
+				_popup(n.global_position, "%s IN HOLD" % str(GS.goods_def(str(l["goods"]))["name"]).to_upper(), Color(1.0, 0.4, 0.35))
+				message.emit("CONTRABAND: %s is in your hold. Only a smugglers' base (Shroud) buys it, and patrols scan you as you dock elsewhere." % GS.goods_def(str(l["goods"]))["name"])
+			elif l.has("weapon"):   # v13.267: a dropped weapon goes into the hold
 				if GS.hold_free() < 1:
 					if l.get("full_said", false) == false: message.emit("Cargo hold full (%d / %d). Sell at a station or planet base." % [GS.hold_used(), GS.hold_size()])
 					l["full_said"] = true
