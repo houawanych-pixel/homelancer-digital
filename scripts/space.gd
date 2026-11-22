@@ -2077,8 +2077,9 @@ func _board_update(dt: float) -> void:
 			if vel.y > 0.0: vel.y = 0.0
 	# v12.15 (owner: "in a dungeon I transformed to the ship and could fly outside the walls"): inside, a ship is held to
 	# a walking pace through the decks, and anything that ends up outside every room is put back in the nearest one
+	var pulling := _grapple_tick(dt)   # v13.263
 	var hv := Vector3(vel.x, 0, vel.z)
-	var hv_cap: float = Data.BOARD_MAX_SPEED
+	var hv_cap: float = Data.BOARD_MAX_SPEED if not pulling else Data.GRAPPLE_SPEED
 	if escape_pilot and sprint and speed_k >= 1.0: hv_cap = Data.FOOT_SPEED * Data.SPEED_BOOST_K * esc_h() / Data.FOOT_H   # (the speed boost)
 	if hv.length() > hv_cap:
 		hv = hv.normalized() * hv_cap
@@ -2109,7 +2110,7 @@ func _board_update(dt: float) -> void:
 			var n: Node3D = e["node"]
 			if Boarding.STACKED and e.has("home") and absf(n.global_position.y - float((e["home"] as Vector3).y)) > 60.0:   # v13.186: a guard stays on his own deck
 				n.global_position.y = float((e["home"] as Vector3).y)
-			var q := Boarding.keep_in(n.global_position, 12.0)
+			var q := Boarding.keep_in(n.global_position, 0.5 if e.has("routine") else 12.0)   # (v13.262: crew are people: they fit the pilot doors)
 			n.global_position = Vector3(q.x, Boarding.floor_at(q) + Data.WALKER_STAND * float(e.get("stand_k", Data.MECH_BOSS_SCALE if e.get("boss_mech", false) else 1.0)), q.z)
 	_board_steps(dt)
 
@@ -3503,7 +3504,25 @@ func _crew_walkers(fac: String, kind: String, ship_id: String) -> void:
 		rr = RandomNumberGenerator.new()
 		rr.randomize()
 	var sc := ship_crew(fac, ship_id)
-	if sc.is_empty(): return
+	if sc.is_empty():   # v13.262: no crew pictures for this faction yet: its people in their own gear go about their work
+		if not Data.CREW_ROUTINES: return
+		var made := 0
+		for i in Data.CREW_GENERIC * 4:   # (a room behind a card door gives no routine: try another)
+			if made >= Data.CREW_GENERIC: break
+			var at0 := _fleet_room_pick(rr, rr.randi_range(0, 2), [])
+			if at0 == Vector3.INF: continue
+			if not _crew_has_way(Boarding.room_at(at0)): continue
+			made += 1
+			for k in spawn_ground_mechs(at0, fac, 1, -42, 0):
+				(k["node"] as Node3D).global_position = Vector3(at0.x, Boarding.floor_at(at0) + Data.WALKER_STAND, at0.z)
+				k["home"] = (k["node"] as Node3D).global_position
+				k["orbit"] = _rng.randf() * TAU
+				k["aggro"] = false
+				_soldierify(k, fac)
+				k["armed_civ"] = rr.randf() < Data.CREW_ARMED   # (a few pull a gun when it kicks off)
+				_crew_routine(k, Boarding.room_at(at0), rr)
+				if k.has("job"): (k["node"] as Node3D).name = "%s %s" % [fac, str(k["job"]).to_lower()]
+		return
 	var walk: Array = []   # v13.150: the captain walks round on a visit (on a capture job he is the target); two more of the crew too
 	if kind == "visit": walk.append(sc[3])
 	var others: Array = (Data.FACTION_CREW.get(fac, []) as Array).filter(func(c): return not sc.has(c) and not bool(c.get("capital", false)))
@@ -3521,6 +3540,124 @@ func _crew_walkers(fac: String, kind: String, ship_id: String) -> void:
 			var rk := Boarding.room_at(at)
 			if not (board["guards"] as Dictionary).has(rk): board["guards"][rk] = []
 			board["guards"][rk].append(k)
+			if Data.CREW_ROUTINES: _crew_routine(k, rk, rr)   # v13.262 (owner: "the Sims engine: they do their jobs")
+
+## v13.262 (owner: "the Sims engine: NPCs live on the station doing job routines - mechanics, moving supplies,
+## medical; when it's calm they walk and talk; when hostile civilians hide, crouch at the side of a hallway saying
+## 'Please don't hurt me'"): a crew member's day: two or three work spots in rooms you can walk to through open doors
+## on his deck; he walks there door by door, works a while, moves on. On an alarm he stops, crouches and pleads.
+const CREW_JOBS := ["Mechanic", "Supply runner", "Medic", "Technician", "Cook", "Engineer", "Clerk", "Loader"]
+const CREW_PLEAS := ["Please don't hurt me!", "I just work here!", "Don't shoot! I'm nobody!", "Take what you want, just go!"]
+func _crew_adj() -> Dictionary:
+	if board.has("crew_adj"): return board["crew_adj"]
+	var adj := {}
+	var locked := {}   # (a card door: the crew go round it)
+	if Boarding.INFO.has("fleet"):
+		for l in (Boarding.INFO["fleet"] as Dictionary).get("locks", []):
+			if int(l.get("key", 0)) > 0: locked["%s|%s" % [l["rooms"][0], l["rooms"][1]]] = true
+	for d in Boarding.doors():   # (every door of the decks: a station builds only the rooms round you)
+		var rs: Array = d["rooms"]
+		if locked.has("%s|%s" % [rs[0], rs[1]]) or locked.has("%s|%s" % [rs[1], rs[0]]): continue
+		var mid: Vector3 = Vector3(float(d["at"]), 0.0, (float(d["lo"]) + float(d["hi"])) * 0.5) if str(d["axis"]) == "x" else Vector3((float(d["lo"]) + float(d["hi"])) * 0.5, 0.0, float(d["at"]))
+		var ax: Vector3 = Vector3(1, 0, 0) if str(d["axis"]) == "x" else Vector3(0, 0, 1)   # (across the door)
+		for i in 2:
+			var a := str(rs[i])
+			if not adj.has(a): adj[a] = []
+			var ra: Array = Boarding.rect(a)
+			var ca := Vector3((float(ra[0]) + float(ra[1])) * 0.5, 0.0, (float(ra[2]) + float(ra[3])) * 0.5)
+			var into: Vector3 = ax * signf((mid - ca).dot(ax))   # from a's side through the door
+			(adj[a] as Array).append([str(rs[1 - i]), mid, into])
+	board["crew_adj"] = adj
+	return adj
+
+## The door-by-door way from room a to room b (door middles, then b's middle); [] if there is none.
+func _crew_path(a: String, b: String) -> Array:
+	var adj := _crew_adj()
+	var prev := {a: null}
+	var todo: Array = [a]
+	while not todo.is_empty():
+		var r: String = todo.pop_front()
+		if r == b: break
+		for nb in adj.get(r, []):
+			if not prev.has(nb[0]):
+				prev[nb[0]] = [r, nb[1], nb[2]]
+				todo.append(nb[0])
+	if not prev.has(b): return []
+	var pts: Array = []
+	var rb: Array = Boarding.rect(b)
+	pts.append(Vector3((float(rb[0]) + float(rb[1])) * 0.5, 0.0, (float(rb[2]) + float(rb[3])) * 0.5))
+	var cur := b
+	while prev[cur] != null:   # each door: lined up in front of it, through it, out the far side
+		var m: Vector3 = prev[cur][1]
+		var into: Vector3 = prev[cur][2]
+		pts.push_front(m + into * Data.CREW_DOOR_STEP)
+		pts.push_front(m)
+		pts.push_front(m - into * Data.CREW_DOOR_STEP)
+		cur = prev[cur][0]
+	return pts
+
+func _crew_has_way(room: String) -> bool:
+	var n := 0
+	for nb in _crew_adj().get(room, []):
+		n += 1
+	return n > 0
+
+func _crew_routine(k: Dictionary, home_room: String, rr: RandomNumberGenerator) -> void:
+	var adj := _crew_adj()
+	var seen := {home_room: 0}   # the rooms within a few doors of his own
+	var front: Array = [home_room]
+	for depth in Data.CREW_ROUTE_DEPTH * 3:   # (out to a few rooms; further if his corner has only halls)
+		if depth >= Data.CREW_ROUTE_DEPTH and seen.keys().filter(func(r): return str(r).begins_with("r_") or str(r).contains("_r_")).size() >= 3: break
+		var nx: Array = []
+		for r in front:
+			for nb in adj.get(r, []):
+				if not seen.has(nb[0]) and Boarding.ROOMS.has(nb[0]) and not Boarding.ROOMS[nb[0]].has("lift"):
+					seen[nb[0]] = depth + 1
+					nx.append(nb[0])
+		front = nx
+	var is_room := func(r: String) -> bool: return r.begins_with("r_") or r.contains("_r_")   # (rooms, not halls or doorways)
+	var pool: Array = seen.keys().filter(func(r): return r != home_room and int(seen[r]) >= 2 and is_room.call(r))
+	if pool.is_empty(): pool = seen.keys().filter(func(r): return r != home_room and is_room.call(r))
+	if pool.is_empty(): return
+	var stops: Array = [home_room]
+	for i in mini(rr.randi_range(1, 2), pool.size()):
+		stops.append(pool[rr.randi() % pool.size()])
+	k["routine"] = {"stops": stops, "i": 0, "path": [], "wait": rr.randf_range(1.0, 4.0), "room": home_room}
+	k["job"] = CREW_JOBS[rr.randi() % CREW_JOBS.size()]
+
+func _routine_goal(e: Dictionary, dt: float) -> Vector3:
+	var n: Node3D = e["node"]
+	var R: Dictionary = e["routine"]
+	var here := n.global_position
+	var alarm: bool = stealth == "alert" or str(board.get("phase", "")) in ["escape", "lost"]   # (on a calm deck or a visit they work)
+	var hold: Node3D = n.get_node_or_null("Soldier")
+	if alarm:   # cowering where he stands
+		if hold != null: hold.scale = Vector3(1.0, Data.CREW_COWER_Y, 1.0)
+		if not bool(e.get("pled", false)) and is_instance_valid(player) and here.distance_to(player.global_position) < Data.CREW_PLEA_R:
+			e["pled"] = true
+			message.emit("%s: \"%s\"" % [str(e.get("job", "Crew")), CREW_PLEAS[absi(hash(str(n.name))) % CREW_PLEAS.size()]])
+		return here
+	if hold != null and hold.scale.y < 0.99: hold.scale = Vector3.ONE
+	if float(R["wait"]) > 0.0:   # at work
+		R["wait"] = float(R["wait"]) - dt
+		if float(R["wait"]) <= 0.0:
+			var stops: Array = R["stops"]
+			var nxt := (int(R["i"]) + 1) % stops.size()
+			R["i"] = nxt
+			R["path"] = _crew_path(str(R["room"]), str(stops[nxt]))
+			if (R["path"] as Array).is_empty(): R["wait"] = Data.CREW_WORK[0]   # (no way there now: stays put)
+		return here
+	var path: Array = R["path"]
+	if path.is_empty():
+		R["room"] = str((R["stops"] as Array)[int(R["i"])])
+		R["wait"] = randf_range(float(Data.CREW_WORK[0]), float(Data.CREW_WORK[1]))
+		return here
+	var wp: Vector3 = path[0]
+	wp.y = here.y
+	if Vector2(wp.x - here.x, wp.z - here.z).length() < Data.CREW_REACH:
+		path.pop_front()
+		e["home"] = here   # (his place, for anyone asking)
+	return wp
 
 ## v13.151 (owner): the faction's mechs, as standees the size of the mech (the picture on a board, the mech's own hit
 ## box), guarding the big mech rooms: levels mixed, the bigger the ship the more and the higher.
@@ -3801,6 +3938,7 @@ func _stealth_tick(dt: float) -> void:
 ## breakout's quiet start, only once he SEES you: in front of him and near enough, or right on him; then he
 ## arrests you and the alert is on). Once he's seen you he stays on you.
 func _board_aware(e: Dictionary, dist: float) -> bool:
+	if e.has("routine") and not bool(e.get("armed_civ", false)): return false   # v13.262: the crew at work never fight (on an alarm they cower)
 	if str(board.get("phase", "")) == "calm" and not e.get("alerted", false): return false   # v13.165: station security on its rounds, you're a guest
 	if stealth != "":   # v13.144 (owner, Metal Gear): on a friendly ship the guards leave you be until it goes to ALERT
 		if stealth == "alert": return true
@@ -7449,13 +7587,79 @@ func toggle_ground() -> String:
 	if not ground_mode: grounded = false
 	return "on" if ground_mode else "off"
 
+## v13.263 (owner: "pilot movement like Titanfall, wall-running and grapple; the booster pack flies only a certain
+## amount, so wall-running is the saving way to move"): a wall beside the pilot (its side, pointing at the wall).
+var wallrun_t := 0.0
+var wallrunning := false
+var jet_fuel := 1.0
+var grapple_at := Vector3.INF
+var grapple_t := 0.0
+var grapples := 0   # (tests)
+func fleet_mech_driving() -> bool: return fleet_mech() and not escape_pilot
+func _wall_side(yb: Basis) -> Vector3:
+	var p := player.global_position
+	for side in [yb.x, -yb.x]:
+		if not Boarding.inside(p + (side as Vector3) * Data.WALLRUN_REACH): return side
+	return Vector3.ZERO
+
+## TRACTOR on foot inside, with nothing to pull: the GRAPPLE. A line fires the way you look; where it meets a wall or
+## the ceiling (in reach) it pulls you there.
+func grapple() -> String:
+	if not (Data.PILOT_PARKOUR and boarding and escape_pilot and not fleet_mech_driving()) or not is_instance_valid(player): return ""
+	var dir: Vector3 = -cam.global_basis.z if is_instance_valid(cam) else -player.global_basis.z
+	var p := player.global_position + Vector3(0, Data.FOOT_H * 0.6, 0)
+	var last := Vector3.INF
+	var step := 3.0
+	var d := step
+	while d <= Data.GRAPPLE_RANGE:
+		var q := p + dir * d
+		if not Boarding.inside(q) or q.y > Boarding.roof_at(q) - 1.0 or q.y < Boarding.floor_at(q): break
+		last = q
+		d += step
+	if last == Vector3.INF or d > Data.GRAPPLE_RANGE or p.distance_to(last) < 10.0: return "GRAPPLE: nothing in reach to hook."
+	grapple_at = last
+	grapple_t = Data.GRAPPLE_TIME
+	grapples += 1
+	Sfx.play("whoosh", -4.0, 0.9)
+	return "GRAPPLE!"
+
+func _grapple_tick(dt: float) -> bool:
+	if grapple_at == Vector3.INF: return false
+	grapple_t -= dt
+	var to := grapple_at - player.global_position
+	if to.length() < 6.0 or grapple_t <= 0.0 or not escape_pilot:
+		grapple_at = Vector3.INF
+		vel *= 0.4
+		return false
+	vel = to.normalized() * Data.GRAPPLE_SPEED
+	grounded = false
+	return true
+
 func _ground_move(dt: float, thrust: Vector2, base_speed: float) -> void:
+	if grapple_at != Vector3.INF and boarding: return   # v13.263: the grapple line is pulling you
 	var yb := Basis.from_euler(Vector3(0, yaw, 0))   # it moves the way it faces on the flat, whatever the nose is doing
 	var sp := base_speed * Data.GROUND_WALK
 	dash_t = maxf(0.0, dash_t - dt)
 	dash_cd = maxf(0.0, dash_cd - dt)
 	boosting = false
 	var boost_now := thrust_held and controls and transform_t <= 0.0
+	var pilot_in := Data.PILOT_PARKOUR and boarding and escape_pilot and not fleet_mech_driving()   # v13.263: the pilot on foot inside
+	var wall := _wall_side(yb) if pilot_in and not grounded else Vector3.ZERO
+	if boost_now and not _boost_was and pilot_in and not grounded:
+		if wall != Vector3.ZERO or wallrun_t > 0.0:   # v13.263: a wall jump: up and away from the wall
+			var away: Vector3 = -wall if wall != Vector3.ZERO else Vector3.ZERO
+			vel = Vector3(vel.x, 0.0, vel.z) + away * Data.WALLJUMP_PUSH + Vector3(0, Data.GROUND_JUMP, 0)
+			wallrun_t = 0.0
+			last_dash = "walljump"
+			Sfx.play("whoosh", -6.0, 1.6)
+		elif jet_fuel > Data.JET_BURST_COST:   # the booster pack: a short burst up, while it has fuel
+			jet_fuel -= Data.JET_BURST_COST
+			vel.y = maxf(vel.y, 0.0) + Data.JET_BURST
+			last_dash = "jet"
+			Sfx.play("whoosh", -6.0, 1.2)
+			_spark_v(player.global_position - Vector3(0, 4.0, 0), Vector3(0, -16.0, 0), Color(0.5, 0.8, 1.0), 6.0, 0.3)
+		else: message.emit("BOOSTER EMPTY: land or run a wall to refill it.")
+		_boost_was = boost_now
 	if boost_now and not _boost_was:
 		if not grounded: last_dash = "air"   # in the air THRUST does nothing: gravity brings you down
 		elif dash_cd <= 0.0 and GS.energy > Data.GROUND_THRUST_ENERGY:
@@ -7484,7 +7688,22 @@ func _ground_move(dt: float, thrust: Vector2, base_speed: float) -> void:
 		rate = 9.0
 		boosting = true
 	var h := Vector3(vel.x, 0.0, vel.z).lerp(desired, minf(1.0, dt * rate))
-	vel = Vector3(h.x, maxf(vel.y - Data.GROUND_GRAVITY * dt, -Data.GROUND_FALL_MAX), h.z)
+	var grav := Data.GROUND_GRAVITY
+	if pilot_in:   # v13.263 (owner: "pilot moves like Titanfall: wall-running ... the booster only a certain amount")
+		if grounded: jet_fuel = minf(1.0, jet_fuel + dt / Data.JET_REFILL)
+		if wall != Vector3.ZERO and h.length() > Data.WALLRUN_MIN and wallrun_t < Data.WALLRUN_TIME and grapple_at == Vector3.INF:
+			if wallrun_t <= 0.0:
+				message.emit("WALL RUN")
+				vel.y = maxf(vel.y, 0.0)
+			wallrun_t += dt
+			grav = Data.GROUND_GRAVITY * Data.WALLRUN_GRAV   # it holds you up, sliding slowly
+			h = h - wall * h.dot(wall)   # along the wall, not into it
+			jet_fuel = minf(1.0, jet_fuel + dt / Data.JET_REFILL)   # running a wall refills the pack
+			wallrunning = true
+		else:
+			if grounded: wallrun_t = 0.0
+			wallrunning = false
+	vel = Vector3(h.x, maxf(vel.y - grav * dt, -Data.GROUND_FALL_MAX), h.z)
 	if GS.form == "mech" and is_instance_valid(model) and transform_t <= 0.0:   # upright, leaning a little into the walk, legs striding
 		var k := clampf(h.length() / maxf(1.0, sp), 0.0, 2.0)
 		model.rotation.x = lerpf(model.rotation.x, -deg_to_rad(6.0 * k), minf(1.0, dt * 4.0))
@@ -10794,6 +11013,7 @@ func _update_enemies(dt: float) -> void:
 			var side: Vector3 = player.global_basis.x * float(e["strafe"]) * 90.0
 			goal = tpos + side if dist > 140.0 else n.global_position - to.normalized() * 200.0 + side
 		elif e.get("recall", false): goal = e["home"]   # v11.39: straight back to its carrier
+		elif e.has("routine"): goal = _routine_goal(e, dt)   # v13.262: crew at work (or, on an alarm, cowering)
 		else:
 			e["orbit"] += dt * 0.25
 			goal = e["home"] + Vector3(cos(e["orbit"]) * 120.0, sin(e["orbit"] * 0.7) * 25.0, sin(e["orbit"]) * 120.0)
@@ -13114,6 +13334,9 @@ func _on_mined(at: Vector3, mat: String, weapon: String) -> void:
 
 ## Switch the tractor beam on for a few seconds: every pod in range flies to you.
 func tractor() -> String:
+	if Data.PILOT_PARKOUR and boarding and escape_pilot and not fleet_mech_driving() and loot.is_empty() and not (board.has("fleet") and (board["fleet"] as Dictionary).get("hostage") != null and bool((board["fleet"] as Dictionary).get("pod", false))):
+		var g := grapple()   # v13.263: on foot inside, TRACTOR is the grapple
+		if g != "": return g
 	if boarding and board.has("fleet"):   # v13.182 (owner): the hostage's blue pod comes in on the tractor beam
 		var fl: Dictionary = board["fleet"]
 		var hn = fl.get("hostage")

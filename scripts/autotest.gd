@@ -11,6 +11,7 @@ var web := OS.has_feature("web")
 
 func _ready() -> void:
 	GS.god_mode = true
+	Missions.planet_bounties = false   # v13.261: bounties stay in space in the older checks (HL_PLANETBOUNTY tests the planet ones)
 	GS.save_enabled = false   # v1.7y: the route test never reads or writes a player's save (the save check uses its own file)
 	GS.save_path = "user://homelancer_save_autotest.txt"
 	SpaceSystem.cruise_assist = false   # fixed test setups need a ship that stays put; the cruise check turns it on
@@ -7650,6 +7651,174 @@ func _run() -> void:
 		await _wait(1.0)
 		await _job_v35()
 		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
+	if _flag("HL_PARKOUR"):   # v13.263 (owner: "pilot like Titanfall: wall-running, grapple, the booster only a certain amount")
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main.dock(_sp().station)
+		await _until(func(): return main.state == "hub", 15.0)
+		main.board_station("visit")
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding, 90.0)
+		await _wait(2.0)
+		var s := _sp()
+		if s.fleet_mech(): s.eject()
+		await _wait(1.0)
+		# the biggest room on this deck: run along its north wall, in the air
+		var best := ""
+		var area := 0.0
+		for k in Boarding.ROOMS:
+			var r: Array = Boarding.ROOMS[k]["r"]
+			if absf(float(Boarding.ROOMS[k]["y"][0])) > 1.0 or Boarding.ROOMS[k].has("lift"): continue
+			var a2: float = (float(r[1]) - float(r[0])) * (float(r[3]) - float(r[2]))
+			if a2 > area and float(r[1]) - float(r[0]) > 120.0: area = a2; best = k
+		var r0: Array = Boarding.ROOMS[best]["r"]
+		var y0: float = Boarding.floor_at(Vector3((float(r0[0]) + float(r0[1])) * 0.5, 0, (float(r0[2]) + float(r0[3])) * 0.5))
+		var start := Vector3(float(r0[0]) + 30.0, y0 + 14.0, float(r0[2]) + 4.0)
+		for i in 3:
+			s.player.global_position = start
+			await get_tree().process_frame
+		s.yaw = -PI * 0.5   # facing +x, the wall on the left
+		s.vel = Vector3(30, 4, 0)
+		s.move = Vector2(0, 1)
+		var ran := false
+		var y_hold := 0.0
+		for i in 40:
+			await get_tree().process_frame
+			if s.wallrunning: ran = true
+		y_hold = s.player.global_position.y - y0
+		await _capture("parkour_wallrun")
+		s.move = Vector2.ZERO
+		_check("v13.263: in the air beside a wall, moving fast, the pilot runs the wall (%s), held up (%.0f m above the floor)" % [ran, y_hold], ran and y_hold > 4.0, "")
+		# the booster: three bursts, then empty until you land
+		await _until(func(): return s.grounded, 6.0)
+		await _wait(3.0)
+		var f0: float = s.jet_fuel
+		s.player.global_position = Vector3((float(r0[0]) + float(r0[1])) * 0.5, y0 + 20.0, (float(r0[2]) + float(r0[3])) * 0.5)
+		s.vel = Vector3.ZERO
+		await get_tree().process_frame
+		var bursts := 0
+		for i in 6:
+			var before: float = s.jet_fuel
+			s.thrust_held = true
+			await get_tree().process_frame
+			await get_tree().process_frame
+			s.thrust_held = false
+			await get_tree().process_frame
+			if s.jet_fuel < before - 0.01: bursts += 1
+		_check("v13.263: the booster pack: full (%.2f) gives %d bursts in the air, then it's empty until you land or run a wall" % [f0, bursts], f0 > 0.95 and bursts >= 2 and bursts <= 3, "")
+		await _until(func(): return s.grounded, 8.0)
+		# the grapple: look at the far wall, TRACTOR pulls you across
+		var mid := Vector3((float(r0[0]) + float(r0[1])) * 0.5, y0 + 1.0, (float(r0[2]) + float(r0[3])) * 0.5)
+		s.player.global_position = mid
+		s.yaw = -PI * 0.5
+		s.pitch = 0.15
+		s._update_camera(1.0, true)
+		await _wait(0.3)
+		var said: String = s.tractor()
+		var x0: float = s.player.global_position.x
+		await _wait(1.0)
+		await _capture("parkour_grapple")
+		var dx: float = s.player.global_position.x - x0
+		_check("v13.263: TRACTOR on foot is the GRAPPLE: it hooks the wall you look at and pulls you there (%s, %.0f m)" % [said, dx], said.begins_with("GRAPPLE!") and dx > 20.0, "")
+		for r2 in results: print("[route] ", r2)
+		get_tree().quit()
+		return
+	if _flag("HL_CREW"):   # v13.262 (owner: "the Sims engine: NPCs doing their jobs; on an alarm they hide")
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main.dock(_sp().station)
+		await _until(func(): return main.state == "hub", 15.0)
+		main.board_station("visit")
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding, 90.0)
+		await _wait(2.0)
+		var s := _sp()
+		var crew: Array = s.enemies.filter(func(e): return e.has("routine"))
+		var room0: Array = crew.map(func(e): return Boarding.room_at((e["node"] as Node3D).global_position))
+		if not crew.is_empty():
+			var c0: Node3D = crew[0]["node"]
+			s.player.global_position = c0.global_position + Vector3(0, 0, 60)
+			await _wait(1.0)
+			await _capture("crew_at_work")
+		var moved := 0
+		for t in 50:
+			await _wait(1.0)
+			moved = 0
+			for ci in crew.size():
+				if is_instance_valid(crew[ci]["node"]) and Boarding.room_at((crew[ci]["node"] as Node3D).global_position) != str(room0[ci]): moved += 1
+			if moved >= maxi(1, crew.size() / 2): break
+		_check("v13.262: the crew go about their work (%d at work, %s), walking room to room through open doors (%d moved)" % [crew.size(), ", ".join(crew.slice(0, 4).map(func(e): return str(e.get("job", "")))), moved], crew.size() >= 2 and moved >= 1, "")
+		s.set_stealth("alert", "test")
+		await _wait(1.5)
+		var cower: int = crew.filter(func(e): return is_instance_valid(e["node"]) and (e["node"] as Node3D).get_node_or_null("Soldier") != null and ((e["node"] as Node3D).get_node("Soldier") as Node3D).scale.y < 0.9).size()
+		if not crew.is_empty(): s.player.global_position = (crew[0]["node"] as Node3D).global_position + Vector3(0, 0, 40)
+		await _wait(1.0)
+		await _capture("crew_cower")
+		var fought: int = crew.filter(func(e): return bool(e.get("aggro", false)) and not bool(e.get("armed_civ", false))).size()
+		_check("v13.262: on the alarm they crouch where they are (%d) and don't fight (%d unarmed fighting); one near you pleads" % [cower, fought], cower >= 1 and fought == 0, "")
+		for r2 in results: print("[route] ", r2)
+		get_tree().quit()
+		return
+	if _flag("HL_PLANETBOUNTY"):   # v13.261 (owner: "a bounty hunter's mission will be on the planet")
+		Missions.planet_bounties = true
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var s := _sp()
+		var pid := str(Data.SYSTEMS[GS.system_id]["planet"]["id"])
+		var bid := ""
+		for id in ["savagers_01", "savagers_02", "savagers_03", "savagers_04", "savagers_05", "savagers_06", "imperium_01", "imperium_02", "imperium_03", "imperium_04", "imperium_05", "imperium_06"]:
+			if bid != "" or Data.roster_pilot(id).is_empty(): continue
+			Missions.accept_bounty(id)
+			if GS.mission.has("planet"): bid = id
+			else:
+				Missions.abandon()
+				GS.bounty = {}
+		var m: Dictionary = GS.mission
+		_check("v13.261: some bounties have gone to ground on %s (%s): %s" % [pid, bid, str(m.get("title", ""))], bid != "" and Missions.on_land(m) and str(m.get("planet", "")) == pid, "")
+		var w0: Dictionary = s.mission_waypoint()
+		var to_planet: bool = not w0.is_empty() and str(w0.get("line", "")).find("atmosphere") >= 0
+		main._load_surface(pid, int(m["tile"]))
+		await _until(func(): return is_instance_valid(main.space) and main.space.surface_mode and main.space.planet_id == pid, 40.0)
+		await _wait(1.5)
+		s = _sp()
+		var p0: Vector3 = Missions.point_pos(s, 0)
+		s.player.global_position = p0 + Vector3(0, 40, 200)
+		await _until(func(): return int(GS.mission.get("spawned", -1)) >= 0, 10.0)
+		await _wait(0.5)
+		var w1: Array = s.enemies.filter(func(o): return int(o.get("mission", -1)) == 0)
+		var mechs1: int = w1.filter(func(o): return bool(o.get("walker", false)) or bool(o.get("mech", false)) or bool(o.get("ground", false))).size()
+		await _capture("pbounty_escort")
+		for o in w1: if s.enemies.has(o): s._destroy_unit(o)
+		await _until(func(): return int(GS.mission.get("stage", 0)) == 1, 10.0)
+		var p1: Vector3 = Missions.point_pos(s, 1)
+		s.player.global_position = p1 + Vector3(0, 40, 200)
+		await _until(func(): return int(GS.mission.get("spawned", -1)) >= 1, 10.0)
+		await _wait(0.5)
+		var w2: Array = s.enemies.filter(func(o): return int(o.get("mission", -1)) == 1)
+		var boss: Array = w2.filter(func(o): return o.get("bounty", "") == bid)
+		var wb: Dictionary = s.mission_waypoint()
+		var boss_way: bool = not boss.is_empty() and not wb.is_empty() and wb["node"] == boss[0]["node"]
+		await _capture("pbounty_target")
+		_check("v13.261: down there: the escort and their mechs at point 1 (%d, %d mechs), then the target's wing with the target (%d) at point 2, the waypoint on it" % [w1.size(), mechs1, boss.size()], to_planet and w1.size() > 0 and boss.size() == 1 and boss_way, "to planet %s escort %d boss %d way %s" % [to_planet, w1.size(), boss.size(), boss_way])
+		var cr0: int = GS.credits
+		for o in w2: if s.enemies.has(o): s._destroy_unit(o)
+		await _wait(0.5)
+		var pod: Array = s.loot.filter(func(l): return l.get("bounty", "") == bid)
+		var done := false
+		if not pod.is_empty():
+			(pod[0]["node"] as Node3D).global_position = s.player.global_position - s.player.global_basis.z * 40.0
+			s.tractor()
+			await _until(func(): return GS.bounty.get("state", "") == "captured", 8.0)
+			var back: Dictionary = s.mission_waypoint()
+			done = GS.bounty.get("state", "") == "captured" and not back.is_empty()
+			print("[route] back: ", back.get("line", ""))
+		else:
+			done = GS.mission.is_empty() and GS.credits > cr0   # (wanted dead: paid on the kill)
+		_check("v13.261: the target down: %s" % ("the pilot TRACTORED in, back to the giver" if not pod.is_empty() else "paid on the kill"), done, "")
+		for r2 in results: print("[route] ", r2)
 		get_tree().quit()
 		return
 	if _flag("HL_ROCKS"):   # v13.260 (owner: "asteroids not so blocky, realistic"; "a green cloud turns white inside")

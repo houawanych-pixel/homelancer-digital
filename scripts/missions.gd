@@ -35,9 +35,10 @@ const PLANET_KINDS := ["ground", "land_escort", "intercept", "air_sweep", "facil
 ## escorting, intercepting, destroying facilities (the dungeons), mechs and pilots, planetary bounty sweeps (20 fighters,
 ## 30 reinforcements by difficulty); nothing in space unless it's a planetary invasion, where the last part is
 ## intercepting them in space"): the jobs that run down on a planet
+static var planet_bounties := true   # v13.261 (tests switch them off unless they test them)
 static func on_land(m: Dictionary) -> bool:
 	var k := str(m.get("kind", ""))
-	return k in PLANET_KINDS
+	return k in PLANET_KINDS or (k == "bounty" and m.has("planet") and m.has("tile"))   # v13.261: a bounty gone to ground
 static func offers(sys_id: String, station_id: String, owner := "", where := "station") -> Array:
 	var pid := planet_of(sys_id, station_id) if where == "planet" else str(Data.SYSTEMS[sys_id]["planet"].get("id", ""))
 	var full := _all_offers(sys_id, station_id, owner, pid)
@@ -371,6 +372,24 @@ static func accept_bounty(id: String) -> String:
 			"Destroy the ship, TRACTOR the pilot in and bring them back here." if alive else "Destroy the ship: paid on the spot."],
 		"points": _points(rng, 2, Data.BOUNTY_DIST_PER_RANK * float(clampi(int(p.get("rank", 1)), 1, 6))), "stage": 0, "spawned": -1, "escort_hp": 0.0,
 		"rank": clampi(int(p.get("rank", 1)), 1, 6)}   # v11.97 (owner): further out, waves by level (Data.BOUNTY_WAVES)
+	# v13.261 (owner: "if you take a bounty hunter's mission it'll be on the planet"): some targets have gone to ground
+	# on the system's world: both points are down on its surface, the target's ship with its wing and their mechs
+	var pid := str(Data.SYSTEMS[GS.system_id].get("planet", {}).get("id", ""))
+	if Data.BOUNTY_ON_PLANET and planet_bounties and pid != "" and Surface.has_surface(pid) and not bool(Surface.PLANETS.get(pid, {}).get("sun", false)) and rng.randf() < Data.BOUNTY_PLANET_SHARE:
+		var g := Surface.grid(pid)
+		var t := rng.randi() % (g * g)
+		for k in g * g:
+			if str(Surface.PLANETS[pid]["tiles"][t]) != "ocean": break
+			t = (t + 1) % (g * g)
+		var a := _dry_point(rng, pid, t, Vector2.INF)
+		var b := _dry_point(rng, pid, t, a)
+		var pname: String = str(Surface.PLANETS[pid].get("name", "the planet"))
+		GS.mission["planet"] = pid
+		GS.mission["tile"] = t
+		GS.mission["points"] = [{"x": a.x, "z": a.y}, {"x": b.x, "z": b.y}]
+		GS.mission["title"] = "Bounty: %s (%s) - gone to ground on %s" % [p["name"], "wanted alive" if alive else "wanted dead", pname]
+		GS.mission["brief"] = "%s has gone to ground on %s, %s, with an escort wing and mechs on the ground. Fly down to the first waypoint and deal with the escort; then the waypoint moves to %s. %s" % [p["name"], pname, sector_name(pid, t), p["name"],
+			"Destroy the ship, TRACTOR the pilot in and bring them back here." if alive else "Destroy the ship: paid on the spot."]
 	GS.mission["start"] = GS.mission.duplicate(true)   # v1.9r
 	GS.changed.emit()
 	return "Bounty accepted: %s. %s A mission waypoint is set: follow the gold marker." % [p["name"], GS.mission["brief"]]
@@ -484,13 +503,21 @@ static func waypoint(space: SpaceSystem) -> Dictionary:
 		if is_instance_valid(space.escort_node):
 			return {"node": space.escort_node, "title": space.escort_node.name, "line": "Escort: stay with the freighter to %s (hull %d%%)" % [land_base(m, "to")["name"], int(100.0 * float(m["escort_hp"]) / Data.ESCORT_HULL)], "hops": 0}
 		return {}
-	if on_land(m) and kind != "ground" and kind != "land_escort":   # v12.56: the planet's own jobs
+	if on_land(m) and kind != "ground" and kind != "land_escort" and not (kind == "bounty" and GS.bounty.get("state", "") == "captured"):   # v12.56: the planet's own jobs
 		if not space.surface_mode:
 			if str(m["sys"]) != space.sys_id: return _to_place(space, str(m["sys"]), m["title"])
 			var pn2: Node3D = space.planet_node(str(m["planet"]))
 			if pn2 == null: return {}
 			return {"node": pn2, "title": pn2.name, "line": "%s: fly down into %s's atmosphere, %s" % [m["title"], pn2.name, sector_name(str(m["planet"]), int(m["tile"]))], "hops": 0}
 		if space.planet_id != str(m["planet"]): return {}
+		if kind == "bounty":   # v13.261: down there: the target, the escort, then the pilot to tractor in
+			var live_b: Array = space.enemies.filter(func(o): return int(o.get("mission", -1)) == stage and is_instance_valid(o["node"]))
+			if not live_b.is_empty():
+				var boss_b: Array = live_b.filter(func(o): return o.has("bounty"))
+				var nb: Node3D = (boss_b[0] if not boss_b.is_empty() else live_b[0])["node"]
+				return {"node": nb, "title": nb.name, "line": ("Destroy %s (%d left)" % [nb.name, live_b.size()]) if boss_b.is_empty() else ("Destroy %s's ship%s" % [nb.name, ", then TRACTOR the pilot in" if m.get("alive", false) else ""]), "hops": 0}
+			for l in space.loot:
+				if l.get("bounty", "") == m["id"] and is_instance_valid(l["node"]): return {"node": l["node"], "title": "%s (pilot)" % Data.roster_pilot(str(m["id"])).get("name", ""), "line": "TRACTOR the pilot in", "hops": 0}
 		if kind == "intercept":
 			var trs: Array = space.enemies.filter(func(e): return bool(e.get("transport", false)))
 			if not trs.is_empty(): return {"node": trs[0]["node"], "title": trs[0]["node"].name, "line": "Intercept: bring down the transport before it reaches %s" % m["site"], "hops": 0}
@@ -657,6 +684,8 @@ static func tick(space: SpaceSystem, dt: float) -> void:
 				m["qtier"] = tier
 				count = mini(count, Data.BOUNTY_WAVE_LIVE)
 			m["need"] = space.spawn_mission_group(at, str(m["faction"]), count, int(m["slot"]), boss, stage, kind == "threats", tier, boss_tier).size()   # v1.8x: PATROL = level 1s, ELITE = level 5s
+			if kind == "bounty" and on_land(m):   # v13.261: their mechs on the ground at the point
+				m["need"] = int(m["need"]) + space.spawn_ground_mechs(at, str(m["faction"]), int(Data.BOUNTY_PLANET_MECHS[1 if last else 0]), stage, 0).size()
 			if kind == "ground":
 				m["need"] = int(m["need"]) + space.spawn_ground_mechs(at, str(m["faction"]), int(Data.MISSION_GROUND_MECHS[1 if last else 0]), stage, Data.MECH_BOSS_COUNT if last else 0).size()   # (v1.9i: the last point has the faction's boss mech)   # v1.8n
 				var foot: Array = space.spawn_ground_mechs(at + Vector3(80, 0, 60), str(m["faction"]), Data.MISSION_GROUND_PILOTS, stage, 0)   # v12.56 (owner: "mechs as well as pilots"): pilots on foot too
