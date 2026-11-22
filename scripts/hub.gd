@@ -6539,14 +6539,27 @@ func _ship_page() -> void:
 	v.add_child(c)
 	for ci in GS.cargo.size():   # v13.266 (owner: "keep it or sell it"): a SELL button for each spare part in the hold
 		var it: Dictionary = GS.cargo[ci]
-		if it.get("kind", "") != "part": continue
+		if not (it.get("kind", "") in ["part", "weapon"]): continue
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 8)
+		v.add_child(row)
+		if it["kind"] == "weapon" and not (str(it["id"]) in GS.owned_weapons):   # v13.267: a salvaged gun: KEEP or SELL
+			var kb := Button.new()
+			kb.name = "KeepWeapon_%d" % ci
+			kb.text = "KEEP %s" % str(it.get("name", "weapon")).to_upper()
+			kb.custom_minimum_size = Vector2(0, 50)
+			kb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			kb.add_theme_color_override("font_color", CYAN)
+			kb.pressed.connect(func(): status.text = GS.keep_weapon(ci); Sfx.play("pickup", -6.0); show_screen("ship"))
+			row.add_child(kb)
 		var pb := Button.new()
-		pb.name = "SellPart_%d" % ci
-		pb.text = "SELL %s  +%d cr" % [str(it.get("name", "part")).to_upper(), GS.part_sell_price(str(it["key"]))]
+		pb.name = ("SellPart_%d" if it["kind"] == "part" else "SellWeapon_%d") % ci
+		pb.text = "SELL %s  +%d cr" % [str(it.get("name", "part")).to_upper(), GS.cargo_sell_price(it)]
 		pb.custom_minimum_size = Vector2(0, 50)
+		pb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		pb.add_theme_color_override("font_color", GOLD)
 		pb.pressed.connect(func(): status.text = GS.sell_cargo(ci); Sfx.play("pickup", -6.0); show_screen("ship"))
-		v.add_child(pb)
+		row.add_child(pb)
 	_home_row(v)   # v12.61 (owner): SET HOME POINT in your quarters
 	var worth: int = GS.ore_worth(str(base["name"]))
 	if worth > 0:

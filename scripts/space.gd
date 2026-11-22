@@ -10902,6 +10902,8 @@ func _destroy_unit(e: Dictionary) -> void:
 		if not GS.l3_found.has(lk): GS.l3_found.append(lk)
 		message.emit("LEVEL 3 FIND: %s. Its blueprint is logged (%d found)." % [str(e.get("l3_name", e["def"]["name"])), GS.l3_found.size()])
 	_drop_loot(n.global_position, reward)
+	if Data.WEAPON_DROPS and not e.has("part_role"):   # (a battleship part shot off drops none; the ship itself does)
+		for wid in weapon_drops(reward, _rng): _drop_weapon(n.global_position, str(wid))
 	enemy_killed.emit(reward, n.name)
 	if e.has("faction"):   # v1.4r: their faction remembers; its rival approves
 		Factions.adjust(e["faction"], -Data.REP_KILL * float(e.get("rank", 1)))
@@ -13316,6 +13318,46 @@ func _drop_loot(at: Vector3, reward: int) -> void:
 		var dir := Vector3(_rng.randfn(0, 1), _rng.randfn(0, 0.5), _rng.randfn(0, 1)).normalized()
 		loot.append({"node": pod, "vel": dir * _rng.randf_range(8.0, 16.0), "value": maxi(10, int(reward * 0.4)), "life": 120.0})
 
+## v13.267 (owner: "enemies drop weapons you tractor in; better enemies drop more"): what one kill drops. The chance
+## and the count go up with the kill's reward, and a better enemy drops a better gun (up to its reward x a share).
+static func weapon_drops(reward: int, rng: RandomNumberGenerator) -> Array:
+	var out: Array = []
+	var cap := Data.WEAPON_DROP_PRICE_BASE + reward * Data.WEAPON_DROP_PRICE_K
+	var pool: Array = []
+	for w in Data.WEAPON_ORDER:
+		var pr := int(Data.WEAPONS.get(w, {}).get("price", 0))
+		if pr > 0 and pr <= cap: pool.append(w)
+	if pool.is_empty(): return out
+	pool.sort_custom(func(a, b): return int(Data.WEAPONS[a]["price"]) < int(Data.WEAPONS[b]["price"]))
+	var chance := clampf(float(reward) / Data.WEAPON_DROP_REWARD, Data.WEAPON_DROP_MIN, Data.WEAPON_DROP_MAX)
+	for k in Data.WEAPON_DROP_MOST:
+		if rng.randf() >= chance: break
+		out.append(pool[maxi(0, pool.size() - 1 - rng.randi() % mini(3, pool.size()))])   # one of the best three it can carry
+		chance *= Data.WEAPON_DROP_NEXT_K
+	return out
+
+func _drop_weapon(at: Vector3, wid: String) -> void:
+	var pod := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(1.4, 1.0, 3.6)   # a long gun case
+	pod.mesh = bm
+	pod.material_override = ShipFactory.mat(Color(0.25, 0.3, 0.38), false, 0.5)
+	var glow := MeshInstance3D.new()
+	var gm := SphereMesh.new()
+	gm.radius = 2.8
+	gm.height = 5.6
+	glow.mesh = gm
+	glow.material_override = _glow_mat(Color(0.4, 0.85, 1.0))   # cyan: a weapon (gold crates are credits)
+	pod.add_child(glow)
+	pod.name = "WeaponDrop"
+	add_child(pod)
+	pod.global_position = at
+	var dir := Vector3(_rng.randfn(0, 1), _rng.randfn(0, 0.5), _rng.randfn(0, 1)).normalized()
+	loot.append({"node": pod, "vel": dir * _rng.randf_range(6.0, 12.0), "value": 0, "life": Data.WEAPON_DROP_LIFE, "weapon": wid})
+	weapon_drops_made += 1
+	_popup(at + Vector3(0, 6, 0), "WEAPON: " + str(Data.WEAPONS[wid].get("short", Data.WEAPONS[wid]["name"])).to_upper(), Color(0.5, 0.9, 1.0))
+var weapon_drops_made := 0   # (tests)
+
 ## v1.6c mining: a gold or diamond layer broke. It drops pickup pieces (its own break count), but the blast destroys
 ## the rest: a careful light gun keeps 3 in 4, a missile half, the SPECIAL very little. The tractor beam pulls them in.
 var mined_pieces := 0   # (tests)
@@ -13400,7 +13442,17 @@ func _update_loot(dt: float) -> void:
 			n.queue_free()
 			loot.remove_at(i)
 		elif d < 14.0:
-			if l.has("gem"):   # v1.8l: ore goes into the hold; a base buys it
+			if l.has("weapon"):   # v13.267: a dropped weapon goes into the hold
+				if GS.hold_free() < 1:
+					if l.get("full_said", false) == false: message.emit("Cargo hold full (%d / %d). Sell at a station or planet base." % [GS.hold_used(), GS.hold_size()])
+					l["full_said"] = true
+					continue
+				var wd: Dictionary = Data.WEAPONS[str(l["weapon"])]
+				GS.cargo.append({"kind": "weapon", "id": str(l["weapon"]), "name": str(wd["name"]), "note": "salvaged weapon"})
+				GS.changed.emit()
+				_popup(n.global_position, "%s IN HOLD" % str(wd.get("short", wd["name"])).to_upper(), Color(0.5, 0.9, 1.0))
+				message.emit("%s is in your hold. Keep it or sell it at a base, under YOUR SHIP." % wd["name"])
+			elif l.has("gem"):   # v1.8l: ore goes into the hold; a base buys it
 				var have := GS.add_ore(str(l["gem"]))
 				if have == 0:   # v13.266: the hold is full: it stays out there
 					if l.get("full_said", false) == false: message.emit("Cargo hold full (%d / %d). Sell at a station or planet base." % [GS.hold_used(), GS.hold_size()])

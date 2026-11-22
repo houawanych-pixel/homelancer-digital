@@ -726,11 +726,26 @@ func part_sell_price(key: String) -> int:
 	var b := key.split(":")
 	if b.size() < 3 or not (Data.MECHS if b[0] == "mech" else Data.SHIPS).has(b[1]): return 0
 	return int(part_price(b[0], b[1]) * Data.PART_SELL_K)
-## SELL one thing from the hold (a part; ore has its own SELL ORE).
+## What a base pays for one thing in the hold (a part or a salvaged weapon).
+func cargo_sell_price(c: Dictionary) -> int:
+	if c.get("kind", "") == "part": return part_sell_price(str(c.get("key", "")))
+	if c.get("kind", "") == "weapon": return maxi(50, int(int(Data.WEAPONS.get(str(c.get("id", "")), {}).get("price", 0)) * Data.PART_SELL_K))
+	return 0
+## v13.267: KEEP a salvaged weapon: out of the hold into your armory (fit it under LOADOUT).
+func keep_weapon(i: int) -> String:
+	if i < 0 or i >= cargo.size() or cargo[i].get("kind", "") != "weapon": return "Nothing to keep."
+	var id := str(cargo[i]["id"])
+	if id in owned_weapons: return "You have one already: sell this one."
+	cargo.remove_at(i)
+	owned_weapons.append(id)
+	changed.emit()
+	save_game()
+	return "%s is in your armory. Fit it under LOADOUT." % Data.WEAPONS[id]["name"]
+## SELL one thing from the hold (a part or a weapon; ore has its own SELL ORE).
 func sell_cargo(i: int) -> String:
-	if i < 0 or i >= cargo.size() or cargo[i].get("kind", "") != "part": return "Nothing to sell."
+	if i < 0 or i >= cargo.size() or not (cargo[i].get("kind", "") in ["part", "weapon"]): return "Nothing to sell."
 	var c: Dictionary = cargo[i]
-	var pr := part_sell_price(str(c["key"]))
+	var pr := cargo_sell_price(c)
 	cargo.remove_at(i)
 	add_credits(pr)
 	save_game()

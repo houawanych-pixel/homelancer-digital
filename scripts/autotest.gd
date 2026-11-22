@@ -7694,6 +7694,50 @@ func _run() -> void:
 		for r2 in results: print("[route] ", r2)
 		get_tree().quit()
 		return
+	if _flag("HL_WDROP"):   # v13.267 (owner: "enemies drop weapons you tractor in; better enemies drop more")
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		GS.cargo = []
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 7
+		var stat := {}
+		for rw in [150, 600, 3000]:
+			var cnt := 0
+			var best := 0
+			for k in 1000:
+				for w in main.space.weapon_drops(rw, rng):
+					cnt += 1
+					best = maxi(best, int(Data.WEAPONS[w]["price"]))
+			stat[rw] = [cnt, best]
+		_check("v13.267: better enemies drop more and better weapons (per 1000 kills, [drops, dearest]: %s)" % str(stat), stat[150][0] < stat[600][0] and stat[600][0] < stat[3000][0] and stat[150][1] < stat[3000][1] and stat[150][0] > 0, "")
+		var s: Node = main.space
+		s._drop_weapon(s.player.global_position - s.player.global_basis.z * 25.0, "ion")
+		s.tractor_t = 8.0
+		await _until(func(): return GS.cargo.any(func(c): return c.get("kind", "") == "weapon"), 12.0)
+		var held: bool = GS.cargo.any(func(c): return c.get("kind", "") == "weapon" and c["id"] == "ion")
+		_check("v13.267: TRACTOR pulls the dropped gun case into the hold (%s)" % str(GS.cargo), held and s.weapon_drops_made >= 1, "")
+		GS.owned_weapons.erase("ion")
+		GS.cargo.append({"kind": "weapon", "id": "ion", "name": "Ion Repeater", "note": "salvaged weapon"})
+		GS.credits = 1000
+		main.dock(s.station)
+		await _until(func(): return main.state == "hub", 15.0)
+		main.hub.show_screen("ship")
+		await _wait(0.5)
+		var kb: Button = main.hub.content.find_child("KeepWeapon_0", true, false)
+		var had_keep := kb != null
+		if kb != null: kb.pressed.emit()
+		await _wait(0.5)
+		var kept: bool = "ion" in GS.owned_weapons
+		var sb: Button = main.hub.content.find_child("SellWeapon_0", true, false)
+		var no_keep2: bool = main.hub.content.find_child("KeepWeapon_0", true, false) == null
+		var had_sell := sb != null
+		if sb != null: sb.pressed.emit()
+		await _wait(0.5)
+		_check("v13.267: at a base KEEP puts the gun in your armory, and a second one (you have it) only SELLs (credits %d, hold %d)" % [GS.credits, GS.hold_used()], had_keep and kept and no_keep2 and had_sell and GS.credits > 1000 and GS.hold_used() == 0, "")
+		for r2 in results: print("[route] ", r2)
+		get_tree().quit()
+		return
 	if _flag("HL_HOLD"):   # v13.266 (owner: "old parts go to the cargo hold, keep or sell; hold by ship level; lost if destroyed")
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
