@@ -16240,6 +16240,11 @@ func _set_cuts() -> void:
 		img.set_pixel((kv.x + 1) * nr + kv.z, (kv.y + 1) * nr + kv.w, Color(1, 1, 1))
 		cut_count += 1
 	sm.set_shader_parameter("cut_mask", ImageTexture.create_from_image(img))
+	for cn in tile_root.get_children():   # v13.272: a city block's far skyline hides once its real blocks stand
+		if not str(cn.name).begins_with("City_"): continue
+		var parts := str(cn.name).split("_")
+		var rk := Vector4i(0, 0, int(parts[1]), int(parts[2]))
+		(cn as Node3D).visible = not (_regions.has(rk) and is_instance_valid(_regions[rk]))
 	sm.set_shader_parameter("cut_area", Vector4(-Surface.EDGE - Surface.TILE, -Surface.EDGE - Surface.TILE, Data.BLOCK_REGION, side))
 
 func _ground(x: float, z: float) -> float:

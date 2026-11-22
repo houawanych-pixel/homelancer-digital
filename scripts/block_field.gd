@@ -149,6 +149,8 @@ static func key_of(pid: String, t: int) -> String:
 	return "%s|%d" % [pid, t]
 
 @warning_ignore("integer_division")
+var city := false    # v13.272: this region is a city block (CityPlan): streets and buildings, no wild features
+var city_buildings := 0   # (tests)
 var built := false   # v1.7a: a region built a little each frame is only used once this is true
 var cancel := false  # ...and stops (and frees itself) if this is set while it builds
 
@@ -219,7 +221,11 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 			cols_c[j * cols + i] = colr
 	# 1a. (v1.7g) blocks of many sizes: neighbouring columns on even ground join into one long or big block (one top),
 	#     and some big ones stand a step or two proud, so the ground is long rectangles and solid cubes, not one grid
-	if reg.x >= 0: _join_columns()
+	city = reg.x >= 0 and CityPlan.is_city_region(pid, t, reg)
+	if city:   # v13.272: the streets are level: every column at the city's street height
+		var cg := CityPlan.ground(pid, t)
+		for ci in tops.size(): tops[ci] = cg
+	if reg.x >= 0 and not city: _join_columns()
 	_phase = "_join_columns"
 	# 1b. realistic heights (v1.6f): no thin spires. A column standing more than SPIRE_MAX over every neighbour is cut
 	#     down to that (the edge columns are left alone: the smooth sheet there isn't sunk)
@@ -310,7 +316,7 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 		if cancel:
 			queue_free()
 			return
-	_carve_canyon()
+	if not city: _carve_canyon()
 	_phase = "_carve_canyon"
 	if staged:
 		_slice_end()
@@ -319,7 +325,7 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 		if cancel:
 			queue_free()
 			return
-	_carve_root_halls()
+	if not city: _carve_root_halls()
 	_phase = "_carve_root_halls"
 	if staged:
 		_slice_end()
@@ -328,7 +334,7 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 		if cancel:
 			queue_free()
 			return
-	_carve_caves()
+	if not city: _carve_caves()
 	_phase = "_carve_caves"
 	if staged:
 		_slice_end()
@@ -337,7 +343,7 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 		if cancel:
 			queue_free()
 			return
-	if region.x >= 0 and _carve_cave_mold():   # (v1.7h cave, v1.7j tunnels out to the caves near it)
+	if region.x >= 0 and not city and _carve_cave_mold():   # (v1.7h cave, v1.7j tunnels out to the caves near it)
 		if staged:
 			_slice_end()
 			await Engine.get_main_loop().process_frame
@@ -354,7 +360,7 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 		if cancel:
 			queue_free()
 			return
-	_build_landmarks()
+	if not city: _build_landmarks()
 	_phase = "_build_landmarks"
 	if staged:
 		_slice_end()
@@ -363,7 +369,7 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 		if cancel:
 			queue_free()
 			return
-	if region.x >= 0: _build_slabs()   # (v1.7f; the old test patch keeps its ground as the tests know it)
+	if region.x >= 0 and not city: _build_slabs()   # (v1.7f; the old test patch keeps its ground as the tests know it)
 	_phase = "_build_slabs"
 	if staged:
 		_slice_end()
@@ -372,7 +378,7 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 		if cancel:
 			queue_free()
 			return
-	if region.x >= 0: _place_library()   # (v1.7k: shapes made from models, scripts/mold_library.gd)
+	if region.x >= 0 and not city: _place_library()   # (v1.7k: shapes made from models, scripts/mold_library.gd)
 	_phase = "_place_library"
 	if staged:
 		_slice_end()
@@ -381,13 +387,13 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 		if cancel:
 			queue_free()
 			return
-	if region.x >= 0: await _grow_trees(staged)   # (v1.7i: after the cave, so a root can grow into it; v12.22: spread over frames)
+	if region.x >= 0 and not city: await _grow_trees(staged)   # (v1.7i: after the cave, so a root can grow into it; v12.22: spread over frames)
 	_phase = "_grow_trees"
 	if cancel:
 		queue_free()
 		return
-	if region.x >= 0: _grow_grass()   # (v12.7)
-	if region.x >= 0 and Data.LEAF_CARDS: _place_leaf_cards()   # v12.53: the fluffy leaf cards on the canopies
+	if region.x >= 0 and not city: _grow_grass()   # (v12.7)
+	if region.x >= 0 and not city and Data.LEAF_CARDS: _place_leaf_cards()   # v12.53: the fluffy leaf cards on the canopies
 	_phase = "_grow_grass"
 	if staged:
 		_slice_end()
@@ -396,7 +402,8 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 		if cancel:
 			queue_free()
 			return
-	if region.x >= 0: _place_falls()   # (v1.7l)
+	if region.x >= 0 and not city: _place_falls()   # (v1.7l)
+	if city: _build_city()   # v13.272
 	_phase = "_place_falls"
 	if region.x >= 0 and not islands.is_empty():   # (v12.22: and off the floating islands)
 		_island_falls(int((Data.LUSH.get(Surface.PLANETS[planet_id]["tiles"][tile] if Surface.PLANETS.has(planet_id) else "", {}) as Dictionary).get("island_falls", 0)))
@@ -410,7 +417,7 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 		if cancel:
 			queue_free()
 			return
-	_raise_roots()
+	if not city: _raise_roots()
 	_phase = "_raise_roots"
 	if staged:
 		_slice_end()
@@ -436,9 +443,9 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 					queue_free()
 					return
 			collapses = 0
-	_place_pockets()
+	if not city: _place_pockets()
 	_phase = "_place_pockets"
-	_place_veins()
+	if not city: _place_veins()
 	_phase = "_place_veins"
 	_slab_expect()
 	_phase = "_slab_expect"
@@ -469,6 +476,67 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 			_phase = "flush"
 	flush()
 	built = true
+
+## v13.272 (owner: "buildings are just floors, rooms and elevators"): make this block's plan (CityPlan) out of 5 m
+## blocks. Streets and pavements are the top layer of the level ground. A building's cells rise to its roof; on every
+## floor its inside (not the outline, not the inner walls) is hollowed for the rooms under a one-layer slab; its lift
+## shaft is hollow from the street floor to under the roof; its door is a gap in the outline at street level. The
+## outline is glass on the room layers, concrete on the slabs; everything else concrete. It all holds itself up.
+func _build_city() -> void:
+	var plan := CityPlan.block(planet_id, tile, region)
+	var g: float = plan["g"]
+	var kg := int(round((g - y0) / Data.BLOCK_MIN))   # the first layer above the street
+	var L: int = Data.CITY_FLOOR_LAYERS
+	var walk: Dictionary = plan["walk"]
+	for fz in n:   # the street's top layer: road, or pavement on the lots
+		for fx in n:
+			var i := fz * n + fx
+			var ov: Dictionary = mats.get(i, {})
+			ov[kg - 1] = "walk" if walk.has(Vector2i(fx, fz)) else "street"
+			mats[i] = ov
+	for b in plan["buildings"]:
+		var cells: Dictionary = b["cells"]
+		var walls: Dictionary = b["walls"]
+		var shaft := {}
+		for c in b["shaft"]: shaft[c] = true
+		var door := {}
+		for c in b["door"]: door[c] = true
+		for c in cells:
+			var cv: Vector2i = c
+			if cv.x < 0 or cv.y < 0 or cv.x >= n or cv.y >= n: continue
+			var i := cv.y * n + cv.x
+			var fl: int = cells[c]
+			_split_one(i)
+			lsz[i] = 1
+			var top := kg + fl * L
+			h[i] = y0 + top * Data.BLOCK_MIN
+			reach_bonus[i] = Data.CITY_FLOOR_LAYERS * 4 + 2
+			var ov: Dictionary = mats.get(i, {})
+			var hl: Array = []
+			for f in fl:
+				var k0 := kg + f * L   # the rooms of floor f: k0 .. k0 + L - 2; the slab: k0 + L - 1
+				var outline := _city_edge(cells, cv, f)
+				for k in range(k0, k0 + L):
+					ov[k] = "glass" if outline and k < k0 + L - 1 else "concrete"
+				if shaft.has(cv): continue
+				if outline:
+					if f == 0 and door.has(cv): hl.append(Vector2i(k0, k0 + L - 1))
+					continue
+				if walls.has(cv): continue
+				hl.append(Vector2i(k0, k0 + L - 1))
+			if shaft.has(cv):   # the lift shaft: open from the street floor up to the roof slab
+				hl = [Vector2i(kg, top - 1)]
+				for k in range(kg, top): ov[k] = "lift"
+			mats[i] = ov
+			if hl.is_empty(): holes.erase(i)
+			else: holes[i] = hl
+		city_buildings += 1
+
+## On the outline of floor f (a side neighbour has fewer floors than f + 1)?
+func _city_edge(cells: Dictionary, c: Vector2i, f: int) -> bool:
+	for e in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		if int(cells.get(c + e, 0)) <= f: return true
+	return false
 
 var joined := 0   # columns joined into bigger blocks (tests)
 @warning_ignore("integer_division")
@@ -587,6 +655,7 @@ func leaf_colors() -> Array:
 
 ## The tone of a material, made from this planet's own ground colour: lighter = softer, darker = tougher.
 func tone(m: String) -> Color:
+	if Data.CITY_COLORS.has(m): return Data.CITY_COLORS[m]   # v13.272: city concrete, glass, streets
 	if Data.VALUABLE_COLOR.has(m): return Data.VALUABLE_COLOR[m]   # treasure keeps its own bright colour on any world
 	if _tones.has(m): return _tones[m]
 	var tn: Array = Data.BLOCK_TONES.get(m, [0.0, 1.0])

@@ -7694,6 +7694,85 @@ func _run() -> void:
 		for r2 in results: print("[route] ", r2)
 		get_tree().quit()
 		return
+	if _flag("HL_CITY"):   # v13.272 (owner: "plain cities: floors, rooms, elevators; a block one small map; nine-block grid like the terrain")
+		var pid := "new_terra"
+		var tile := 4
+		var w0: Vector2i = CityPlan.window(pid, tile)
+		var n_b := 0
+		var cut_ok := true
+		var doors := 0
+		var shafts := 0
+		var shapes := {}
+		for rz in 3:
+			for rx in 3:
+				var plan: Dictionary = CityPlan.block(pid, tile, w0 + Vector2i(rx, rz))
+				for b in plan["buildings"]:
+					n_b += 1
+					var mn := Vector2i(999, 999)
+					var mx := Vector2i(-1, -1)
+					for c in b["cells"]:
+						mn = Vector2i(mini(mn.x, c.x), mini(mn.y, c.y))
+						mx = Vector2i(maxi(mx.x, c.x), maxi(mx.y, c.y))
+					if (b["cells"] as Dictionary).size() >= (mx.x - mn.x + 1) * (mx.y - mn.y + 1): cut_ok = false
+					if not (b["door"] as Array).is_empty(): doors += 1
+					if not (b["shaft"] as Array).is_empty(): shafts += 1
+					shapes[b["shape"]] = true
+		_check("v13.272: New Terra's capital tile has a nine-block city by the port (window %s): %d buildings, none a plain box (%s), %d with a street door, %d with a lift shaft, shapes %s" % [str(w0), n_b, str(cut_ok), doors, shafts, str(shapes.keys())],
+			w0.x >= 0 and n_b >= 30 and cut_ok and doors == n_b and shafts == n_b and shapes.size() >= 4, "")
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main._load_surface(pid, tile)
+		await _until(func(): return is_instance_valid(main.space) and main.space.surface_mode and main.space.planet_id == pid, 40.0)
+		var s: Node = _sp()
+		var sky := 0
+		for cn in s.tile_root.get_children(): if str(cn.name).begins_with("City_"): sky += 1
+		var rd := w0 + Vector2i(1, 1)
+		var c2: Vector2 = BlockField.region_centre(rd)
+		var g: float = CityPlan.ground(pid, tile)
+		_tp(Vector3(c2.x - 900.0, g + 420.0, c2.y + 900.0), Vector3(c2.x, g, c2.y))
+		await _wait(1.5)
+		await _capture("city_far")
+		_tp(Vector3(c2.x, g + 300.0, c2.y + 330.0), Vector3(c2.x, g + 40.0, c2.y))
+		var key := Vector4i(0, 0, rd.x, rd.y)
+		await _until(func(): return s._regions.has(key) and is_instance_valid(s._regions[key]) and not s.regions_pending, 120.0)
+		await _wait(1.0)
+		var bf: BlockField = s._regions.get(key)
+		var plan2: Dictionary = CityPlan.block(pid, tile, rd)
+		var ok_b := bf != null and bf.city and bf.city_buildings == (plan2["buildings"] as Array).size()
+		var inside := ""
+		var probe_ok := false
+		if bf != null and not (plan2["buildings"] as Array).is_empty():
+			var b0: Dictionary = plan2["buildings"][0]
+			var kg := int(round((g - bf.y0) / Data.BLOCK_MIN))
+			var L: int = Data.CITY_FLOOR_LAYERS
+			var dc: Vector2i = b0["door"][0]
+			var sc: Vector2i = b0["shaft"][0]
+			var room := Vector2i(-1, -1)
+			for c in b0["cells"]:
+				if not bf._city_edge(b0["cells"], c, 1) and not (b0["walls"] as Dictionary).has(c) and not (b0["shaft"] as Array).has(c) and int(b0["cells"][c]) >= 2: room = c; break
+			var door_air: bool = not bf._solid_k(dc.y * bf.n + dc.x, kg)
+			var shaft_air: bool = not bf._solid_k(sc.y * bf.n + sc.x, kg + L * (int(b0["floors"]) - 1))
+			var room_air: bool = room.x >= 0 and not bf._solid_k(room.y * bf.n + room.x, kg + L)
+			var slab: bool = room.x >= 0 and bf._solid_k(room.y * bf.n + room.x, kg + L - 1)
+			var wall_c: Vector2i = dc + Vector2i(2, 0)
+			var wall: bool = bf._solid_k(wall_c.y * bf.n + wall_c.x, kg + 1) or not (b0["cells"] as Dictionary).has(wall_c)
+			var street: bool = bf.mat_at(1, 1, g - 2.0) == "street"
+			probe_ok = door_air and shaft_air and room_air and slab and wall and street
+			inside = "door %s shaft %s room %s slab %s wall %s street %s" % [door_air, shaft_air, room_air, slab, wall, street]
+		var sky_hidden := true
+		var sn: Node3D = s.tile_root.get_node_or_null("City_%d_%d" % [rd.x, rd.y])
+		if sn != null: sky_hidden = not sn.visible
+		await _capture("city_block")
+		_tp(Vector3(c2.x - 150.0, g + 12.0, c2.y + 248.0), Vector3(c2.x + 100.0, g + 30.0, c2.y + 248.0))
+		await _wait(1.0)
+		await _capture("city_street")
+		var gy: float = s._ground(c2.x - 150.0, c2.y + 248.0)
+		_check("v13.272: the downtown block is built of 5 m blocks (%d buildings, %s); its far skyline (%d blocks) hides once it stands (%s); the street is level ground (%.0f vs %.0f)" % [bf.city_buildings if bf else -1, inside, sky, str(sky_hidden), gy, g],
+			ok_b and probe_ok and sky == 9 and sky_hidden and absf(gy - g) < 0.5, "")
+		for r2 in results: print("[route] ", r2)
+		get_tree().quit()
+		return
 	if _flag("HL_FSCAN"):   # v13.270 (owner: "contraband: patrols scan you")
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)

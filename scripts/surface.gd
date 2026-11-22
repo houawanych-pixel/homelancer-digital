@@ -818,6 +818,23 @@ static func build_tile(planet_id: String, tile: int) -> Node3D:
 	for c in wrap_corners(planet_id, tile): _corner_cloud(root, planet_id, tile, c, rng)
 	if PLANETS[planet_id]["tiles"][tile] in ["desert", "mountains", "wasteland", "volcanic", "industrial", "ice"]:
 		_landmarks(root, planet_id, tile, rng)
+	if CityPlan.is_city_tile(planet_id, tile) and CityPlan.window(planet_id, tile).x >= 0:   # v13.272: the city's far skyline
+		var w0 := CityPlan.window(planet_id, tile)
+		var cm := StandardMaterial3D.new()
+		cm.vertex_color_use_as_albedo = true
+		cm.roughness = 0.8
+		cm.cull_mode = BaseMaterial3D.CULL_DISABLED
+		for rz in 3:
+			for rx in 3:
+				var r := w0 + Vector2i(rx, rz)
+				var mesh := CityPlan.skyline_mesh(planet_id, tile, r)
+				if mesh == null: continue
+				var ci := MeshInstance3D.new()
+				ci.name = "City_%d_%d" % [r.x, r.y]
+				ci.mesh = mesh
+				ci.material_override = cm
+				ci.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				root.add_child(ci)
 	if BlockField.wanted(planet_id, tile):   # EXPERIMENT: the big-block test patch
 		var bf := BlockField.new()
 		bf.build(planet_id, tile)
