@@ -7717,8 +7717,11 @@ func _run() -> void:
 					if not (b["door"] as Array).is_empty(): doors += 1
 					if not (b["shaft"] as Array).is_empty(): shafts += 1
 					shapes[b["shape"]] = true
-		_check("v13.272: New Terra's capital tile has a nine-block city by the port (window %s): %d buildings, none a plain box (%s), %d with a street door, %d with a lift shaft, shapes %s" % [str(w0), n_b, str(cut_ok), doors, shafts, str(shapes.keys())],
-			w0.x >= 0 and n_b >= 30 and cut_ok and doors == n_b and shafts == n_b and shapes.size() >= 4, "")
+		var bridges := 0
+		for rz2 in 3:
+			for rx2 in 3: bridges += (CityPlan.block(pid, tile, w0 + Vector2i(rx2, rz2))["bridges"] as Array).size()
+		_check("v13.273: New Terra's capital tile has a nine-block city by the port (window %s): %d buildings of %d kinds (%s), corners notched (%s), %d with street doors, %d with a lift, %d bridges" % [str(w0), n_b, shapes.size(), str(shapes.keys()), str(cut_ok), doors, shafts, bridges],
+			w0.x >= 0 and n_b >= 30 and cut_ok and doors == n_b and shafts == n_b and shapes.size() >= 3 and bridges >= 5, "")
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
 		await _wait(1.0)
@@ -7749,17 +7752,24 @@ func _run() -> void:
 			var dc: Vector2i = b0["door"][0]
 			var sc: Vector2i = b0["shaft"][0]
 			var room := Vector2i(-1, -1)
-			for c in b0["cells"]:
-				if not bf._city_edge(b0["cells"], c, 1) and not (b0["walls"] as Dictionary).has(c) and not (b0["shaft"] as Array).has(c) and int(b0["cells"][c]) >= 2: room = c; break
+			for c in b0["rooms"]:
+				if int(b0["cells"][c]) >= 2: room = c; break
 			var door_air: bool = not bf._solid_k(dc.y * bf.n + dc.x, kg)
 			var shaft_air: bool = not bf._solid_k(sc.y * bf.n + sc.x, kg + L * (int(b0["floors"]) - 1))
 			var room_air: bool = room.x >= 0 and not bf._solid_k(room.y * bf.n + room.x, kg + L)
 			var slab: bool = room.x >= 0 and bf._solid_k(room.y * bf.n + room.x, kg + L - 1)
-			var wall_c: Vector2i = dc + Vector2i(2, 0)
-			var wall: bool = bf._solid_k(wall_c.y * bf.n + wall_c.x, kg + 1) or not (b0["cells"] as Dictionary).has(wall_c)
+			var wall_c: Vector2i = (b0["walls"] as Dictionary).keys()[0]
+			for wc in b0["walls"]:
+				if not bf._city_edge(b0["cells"], wc, 0): wall_c = wc; break
+			var wall: bool = bf._solid_k(wall_c.y * bf.n + wall_c.x, kg)
+			var glass := false
+			for c3 in b0["cells"]:
+				if bf.mat_at(c3.x, c3.y, g + (L + 1) * Data.BLOCK_MIN) == "glass": glass = true; break
+			var gy5: float = g + Data.BLOCK_MIN   # (mat_at reads the layer whose top is at y)
+			var framed: bool = bf.mat_at(dc.x + 1, dc.y, gy5) == "door" or bf.mat_at(dc.x, dc.y + 1, gy5) == "door" or bf.mat_at(dc.x - 1, dc.y, gy5) == "door" or bf.mat_at(dc.x, dc.y - 1, gy5) == "door"
 			var street: bool = bf.mat_at(1, 1, g - 2.0) == "street"
-			probe_ok = door_air and shaft_air and room_air and slab and wall and street
-			inside = "door %s shaft %s room %s slab %s wall %s street %s" % [door_air, shaft_air, room_air, slab, wall, street]
+			probe_ok = door_air and shaft_air and room_air and slab and wall and street and glass and framed
+			inside = "door %s framed %s shaft %s room %s slab %s wall %s windows %s street %s; bridges %d" % [door_air, framed, shaft_air, room_air, slab, wall, glass, street, bf.city_bridges]
 		var sky_hidden := true
 		var sn: Node3D = s.tile_root.get_node_or_null("City_%d_%d" % [rd.x, rd.y])
 		if sn != null: sky_hidden = not sn.visible
@@ -7768,7 +7778,7 @@ func _run() -> void:
 		await _wait(1.0)
 		await _capture("city_street")
 		var gy: float = s._ground(c2.x - 150.0, c2.y + 248.0)
-		_check("v13.272: the downtown block is built of 5 m blocks (%d buildings, %s); its far skyline (%d blocks) hides once it stands (%s); the street is level ground (%.0f vs %.0f)" % [bf.city_buildings if bf else -1, inside, sky, str(sky_hidden), gy, g],
+		_check("v13.273: the downtown block is built of 5 m blocks (%d buildings, %s); its far skyline (%d blocks) hides once it stands (%s); the street is level ground (%.0f vs %.0f)" % [bf.city_buildings if bf else -1, inside, sky, str(sky_hidden), gy, g],
 			ok_b and probe_ok and sky == 9 and sky_hidden and absf(gy - g) < 0.5, "")
 		for r2 in results: print("[route] ", r2)
 		get_tree().quit()

@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.272"
+const VERSION := "v13.273"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -520,11 +520,13 @@ const CITY_ALLEY := 4               # cells: the alley through the middle of a b
 const CITY_PAVEMENT := 2            # cells of pavement round each building
 const CITY_FLOORS := [3, 8]         # floors of a building ...
 const CITY_FLOORS_DOWNTOWN := [8, 16]   # ... and in the middle block
-const CITY_FLOOR_LAYERS := 3        # layers (5 m) a floor: 2 of room (10 m, mech height), 1 of slab
+const CITY_FLOOR_LAYERS := 2        # layers (5 m) a floor: 1 of room (5 m: people, not mechs), 1 of slab (v13.273: was 3)
+const MODULE := 10                  # v13.273: cells a building module is across: a 3 x 3 grid of 2 x 2-cell rooms (10 m) in 1-cell walls, the middle room the lift
+const CITY_BRIDGE_CHANCE := 0.6     # the chance of a walkway across the alley between two facing buildings
 const CITY_SETBACK_FROM := 6        # floors from which a building steps in higher up ...
 const CITY_SETBACK_IN := 3          # ... by this many cells
 const CITY_COLORS := {"concrete": Color(0.62, 0.64, 0.68), "glass": Color(0.18, 0.3, 0.42), "street": Color(0.17, 0.18, 0.2),
-	"walk": Color(0.45, 0.46, 0.48), "lift": Color(0.95, 0.75, 0.2)}
+	"walk": Color(0.45, 0.46, 0.48), "lift": Color(0.95, 0.75, 0.2), "door": Color(0.25, 0.95, 1.0), "bridge": Color(0.5, 0.52, 0.56)}
 const BLOCK_MARGIN := 3.0      # column tops sit this much over the highest ground sampled under them
 # Step 9 (v1.7a): the whole planet as blocks. The ground near you is built from the seed in square regions as you fly
 # (the far ground stays the smooth sheet, cut out wherever a region stands). Behind ?blocks until the owner says go.
@@ -548,7 +550,7 @@ const BLOCK_REGION_CANYON := 0.2    # the chance a region has a canyon running t
 const BLOCK_ROCK := Color(0.32, 0.3, 0.29)   # the deep rock colour under the surface
 # Step 2 (v1.5t): craters. Every block inside a blast's radius is hit; a block only partly inside splits into four
 # (20 -> 10 -> 5 m) so only the hit part goes; obsidian never splits (it chips, then breaks off whole, in half).
-const BLOCK_HITS := {"concrete": 6, "glass": 2, "street": 5, "walk": 5, "lift": 8, "sand": 1, "dirt": 2, "stone": 4, "obsidian": 8, "gold": 6, "diamond": 12, "wood": 3, "leaf": 1, "leaf2": 1, "vine": 2, "frond": 1, "glow": 1, "bloom": 1}   # light-gun hits to break a 5 m layer, by tier
+const BLOCK_HITS := {"concrete": 6, "glass": 2, "street": 5, "walk": 5, "lift": 8, "door": 6, "bridge": 6, "sand": 1, "dirt": 2, "stone": 4, "obsidian": 8, "gold": 6, "diamond": 12, "wood": 3, "leaf": 1, "leaf2": 1, "vine": 2, "frond": 1, "glow": 1, "bloom": 1}   # light-gun hits to break a 5 m layer, by tier
 const BLOCK_BLAST := {"gun": [2.4, 1], "missile": [12.0, 4], "heavy": [20.0, 8], "special": [40.0, 16], "thrust": [7.5, 1], "thrust_soft": [7.5, 2]}   # [radius m, hits dealt]; thrust = the mech pushing into a wall
 const BLOCK_BREAK_PIECES := {"obsidian": 2, "stone": 3, "dirt": 4, "sand": 5, "gold": 4, "diamond": 3, "wood": 3, "leaf": 5, "leaf2": 5}   # each material breaks its own way: harder = fewer, bigger pieces
 const BLOCK_CLEAVE_SPEED := 12.0     # an obsidian piece landing faster than this (m/s) cleaves in half once more
@@ -579,7 +581,7 @@ const BLOCK_DAMAGE_DARK := 0.35      # a cracked block darkens up to this much b
 const BLOCK_SAFE_BUMP := 40.0        # m/s (50 still hurts)
 # v1.5y step 5, support and collapse: shots can dig INTO walls (tunnels, overhangs, caves). A piece over a hole stays up
 # only if it is joined sideways to grounded ground within its material's reach (5 m cells); otherwise it falls.
-const BLOCK_REACH := {"concrete": 6, "glass": 6, "street": 3, "walk": 3, "lift": 6, "sand": 0, "dirt": 1, "stone": 3, "obsidian": 5, "gold": 3, "diamond": 5, "wood": 4, "leaf": 2, "leaf2": 2, "vine": 3, "frond": 2, "glow": 2, "bloom": 2}
+const BLOCK_REACH := {"concrete": 6, "glass": 6, "street": 3, "walk": 3, "lift": 6, "door": 6, "bridge": 6, "sand": 0, "dirt": 1, "stone": 3, "obsidian": 5, "gold": 3, "diamond": 5, "wood": 4, "leaf": 2, "leaf2": 2, "vine": 3, "frond": 2, "glow": 2, "bloom": 2}
 # v1.5z step 6, settling: landed rubble merges into the ground as its own material (nothing mixes); dirt sticks to
 # the wall it hits; sand slumps into a pile; pieces that fall keep their material.
 const BLOCK_MERGE_DELAY := 1.0       # s a landed piece lies there before it becomes ground
@@ -708,8 +710,8 @@ const FALL_COLOR := Color(0.62, 0.86, 1.0, 0.85)
 # fire, gold (warm), diamond (cold), the kill floor. Obsidian is glossy. Cheap for phones: the glows are emissive,
 # only a few real lights (the nearest ones to you) light their surroundings.
 const CAVE_DARK := 0.12              # how much of the sun and sky reaches a covered face
-const BLOCK_GLOW := {"gold": 0.55, "diamond": 1.1, "glow": 1.0, "bloom": 0.55}   # how brightly treasure glows by itself
-const BLOCK_GLOSS := {"obsidian": 1.0, "diamond": 0.8, "gold": 0.6}   # glassy shine
+const BLOCK_GLOW := {"door": 1.3, "glass": 0.12, "gold": 0.55, "diamond": 1.1, "glow": 1.0, "bloom": 0.55}   # how brightly treasure glows by itself
+const BLOCK_GLOSS := {"glass": 0.9, "obsidian": 1.0, "diamond": 0.8, "gold": 0.6}   # glassy shine
 const GLOW_LIGHTS := 3               # real lights at the nearest glowing things to you
 const GLOW_LIGHT := {"lava": [Color(1.0, 0.45, 0.12), 2.2, 34.0], "fire": [Color(1.0, 0.55, 0.15), 2.0, 30.0], "diamond": [Color(0.7, 0.9, 1.0), 1.6, 22.0], "gold": [Color(1.0, 0.8, 0.35), 1.2, 16.0], "kill": [Color(1.0, 0.35, 0.1), 3.0, 60.0]}   # [colour, energy, range m]
 const GLOW_REACH := 140.0            # m: glowing things this near you get a real light

@@ -477,11 +477,13 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 	flush()
 	built = true
 
-## v13.272 (owner: "buildings are just floors, rooms and elevators"): make this block's plan (CityPlan) out of 5 m
-## blocks. Streets and pavements are the top layer of the level ground. A building's cells rise to its roof; on every
-## floor its inside (not the outline, not the inner walls) is hollowed for the rooms under a one-layer slab; its lift
-## shaft is hollow from the street floor to under the roof; its door is a gap in the outline at street level. The
-## outline is glass on the room layers, concrete on the slabs; everything else concrete. It all holds itself up.
+## v13.272 / v13.273 (owner: "solid blocks, cheap; long vertical window panels; bridges with side rails; doors you can
+## tell you can enter; basic buildings: floors, a lift, ways in and out, 3 x 3 rooms big enough for people"): make this
+## block's plan (CityPlan) out of 5 m blocks. Streets and pavements are the top layer of the level ground. Every floor
+## of a building is one layer of rooms under a one-layer slab; walls stay solid; the lift room is hollow from the street
+## floor up to the roof. Facade cells in front of a room are glass from the first floor to under the roof (long vertical
+## windows between concrete piers); a street door is a gap in a glowing frame; a bridge is a deck across the alley
+## with a door at each end and rails on its sides. Everything holds itself up.
 func _build_city() -> void:
 	var plan := CityPlan.block(planet_id, tile, region)
 	var g: float = plan["g"]
@@ -494,9 +496,13 @@ func _build_city() -> void:
 			var ov: Dictionary = mats.get(i, {})
 			ov[kg - 1] = "walk" if walk.has(Vector2i(fx, fz)) else "street"
 			mats[i] = ov
+	var ends := {}   # facade cell -> floor a bridge opens there
+	for br in plan["bridges"]:
+		for e in br["ends"]: ends[e] = int(br["f"])
 	for b in plan["buildings"]:
 		var cells: Dictionary = b["cells"]
 		var walls: Dictionary = b["walls"]
+		var rooms: Dictionary = b["rooms"]
 		var shaft := {}
 		for c in b["shaft"]: shaft[c] = true
 		var door := {}
@@ -510,27 +516,98 @@ func _build_city() -> void:
 			lsz[i] = 1
 			var top := kg + fl * L
 			h[i] = y0 + top * Data.BLOCK_MIN
-			reach_bonus[i] = Data.CITY_FLOOR_LAYERS * 4 + 2
+			reach_bonus[i] = 8
 			var ov: Dictionary = mats.get(i, {})
 			var hl: Array = []
+			var frame := false   # beside a street door: its glowing frame
+			for e in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+				if door.has(cv + e): frame = true
 			for f in fl:
-				var k0 := kg + f * L   # the rooms of floor f: k0 .. k0 + L - 2; the slab: k0 + L - 1
+				var k0 := kg + f * L   # floor f: rooms at k0, slab at k0 + 1
 				var outline := _city_edge(cells, cv, f)
+				var win := false
+				if outline:
+					for e in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+						if rooms.has(cv + e) and int(cells.get(cv + e, 0)) > f: win = true
 				for k in range(k0, k0 + L):
-					ov[k] = "glass" if outline and k < k0 + L - 1 else "concrete"
+					var roof_layer := k == top - 1
+					var m := "concrete"
+					if outline and win and f >= 1 and not roof_layer: m = "glass"
+					if f == 0 and outline and (frame or (door.has(cv) and k == k0 + L - 1)): m = "door"
+					ov[k] = m
 				if shaft.has(cv): continue
 				if outline:
 					if f == 0 and door.has(cv): hl.append(Vector2i(k0, k0 + L - 1))
+					elif ends.get(cv, -1) == f: hl.append(Vector2i(k0, k0 + L - 1))   # a bridge's door
 					continue
 				if walls.has(cv): continue
 				hl.append(Vector2i(k0, k0 + L - 1))
-			if shaft.has(cv):   # the lift shaft: open from the street floor up to the roof slab
+			if shaft.has(cv):   # the lift: open from the street floor up to the roof
 				hl = [Vector2i(kg, top - 1)]
-				for k in range(kg, top): ov[k] = "lift"
+				ov[top - 1] = "lift"
 			mats[i] = ov
 			if hl.is_empty(): holes.erase(i)
 			else: holes[i] = hl
 		city_buildings += 1
+	for br in plan["bridges"]:   # the walkways: a deck at the floor's level, open under it down to the street
+		var kd: int = kg + int(br["f"]) * L - 1
+		for c in br["cells"]:
+			var cv2: Vector2i = c
+			if cv2.x < 0 or cv2.y < 0 or cv2.x >= n or cv2.y >= n: continue
+			var i2 := cv2.y * n + cv2.x
+			_split_one(i2)
+			lsz[i2] = 1
+			h[i2] = y0 + (kd + 1) * Data.BLOCK_MIN
+			holes[i2] = [Vector2i(kg, kd)]
+			var ov2: Dictionary = mats.get(i2, {})
+			ov2[kd] = "bridge"
+			mats[i2] = ov2
+			reach_bonus[i2] = 20
+		_bridge_rails(br, y0 + (kd + 1) * Data.BLOCK_MIN)
+		city_bridges += 1
+
+var city_bridges := 0   # (tests)
+## A bridge's side rails (only a look: the deck is the blocks): a top rail and posts on both sides.
+func _bridge_rails(br: Dictionary, deck: float) -> void:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var cs: Array = br["cells"]
+	var dir: Vector2i = br["dir"]
+	var side := Vector2(dir.y, dir.x)   # across the deck
+	var s: float = Data.BLOCK_MIN
+	var c0: Vector2i = cs[0]
+	var c1: Vector2i = cs[-1]
+	var p0 := Vector2(x0 + (c0.x + 0.5) * s, z0 + (c0.y + 0.5) * s) - Vector2(dir) * s * 0.5
+	var p1 := Vector2(x0 + (c1.x + 0.5) * s, z0 + (c1.y + 0.5) * s) + Vector2(dir) * s * 0.5
+	for sd in [-1.0, 1.0]:
+		var o: Vector2 = side * s * 0.5 * sd * 0.92
+		_rail_box(st, Vector3(p0.x + o.x, deck + 1.05, p0.y + o.y), Vector3(p1.x + o.x, deck + 1.15, p1.y + o.y), 0.12)
+		_rail_box(st, Vector3(p0.x + o.x, deck + 0.5, p0.y + o.y), Vector3(p1.x + o.x, deck + 0.56, p1.y + o.y), 0.06)
+		var steps := int(p0.distance_to(p1) / 2.5)
+		for k in steps + 1:
+			var q: Vector2 = p0.lerp(p1, float(k) / maxf(1, steps)) + o
+			_rail_box(st, Vector3(q.x, deck, q.y), Vector3(q.x, deck + 1.1, q.y), 0.08)
+	var mi := MeshInstance3D.new()
+	mi.name = "BridgeRails"
+	mi.mesh = st.commit()
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(0.75, 0.78, 0.82)
+	m.metallic = 0.6
+	m.roughness = 0.35
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
+
+## A thin bar from a to b (a box t thick).
+func _rail_box(st: SurfaceTool, a: Vector3, b: Vector3, t: float) -> void:
+	var lo := Vector3(minf(a.x, b.x) - t, minf(a.y, b.y), minf(a.z, b.z) - t)
+	var hi := Vector3(maxf(a.x, b.x) + t, maxf(a.y, b.y), maxf(a.z, b.z) + t)
+	var v := [Vector3(lo.x, lo.y, lo.z), Vector3(hi.x, lo.y, lo.z), Vector3(hi.x, lo.y, hi.z), Vector3(lo.x, lo.y, hi.z),
+		Vector3(lo.x, hi.y, lo.z), Vector3(hi.x, hi.y, lo.z), Vector3(hi.x, hi.y, hi.z), Vector3(lo.x, hi.y, hi.z)]
+	for f in [[4, 5, 6, 7, Vector3.UP], [0, 3, 2, 1, Vector3.DOWN], [0, 1, 5, 4, Vector3.FORWARD], [2, 3, 7, 6, Vector3.BACK], [1, 2, 6, 5, Vector3.RIGHT], [3, 0, 4, 7, Vector3.LEFT]]:
+		for idx in [0, 1, 2, 0, 2, 3]:
+			st.set_normal(f[4])
+			st.add_vertex(v[f[idx]])
 
 ## On the outline of floor f (a side neighbour has fewer floors than f + 1)?
 func _city_edge(cells: Dictionary, c: Vector2i, f: int) -> bool:
@@ -4065,7 +4142,7 @@ func _draw_block(st: SurfaceTool, ox: int, oz: int, s: int) -> void:
 	var n1 := n + 1
 	var sp := spans(i0)
 	var dl: Dictionary = dmg.get(i0, {})
-	var jit := 0.95 + float(absi(hash(i0)) % 100) / 1000.0
+	var jit := 1.0 if (mats.get(i0, {}) as Dictionary).has(_ktop(i0) - 1) and Data.CITY_COLORS.has(str((mats[i0] as Dictionary)[_ktop(i0) - 1])) else 0.95 + float(absi(hash(i0)) % 100) / 1000.0   # (v13.273: city tops one flat colour)
 	# v1.6a the skin (the owner's "hypernerve"): only the look changes, collision stays square. Where the top steps down
 	# on a side, sand eases into a soft blunt mound, dirt and stone get a rounded edge; obsidian joined to obsidian
 	# crisps up into a pointed shard tip. A lone obsidian block stays a block.
@@ -4363,7 +4440,12 @@ func _wall(st: SurfaceTool, p0: Vector3, p1: Vector3, top: float, low: float, cf
 		ct.a = a
 		cb.a = a
 		_look(st, "" if (first_band and untouched) else mat_at(cfx, cfz, y - 0.01))
-		if Data.ROCK_JAG > 0.0 and not (first_band and untouched) and top - low > 3.0:
+		if Data.CITY_COLORS.has(mat_at(cfx, cfz, y - 0.01)):   # v13.273 (owner: "solid blocks"): city walls are flat, one colour
+			ct = Color(col.r, col.g, col.b, a)
+			cb = ct
+			prev_flat = true
+			_quad(st, Vector3(p0.x, y, p0.z), Vector3(p1.x, y, p1.z), Vector3(p1.x, y_end, p1.z), Vector3(p0.x, y_end, p0.z), [ct, ct, cb, cb], nrm)
+		elif Data.ROCK_JAG > 0.0 and not (first_band and untouched) and top - low > 3.0:
 			_rock_wall(st, p0, p1, y, y_end, y if prev_flat else top, low, ct, cb, nrm)   # (under a flat grass cap its top row stays put)
 			prev_flat = false
 		else:
