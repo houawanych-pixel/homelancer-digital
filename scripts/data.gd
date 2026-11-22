@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.273"
+const VERSION := "v13.274"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -513,7 +513,11 @@ const BLOCK_SINK := 260.0      # the smooth ground under the patch is sunk this 
 # v13.272 (owner: "plain cities on the planets for GTA-style chases: floors, rooms, elevators; a city block one small map;
 # one terrain tile becomes a nine-block city streamed like the terrain"): scripts/city_plan.gd
 const CITIES := true
-const CITY_BIOMES := ["city"]       # tiles of these kinds get a city (New Terra's capital, Port Meridian's tile)
+const CITY_BIOMES := ["city"]       # (v13.272; v13.274: CITY_LAND decides)
+const CITY_LAND := {"city": 2, "coast": 2, "jungle": 2, "forest": 1, "industrial": 1}   # v13.274: green land gets a city at its tile's centre: 2 = a 2 x 2 of blocks, 1 = one block (snow, desert, rock: none)
+const CITY_TILES_BIG := 2           # a 3 x 3 world has cities on at most this many tiles (a smaller one: 1)
+const CITY_NO_OUTPOST := ["ocean", "sun", "clouds"]   # a world with no green land gets one block on its first tile that isn't one of these
+const CITY_BASE_CLEAR := 250.0      # m: a facility / raid base / mission point keeps this far off a city square
 const CITY_CLEAR := 120.0           # m kept clear between the city and a port's pad island / a facility
 const CITY_AVENUE := 6              # cells (5 m) of avenue on each edge of a block: 60 m between blocks
 const CITY_ALLEY := 4               # cells: the alley through the middle of a block

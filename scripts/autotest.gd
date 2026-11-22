@@ -7694,18 +7694,21 @@ func _run() -> void:
 		for r2 in results: print("[route] ", r2)
 		get_tree().quit()
 		return
-	if _flag("HL_CITY"):   # v13.272 (owner: "plain cities: floors, rooms, elevators; a block one small map; nine-block grid like the terrain")
+	if _flag("HL_CITY"):   # v13.272-274 (owner: "cities dead centre of green tiles, sized by the land; bases never on a city square")
 		var pid := "new_terra"
 		var tile := 4
-		var w0: Vector2i = CityPlan.window(pid, tile)
+		var crect: Rect2i = CityPlan.rect(pid, tile)
+		var w0: Vector2i = crect.position
 		var n_b := 0
 		var cut_ok := true
 		var doors := 0
 		var shafts := 0
 		var shapes := {}
-		for rz in 3:
-			for rx in 3:
+		var bridges := 0
+		for rz in crect.size.y:
+			for rx in crect.size.x:
 				var plan: Dictionary = CityPlan.block(pid, tile, w0 + Vector2i(rx, rz))
+				bridges += (plan["bridges"] as Array).size()
 				for b in plan["buildings"]:
 					n_b += 1
 					var mn := Vector2i(999, 999)
@@ -7717,11 +7720,40 @@ func _run() -> void:
 					if not (b["door"] as Array).is_empty(): doors += 1
 					if not (b["shaft"] as Array).is_empty(): shafts += 1
 					shapes[b["shape"]] = true
-		var bridges := 0
-		for rz2 in 3:
-			for rx2 in 3: bridges += (CityPlan.block(pid, tile, w0 + Vector2i(rx2, rz2))["bridges"] as Array).size()
-		_check("v13.273: New Terra's capital tile has a nine-block city by the port (window %s): %d buildings of %d kinds (%s), corners notched (%s), %d with street doors, %d with a lift, %d bridges" % [str(w0), n_b, shapes.size(), str(shapes.keys()), str(cut_ok), doors, shafts, bridges],
-			w0.x >= 0 and n_b >= 30 and cut_ok and doors == n_b and shafts == n_b and shapes.size() >= 3 and bridges >= 5, "")
+		var centre_d: float = (Vector2(crect.position) + Vector2(crect.size) * 0.5 - Vector2(5, 5)).length() * Data.BLOCK_REGION
+		_check("v13.274: New Terra's capital tile has a %dx%d city at the tile's centre (%.0f m off it, clear of Port Meridian): %d buildings of %d kinds, corners notched (%s), %d with street doors, %d with a lift, %d bridges" % [crect.size.x, crect.size.y, centre_d, n_b, shapes.size(), str(cut_ok), doors, shafts, bridges],
+			crect.size == Vector2i(2, 2) and centre_d <= 600.0 and n_b >= 10 and cut_ok and doors == n_b and shafts == n_b and shapes.size() >= 3 and bridges >= 2, "")
+		# which tiles get cities: green ones, by land; none on ice / desert; a harsh world gets one block
+		var nt: Dictionary = CityPlan.city_tiles(pid)
+		var tl: Array = Surface.PLANETS[pid]["tiles"]
+		var green_only := true
+		for t in nt: if not Data.CITY_LAND.has(str(tl[t])): green_only = false
+		var harsh_pid := ""
+		var harsh: Dictionary = {}
+		for p2 in Surface.PLANETS:
+			if not Surface.has_surface(p2) or Surface.is_sun(p2): continue
+			var any_green := false
+			for kd in Surface.PLANETS[p2]["tiles"]: if Data.CITY_LAND.has(str(kd)): any_green = true
+			if not any_green:
+				harsh_pid = p2
+				harsh = CityPlan.city_tiles(p2)
+				break
+		var harsh_ok: bool = harsh_pid == "" or (harsh.size() == 1 and int(harsh.values()[0]) == 1)
+		# bases and mission points never on a city square
+		var on_city := 0
+		for p3 in Surface.PLANETS:
+			if not Surface.has_surface(p3) or Surface.is_sun(p3): continue
+			for st in Surface.facility_sites(p3):
+				if CityPlan.in_city(p3, int(st["tile"]), st["spot"] as Vector2): on_city += 1
+		var rng0 := RandomNumberGenerator.new()
+		rng0.seed = 11
+		for k in 300:
+			var rs: Dictionary = Missions.raid_spot(rng0, pid)
+			if not rs.is_empty() and CityPlan.in_city(pid, int(rs["tile"]), rs["spot"] as Vector2): on_city += 1
+			var dp: Vector2 = Missions._dry_point(rng0, pid, tile, Vector2.INF)
+			if CityPlan.in_city(pid, tile, dp): on_city += 1
+		_check("v13.274: cities only on green land (New Terra: %s on %s), %s gets one block (%s), and no base or mission point lands on a city square (%d did)" % [str(nt), str(nt.keys().map(func(t): return tl[t])), harsh_pid, str(harsh), on_city],
+			green_only and nt.size() == 2 and nt.has(4) and harsh_ok and on_city == 0, "")
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
 		await _wait(1.0)
@@ -7779,7 +7811,7 @@ func _run() -> void:
 		await _capture("city_street")
 		var gy: float = s._ground(c2.x - 150.0, c2.y + 248.0)
 		_check("v13.273: the downtown block is built of 5 m blocks (%d buildings, %s); its far skyline (%d blocks) hides once it stands (%s); the street is level ground (%.0f vs %.0f)" % [bf.city_buildings if bf else -1, inside, sky, str(sky_hidden), gy, g],
-			ok_b and probe_ok and sky == 9 and sky_hidden and absf(gy - g) < 0.5, "")
+			ok_b and probe_ok and sky == crect.size.x * crect.size.y and sky_hidden and absf(gy - g) < 0.5, "")
 		for r2 in results: print("[route] ", r2)
 		get_tree().quit()
 		return

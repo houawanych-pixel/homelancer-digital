@@ -272,18 +272,22 @@ static func raid_spot(rng: RandomNumberGenerator, pid: String) -> Dictionary:
 		if Surface.height(pid, t, p.x, p.y) <= 3.0: continue
 		var wp: Vector2 = world.call(t, p)
 		if docks.any(func(dk): return (dk as Vector2).distance_to(wp) < Data.RAID_MIN_DOCK): continue
+		if CityPlan.in_city(pid, t, p, Data.CITY_BASE_CLEAR): continue   # v13.274: never on a city square
 		return {"tile": t, "spot": p}
 	return {}
 
 static func _dry_point(rng: RandomNumberGenerator, pid: String, tile: int, other: Vector2) -> Vector2:
 	var sp: float = Data.MISSION_GROUND_SPREAD
-	var best := Vector2.ZERO
-	for k in 10:
+	var best := Vector2.INF
+	for k in 20:
 		var p := Vector2(rng.randf_range(-sp, sp), rng.randf_range(-sp, sp))
-		if k == 0: best = p
+		if CityPlan.in_city(pid, tile, p, Data.CITY_BASE_CLEAR): continue   # v13.274: never on a city square
+		if k == 0 or best == Vector2.INF: best = p
 		if other != Vector2.INF and p.distance_to(other) < sp * 0.6: continue
 		best = p
 		if Surface.height(pid, tile, p.x, p.y) > 3.0: break
+	if best == Vector2.INF:   # (every try fell on the city: just past its edge)
+		best = Vector2(sp, sp)
 	return best
 
 ## v1.8m: "sector B2 (city)": how a ground job names its place on the planet.

@@ -440,7 +440,11 @@ static func facility_sites(planet_id: String) -> Array:
 			for q in placed + dock_spots:
 				if int(q[0]) == t and (q[1] as Vector2).distance_to(spot) < Data.FACILITY_GAP: ok = false
 			if ok: break
-		if i == 0 and hand.size() > 0: spot = Data.BASE_SPOTS[0]
+		if i == 0 and hand.size() > 0 and not CityPlan.in_city(planet_id, t, Data.BASE_SPOTS[0], Data.CITY_BASE_CLEAR): spot = Data.BASE_SPOTS[0]
+		var guard := 0
+		while CityPlan.in_city(planet_id, t, spot, Data.CITY_BASE_CLEAR) and guard < 40:   # v13.274: never on a city square
+			spot = Vector2(rng.randf_range(-EDGE + 900.0, EDGE - 900.0), rng.randf_range(-EDGE + 900.0, EDGE - 900.0))
+			guard += 1
 		placed.append([t, spot])
 		out[i]["tile"] = t
 		out[i]["spot"] = spot
@@ -818,15 +822,15 @@ static func build_tile(planet_id: String, tile: int) -> Node3D:
 	for c in wrap_corners(planet_id, tile): _corner_cloud(root, planet_id, tile, c, rng)
 	if PLANETS[planet_id]["tiles"][tile] in ["desert", "mountains", "wasteland", "volcanic", "industrial", "ice"]:
 		_landmarks(root, planet_id, tile, rng)
-	if CityPlan.is_city_tile(planet_id, tile) and CityPlan.window(planet_id, tile).x >= 0:   # v13.272: the city's far skyline
-		var w0 := CityPlan.window(planet_id, tile)
+	if CityPlan.is_city_tile(planet_id, tile):   # v13.272: the city's far skyline
+		var cr := CityPlan.rect(planet_id, tile)
 		var cm := StandardMaterial3D.new()
 		cm.vertex_color_use_as_albedo = true
 		cm.roughness = 0.8
 		cm.cull_mode = BaseMaterial3D.CULL_DISABLED
-		for rz in 3:
-			for rx in 3:
-				var r := w0 + Vector2i(rx, rz)
+		for rz in cr.size.y:
+			for rx in cr.size.x:
+				var r := cr.position + Vector2i(rx, rz)
 				var mesh := CityPlan.skyline_mesh(planet_id, tile, r)
 				if mesh == null: continue
 				var ci := MeshInstance3D.new()

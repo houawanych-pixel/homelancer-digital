@@ -14,61 +14,96 @@ extends RefCounted
 
 const N := 100                     # cells per region side (500 m / 5 m)
 
-static var _windows := {}          # "pid|tile" -> Vector2i (the 3 x 3 window's first region) or (-1, -1)
+static var _rects := {}            # "pid|tile" -> Rect2i of the city's regions (size 0: no city)
+static var _tiles := {}            # pid -> {tile: blocks across (1 or 2)}
 static var _ground := {}           # "pid|tile" -> street height
 static var _blocks := {}           # "pid|tile|rx|rz" -> plan
 
-## Is this tile a city tile?
-static func is_city_tile(pid: String, tile: int) -> bool:
-	if not Data.CITIES or not Surface.PLANETS.has(pid): return false
-	var tl: Array = Surface.PLANETS[pid].get("tiles", [])
-	return tile >= 0 and tile < tl.size() and str(tl[tile]) in Data.CITY_BIOMES
-
-## The first region of the city's 3 x 3 window ((-1, -1) = no city here): as close to the tile's port as it can be
-## while its pad island, other ports and the facility sites stay clear.
-static func window(pid: String, tile: int) -> Vector2i:
-	var key := "%s|%d" % [pid, tile]
-	if _windows.has(key): return _windows[key]
-	var out := Vector2i(-1, -1)
-	if is_city_tile(pid, tile):
-		var avoid: Array = []   # [Vector2 tile-local, radius]
-		for l in Surface.locations_in(pid, tile): avoid.append([l["pos"] as Vector2, Data.PAD_ISLAND_RADIUS + Data.CITY_CLEAR])
-		for f in Surface.facility_sites(pid):
-			if int(f.get("tile", -1)) == tile and f.has("spot"): avoid.append([f["spot"] as Vector2, Data.CITY_CLEAR * 2.0])
-		var target: Vector2 = (avoid[0][0] as Vector2) if not avoid.is_empty() else Vector2.ZERO
-		var nr := int(round(Surface.TILE / Data.BLOCK_REGION))
-		var bd := INF
-		for sz in range(1, nr - 3):   # (never on the tile's outer ring)
-			for sx in range(1, nr - 3):
-				var rect := Rect2(-Surface.EDGE + sx * Data.BLOCK_REGION, -Surface.EDGE + sz * Data.BLOCK_REGION, Data.BLOCK_REGION * 3.0, Data.BLOCK_REGION * 3.0)
-				var ok := true
-				for a in avoid:
-					var p: Vector2 = a[0]
-					var q := Vector2(clampf(p.x, rect.position.x, rect.end.x), clampf(p.y, rect.position.y, rect.end.y))
-					if q.distance_to(p) < float(a[1]): ok = false
-				if not ok: continue
-				var d := rect.get_center().distance_to(target)
-				if d < bd:
-					bd = d
-					out = Vector2i(sx, sz)
-	_windows[key] = out
+## v13.274 (owner: "a planet's terrain tiles are a 3 x 3; split each green tile into its own 3 x 3, and its centre square
+## always gets a city: one block, or a 2 x 2 on good green land with water; snow, desert and harsh land get none (a
+## facility base can sit there); a Mars-like world gets a single block; a big 3 x 3 world has cities in maybe two
+## tiles; bases go anywhere except on a city square, right next to one is fine"):
+## which tiles of a world have a city, and how many blocks across (1 or 2).
+static func city_tiles(pid: String) -> Dictionary:
+	if _tiles.has(pid): return _tiles[pid]
+	var out := {}
+	if Data.CITIES and Surface.PLANETS.has(pid) and Surface.has_surface(pid) and not Surface.is_sun(pid):
+		var tl: Array = Surface.PLANETS[pid].get("tiles", [])
+		var g := Surface.grid(pid)
+		var cands: Array = []   # [size, has a port, tile]
+		for t in mini(tl.size(), g * g):
+			var sz := int(Data.CITY_LAND.get(str(tl[t]), 0))
+			if sz > 0: cands.append([sz, 1 if not Surface.locations_in(pid, t).is_empty() else 0, t])
+		cands.sort_custom(func(x, y): return x[0] > y[0] or (x[0] == y[0] and (x[1] > y[1] or (x[1] == y[1] and x[2] < y[2]))))
+		var most: int = Data.CITY_TILES_BIG if g >= 3 else 1
+		for c in cands.slice(0, most): out[int(c[2])] = int(c[0])
+		if out.is_empty():   # a harsh world (Mars-like): one block on its first dry tile
+			for t in mini(tl.size(), g * g):
+				if not (str(tl[t]) in Data.CITY_NO_OUTPOST):
+					out[t] = 1
+					break
+	_tiles[pid] = out
 	return out
 
+## Is there a city on this tile?
+static func is_city_tile(pid: String, tile: int) -> bool:
+	return rect(pid, tile).size.x > 0
+
+## The city's regions on a tile (Rect2i of 500 m regions; size 0 = none): a 1 x 1 or 2 x 2 square at the tile's dead
+## centre, slid as little as it takes to keep clear of a port's pad island.
+static func rect(pid: String, tile: int) -> Rect2i:
+	var key := "%s|%d" % [pid, tile]
+	if _rects.has(key): return _rects[key]
+	var out := Rect2i()
+	var want := int(city_tiles(pid).get(tile, 0))
+	if want > 0:
+		var avoid: Array = []
+		for l in Surface.locations_in(pid, tile): avoid.append([l["pos"] as Vector2, Data.PAD_ISLAND_RADIUS + Data.CITY_CLEAR])
+		var nr := int(round(Surface.TILE / Data.BLOCK_REGION))
+		for sz2 in [want, 1]:
+			var bd := INF
+			for zz in range(1, nr - sz2):
+				for xx in range(1, nr - sz2):
+					var rr := Rect2(-Surface.EDGE + xx * Data.BLOCK_REGION, -Surface.EDGE + zz * Data.BLOCK_REGION, Data.BLOCK_REGION * sz2, Data.BLOCK_REGION * sz2)
+					var ok := true
+					for a in avoid:
+						var p: Vector2 = a[0]
+						var q := Vector2(clampf(p.x, rr.position.x, rr.end.x), clampf(p.y, rr.position.y, rr.end.y))
+						if q.distance_to(p) < float(a[1]): ok = false
+					var d := rr.get_center().length()
+					if ok and d < bd - 0.01:
+						bd = d
+						out = Rect2i(xx, zz, sz2, sz2)
+			if out.size.x > 0 and bd <= Data.BLOCK_REGION * 1.5: break   # (else try a single block nearer the middle)
+	_rects[key] = out
+	return out
+
+## (older name) the first region of the city.
+static func window(pid: String, tile: int) -> Vector2i:
+	var r := rect(pid, tile)
+	return r.position if r.size.x > 0 else Vector2i(-1, -1)
+
 static func is_city_region(pid: String, tile: int, r: Vector2i) -> bool:
-	var w := window(pid, tile)
-	return w.x >= 0 and r.x >= w.x and r.y >= w.y and r.x < w.x + 3 and r.y < w.y + 3
+	return rect(pid, tile).has_point(r)
+
+## Is a tile-local point on (or within `margin` m of) a city square? (bases and mission points keep off them)
+static func in_city(pid: String, tile: int, p: Vector2, margin := 0.0) -> bool:
+	var r := rect(pid, tile)
+	if r.size.x <= 0: return false
+	var rr := Rect2(-Surface.EDGE + r.position.x * Data.BLOCK_REGION, -Surface.EDGE + r.position.y * Data.BLOCK_REGION, r.size.x * Data.BLOCK_REGION, r.size.y * Data.BLOCK_REGION).grow(margin)
+	return rr.has_point(p)
 
 ## The street height (a whole layer): the mean ground under the city, snapped up to a step.
 static func ground(pid: String, tile: int) -> float:
 	var key := "%s|%d" % [pid, tile]
 	if _ground.has(key): return _ground[key]
-	var w := window(pid, tile)
+	var r := rect(pid, tile)
 	var sum := 0.0
 	var cnt := 0
 	for jz in 13:
 		for jx in 13:
-			var x := -Surface.EDGE + w.x * Data.BLOCK_REGION + jx * Data.BLOCK_REGION * 3.0 / 12.0
-			var z := -Surface.EDGE + w.y * Data.BLOCK_REGION + jz * Data.BLOCK_REGION * 3.0 / 12.0
+			var x := -Surface.EDGE + r.position.x * Data.BLOCK_REGION + jx * Data.BLOCK_REGION * r.size.x / 12.0
+			var z := -Surface.EDGE + r.position.y * Data.BLOCK_REGION + jz * Data.BLOCK_REGION * r.size.y / 12.0
 			sum += maxf(Surface.height(pid, tile, x, z), 0.0)
 			cnt += 1
 	var g := ceilf((sum / maxf(1, cnt) + Data.BLOCK_MARGIN) / Data.BLOCK_MIN) * Data.BLOCK_MIN
@@ -88,8 +123,8 @@ static func block(pid: String, tile: int, r: Vector2i) -> Dictionary:
 	if not is_city_region(pid, tile, r):
 		_blocks[key] = plan
 		return plan
-	var w := window(pid, tile)
-	var downtown := (r - w) == Vector2i(1, 1)
+	var cr := rect(pid, tile)
+	var downtown := (r - cr.position) == Vector2i(cr.size.x / 2, cr.size.y / 2)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(key + "|city")
 	var a: int = Data.CITY_AVENUE      # half an avenue on each edge of the block
