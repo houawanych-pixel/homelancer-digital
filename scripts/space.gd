@@ -13385,6 +13385,8 @@ func _update_loot(dt: float) -> void:
 		n.rotate_x(dt * 0.5)
 		if d < 14.0 and l.has("bounty"):
 			if GS.capture_bounty(l["bounty"]):
+				if not GS.mission.is_empty():   # v13.267 (owner: "there should have been a good job"): the giver calls it in
+					hail.emit("%s dispatch" % Missions.giver_name(GS.mission), "Good work, pilot! %s is in your hold. Bring them back to %s for your pay." % [str(Data.roster_pilot(str(l["bounty"])).get("name", "The pilot")), Missions.giver_name(GS.mission)], false)
 				_popup(n.global_position, "PILOT CAPTURED", Color(1.0, 0.5, 0.4))
 				var who: Dictionary = Data.roster_pilot(l["bounty"])
 				GS.cargo.append({"kind": "pilot", "id": l["bounty"], "name": str(who.get("name", "Pilot")), "note": "bounty prisoner"})   # v1.5f: in the hold

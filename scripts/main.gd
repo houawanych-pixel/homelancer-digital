@@ -1421,6 +1421,7 @@ func dock(n: Node3D) -> void:
 	var was_job: Dictionary = GS.mission.duplicate()
 	var was_bounty: Dictionary = GS.bounty.duplicate()
 	var paid: String = Missions.claim_at(info["id"], wk) if not GS.mission.is_empty() else GS.claim_bounty(wk)   # v1.5f: a board bounty is paid where it was taken; an old-style one anywhere
+	if not Missions.last_paid.is_empty(): call_deferred("_on_mission_done", paid)   # v13.267: the giver says well done
 	var bj := board_job()
 	if bool(bj.get("deliver", false)) and str(info.get("kind", "")) == "station":   # v13.170: the captain / hostage handed over here
 		GS.add_credits(int(bj["pay"]))

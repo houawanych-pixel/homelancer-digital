@@ -7893,8 +7893,10 @@ func _run() -> void:
 		var w1: Array = s.enemies.filter(func(o): return int(o.get("mission", -1)) == 0)
 		var mechs1: int = w1.filter(func(o): return bool(o.get("walker", false)) or bool(o.get("mech", false)) or bool(o.get("ground", false))).size()
 		await _capture("pbounty_escort")
-		for o in w1: if s.enemies.has(o): s._destroy_unit(o)
-		await _until(func(): return int(GS.mission.get("stage", 0)) == 1, 10.0)
+		for t0 in 60:   # (the rest of the wave comes in as reinforcements: clear them too)
+			for o in s.enemies.filter(func(e): return int(e.get("mission", -1)) == 0): s._destroy_unit(o)
+			await _wait(0.5)
+			if int(GS.mission.get("stage", 0)) == 1: break
 		var p1: Vector3 = Missions.point_pos(s, 1)
 		s.player.global_position = p1 + Vector3(0, 40, 200)
 		await _until(func(): return int(GS.mission.get("spawned", -1)) >= 1, 10.0)
@@ -7904,10 +7906,16 @@ func _run() -> void:
 		var wb: Dictionary = s.mission_waypoint()
 		var boss_way: bool = not boss.is_empty() and not wb.is_empty() and wb["node"] == boss[0]["node"]
 		await _capture("pbounty_target")
+		_check("v13.267: on a world, few at once (no lag): %d at point 1 (%d fighters at most, the rest come in after)" % [w1.size(), Data.BOUNTY_PLANET_LIVE], w1.size() <= Data.BOUNTY_PLANET_LIVE + int(Data.BOUNTY_PLANET_MECHS[0]), "")
 		_check("v13.261: down there: the escort and their mechs at point 1 (%d, %d mechs), then the target's wing with the target (%d) at point 2, the waypoint on it" % [w1.size(), mechs1, boss.size()], to_planet and w1.size() > 0 and boss.size() == 1 and boss_way, "to planet %s escort %d boss %d way %s" % [to_planet, w1.size(), boss.size(), boss_way])
 		var cr0: int = GS.credits
-		for o in w2: if s.enemies.has(o): s._destroy_unit(o)
-		await _wait(0.5)
+		var hl: Array = [0]   # (a lambda can't change a local number: count in an array)
+		s.hail.connect(func(_f, _l, h): if not h: hl[0] += 1)
+		for t1 in 60:
+			var left: Array = s.enemies.filter(func(e): return int(e.get("mission", -1)) == 1)
+			if left.is_empty() and int(GS.mission.get("queue", 0)) <= 0: break
+			for o in left: s._destroy_unit(o)
+			await _wait(0.5)
 		var pod: Array = s.loot.filter(func(l): return l.get("bounty", "") == bid)
 		var done := false
 		if not pod.is_empty():
@@ -7916,6 +7924,7 @@ func _run() -> void:
 			await _until(func(): return GS.bounty.get("state", "") == "captured", 8.0)
 			var back: Dictionary = s.mission_waypoint()
 			done = GS.bounty.get("state", "") == "captured" and not back.is_empty()
+			_check("v13.267: a well done call when the target's down and when the pilot's in your hold (%d calls)" % int(hl[0]), int(hl[0]) >= 2, "")
 			print("[route] back: ", back.get("line", ""))
 		else:
 			done = GS.mission.is_empty() and GS.credits > cr0   # (wanted dead: paid on the kill)

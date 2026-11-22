@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.263"
+const VERSION := "v13.264"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -2381,7 +2381,8 @@ const SHELL_GROW_BASE := 5.0       # m: how far the shell stands off a base's wa
 const SHELL_GROW_SHIP := 7.0       # m: off a battleship's hull
 const BOUNTY_ON_PLANET := true    # v13.261 (owner): some bounty targets have gone to ground on the system's world
 const BOUNTY_PLANET_SHARE := 0.5   # the share of bounties that are down on the planet
-const BOUNTY_PLANET_MECHS := [2, 4]   # their mechs on the ground at the first / last point
+const BOUNTY_PLANET_MECHS := [2, 3]
+const BOUNTY_PLANET_LIVE := 6    # v13.267 (owner: "very laggy"): fighters of a planet bounty's wave in the air at once (the rest come as reinforcements)   # their mechs on the ground at the first / last point
 const CREW_ROUTINES := true        # v13.262 (owner: "the Sims engine"): crew walk between work spots on their deck
 const CREW_GENERIC := 4           # crew at work on a deck whose faction has no crew pictures yet (its own people in gear)
 const CREW_ARMED := 0.2           # the share of them who pull a gun on an alarm

@@ -680,9 +680,10 @@ static func tick(space: SpaceSystem, dt: float) -> void:
 				count = int(wv[0]) + (1 if last else 0)
 				tier = int(wv[1])
 				boss_tier = int(Data.BOUNTY_BOSS_TIER[int(m["rank"])])
-				m["queue"] = maxi(0, count - Data.BOUNTY_WAVE_LIVE)
+				var cap: int = Data.BOUNTY_PLANET_LIVE if on_land(m) else Data.BOUNTY_WAVE_LIVE   # v13.267 (owner: "very laggy"): fewer at once on a world
+				m["queue"] = maxi(0, count - cap)
 				m["qtier"] = tier
-				count = mini(count, Data.BOUNTY_WAVE_LIVE)
+				count = mini(count, cap)
 			m["need"] = space.spawn_mission_group(at, str(m["faction"]), count, int(m["slot"]), boss, stage, kind == "threats", tier, boss_tier).size()   # v1.8x: PATROL = level 1s, ELITE = level 5s
 			if kind == "bounty" and on_land(m):   # v13.261: their mechs on the ground at the point
 				m["need"] = int(m["need"]) + space.spawn_ground_mechs(at, str(m["faction"]), int(Data.BOUNTY_PLANET_MECHS[1 if last else 0]), stage, 0).size()
@@ -701,9 +702,9 @@ static func tick(space: SpaceSystem, dt: float) -> void:
 		return
 	# the wave is out: gone when none of its ships is left
 	var live := space.enemies.filter(func(o): return int(o.get("mission", -1)) == stage and is_instance_valid(o["node"]))
-	if int(m.get("queue", 0)) > 0 and live.size() < Data.BOUNTY_REINFORCE_AT:   # v11.97: the rest of the wave jumps in
+	if int(m.get("queue", 0)) > 0 and live.size() < (Data.BOUNTY_PLANET_LIVE / 2 if on_land(m) else Data.BOUNTY_REINFORCE_AT):   # v11.97: the rest of the wave jumps in
 		var at2 := point_pos(space, stage)
-		var n2 := mini(int(m["queue"]), Data.BOUNTY_WAVE_LIVE - live.size())
+		var n2 := mini(int(m["queue"]), (Data.BOUNTY_PLANET_LIVE if on_land(m) else Data.BOUNTY_WAVE_LIVE) - live.size())
 		if at2 != Vector3.INF and n2 > 0:
 			space.spawn_mission_group(at2 + Vector3(0, 0, 400), str(m["faction"]), n2, int(m["slot"]), "", stage, false, int(m.get("qtier", 2)))
 			m["queue"] = int(m["queue"]) - n2
@@ -770,7 +771,9 @@ static func on_kill(space: SpaceSystem, e: Dictionary) -> void:
 	var m: Dictionary = GS.mission
 	if on_land(m) and int(e.get("mission", -1)) == int(m.get("stage", 0)): m["killed"] = int(m.get("killed", 0)) + 1   # v1.8m (v12.56: every land job)
 	if m.is_empty() or not e.has("bounty") or m.get("kind", "") != "bounty" or e["bounty"] != m.get("id", ""): return
-	if bool(m.get("alive", false)): return   # the pod drops; the tractor and the hand-in finish it
+	if bool(m.get("alive", false)):   # the pod drops; the tractor and the hand-in finish it
+		space.hail.emit("%s dispatch" % giver_name(m), "Target's down! %s bailed out. Tractor the pilot in." % str(Data.roster_pilot(str(m["id"])).get("name", "The pilot")), false)   # v13.267
+		return
 	var id := str(m["id"])
 	var p: Dictionary = Data.roster_pilot(id)
 	GS.bounties_done.append(id)
@@ -785,6 +788,7 @@ static func claim_at(station_id: String, where_kind := "station") -> String:
 	var m: Dictionary = GS.mission
 	if m.get("kind", "") != "bounty" or GS.bounty.get("state", "") != "captured": return ""
 	if str(m.get("giver", "")) != station_id: return "%s is in your hold. The bounty is paid at %s." % [Data.roster_pilot(str(m["id"])).get("name", "The pilot"), giver_name(m)]
+	last_paid = {"giver_sys": str(m["giver_sys"]), "pay": int(m["pay"]), "title": str(m.get("title", ""))}   # v13.267: the giver's congratulations call
 	var said := GS.claim_bounty(where_kind)
 	GS.cargo = GS.cargo.filter(func(c): return not (c.get("kind", "") == "pilot" and c.get("id", "") == m["id"]))
 	GS.missions_done += 1
