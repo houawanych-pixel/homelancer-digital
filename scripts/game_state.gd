@@ -19,7 +19,8 @@ var gun_levels: Dictionary = {}   # v1.9u: Mk level of each gun you have upgrade
 var gun_off := {}         # v6.7 (owner, Freelancer weapon list): guns switched off ("core0", 0, 1 ...); this flight only
 var mounts: Array = []   # v1.9e: what each hardpoint carries (a gun from Data.WEAPONS or "missile_pod"); [] = every mount the weapon_id
 var owned_mechs := ["blackgold"]   # v1.9i: mech frames bought (each gives its arms, core and legs)
-var mech_parts := {"arms": "blackgold", "core": "blackgold", "legs": "blackgold"}   # v1.9i: the frame each part comes from
+var mech_parts := {"arms": "blackgold", "core": "blackgold", "legs": "blackgold"}
+var ship_parts := {"cockpit": "", "body": "", "wings": "", "tail": ""}   # v13.266: the ship each part of yours comes from ("" = the one you fly)   # v1.9i: the frame each part comes from
 var hull := 100.0
 var wing_l := 40.0 # left and right wing sections (own health; a destroyed wing takes its guns with it)
 var wing_r := 40.0
@@ -131,7 +132,7 @@ var tutorial_seen: Array = []   # v1.7r: tutorial lesson ids already given (see 
 var god_mode := false # only used by the automated route test
 
 # ---------------------------------------------------------------- v1.7y saving
-const SAVE_KEYS := ["cutter_level", "build_mats", "credits", "ship_id", "owned_ships", "weapon_id", "owned_weapons", "missiles", "heavy_missiles", "mines", "nukes", "rack",
+const SAVE_KEYS := ["ship_parts", "cutter_level", "build_mats", "credits", "ship_id", "owned_ships", "weapon_id", "owned_weapons", "missiles", "heavy_missiles", "mines", "nukes", "rack",
 	"owned_racks", "slots", "modes", "view", "system_id", "discovered", "explored", "last_base", "kills", "met", "mood", "memory", "heat_shield",
 	"bounty", "bounties_done", "mission", "cargo", "missions_done", "rep", "cast", "mine_kind", "block_deltas", "tutorial_seen", "bounty_jail", "mounts", "core_gun", "core_gun2", "core_gun3", "modules", "owned_modules", "gun_levels", "owned_mechs", "mech_parts", "pilot_name", "found_stations", "planet_visits", "relics", "respawn", "respawn_prev", "home_pinned", "planet_seen", "atlases", "tips_on", "tips_known", "loadouts", "loadout_presets", "weapon_state", "l3_found", "pilot_body", "owned_gear", "pilot_suit", "creator_done"]   # (v1.9e: + mounts; v1.9i: + owned_mechs, mech_parts; v1.9j: + pilot_name)
 var save_path: String = Data.SAVE_PATH
@@ -670,17 +671,45 @@ func buy_mech(id: String) -> String:
 
 ## Fit one part (arms / core / legs) from a frame you own. Arms are always a matched pair.
 func fit_mech_part(part: String, id: String) -> String:
-	if not (part in ["arms", "core", "legs"]) or not Data.MECHS.has(id): return "No such part."
+	if not (part in ["arms", "core", "legs", "head"]) or not Data.MECHS.has(id): return "No such part."
 	if not (id in owned_mechs): return "Buy that frame first."
 	if mech_parts.get(part, "") == id: return "Already fitted."
 	mech_parts[part] = id
 	changed.emit()
 	return "%s %s fitted." % [Data.MECHS[id]["name"], str(Data.MECH_PART_NAMES[part]).to_lower()]
 
+## v13.266 (owner: "switch out the ship's cockpit, body, wings and tail"): fit one part of your ship from another ship
+## you own ("" = back to your own ship's). The look only: the stats stay your ship's.
+func fit_ship_part(part: String, id: String) -> String:
+	if not (part in ShipParts.PARTS): return "No such part."
+	if id != "" and (not Data.SHIPS.has(id) or not (id in owned_ships)): return "Buy that ship first."
+	if id == ship_id: id = ""
+	if str(ship_parts.get(part, "")) == id: return "Already fitted."
+	ship_parts[part] = id
+	changed.emit()
+	return "%s %s fitted." % [Data.SHIPS[id if id != "" else ship_id]["name"], part]
+
+## The model key of each part of your ship (all the same when nothing is swapped).
+func ship_keys() -> Dictionary:
+	var out := {}
+	for p in ShipParts.PARTS:
+		var id := str(ship_parts.get(p, ""))
+		out[p] = str(Data.SHIPS[id if id != "" and Data.SHIPS.has(id) else ship_id]["model"])
+	return out
+
+func ship_swapped() -> bool:
+	for p in ShipParts.PARTS:
+		var id := str(ship_parts.get(p, ""))
+		if id != "" and id != ship_id and Data.SHIPS.has(id): return true
+	return false
+
 ## The model key each part comes from.
 func mech_keys() -> Dictionary:
 	var out := {}
 	for p in ["arms", "core", "legs"]: out[p] = str(Data.MECHS[str(mech_parts.get(p, "blackgold"))]["model"])
+	var hid := str(mech_parts.get("head", ""))
+	if not Data.MECHS.has(hid) or not (hid in owned_mechs): hid = str(mech_parts.get("core", "blackgold"))
+	out["head"] = str(Data.MECHS[hid]["model"])   # v13.266: the head (the core's own until you fit another)
 	return out
 
 ## Mech-form stats from the fitted parts: armor from the core, gun power from the arms, pace from the legs.

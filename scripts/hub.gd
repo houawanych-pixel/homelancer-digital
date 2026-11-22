@@ -2862,7 +2862,7 @@ func _mech_bay(bay: Control) -> bool:
 	preview_vp.own_world_3d = true
 	preview_vp.transparent_bg = true
 	svc.add_child(preview_vp)
-	var m := ShipFactory.build_mech(str(k["core"]), str(k["arms"]), str(k["legs"]))
+	var m := ShipFactory.build_mech(str(k["core"]), str(k["arms"]), str(k["legs"]), str(k.get("head", "")))
 	m.name = "BayMech"
 	preview_pivot = Node3D.new()
 	preview_pivot.name = "Turntable"
@@ -3783,7 +3783,7 @@ func open_ship_viewer() -> StationViewer:
 	var m: Node3D
 	if _eq_mech():
 		var k: Dictionary = GS.mech_keys()
-		m = ShipFactory.build_mech(str(k["core"]), str(k["arms"]), str(k["legs"]))
+		m = ShipFactory.build_mech(str(k["core"]), str(k["arms"]), str(k["legs"]), str(k.get("head", "")))
 	else: m = ShipFactory.build(Data.SHIPS[GS.ship_id]["model"], true)
 	sv.key_screens([StationViewer.KEY_MAGENTA, StationViewer.KEY_GREEN], ["MAGENTA", "GREEN SCREEN"])
 	sv.show_model(m, str(Data.SHIPS[GS.ship_id]["name"]).to_upper() if not _eq_mech() else "YOUR MECH")
@@ -4461,7 +4461,7 @@ func _mechs_page() -> void:
 	cap.text = "YOUR MECH  ·  Armour %d%%  ·  Gun power x%.2f  ·  Pace x%.2f" % [int(round(GS.mech_armor() * 100.0)), GS.mech_arm(), GS.mech_speed()]
 	cap.name = "MechStats"
 	list.add_child(cap)
-	for part in ["arms", "core", "legs"]:
+	for part in (["head", "arms", "core", "legs"] if Data.MECH_HEADS else ["arms", "core", "legs"]):   # v13.266: the head too
 		var row := HFlowContainer.new()
 		row.name = "Part_" + part
 		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -4478,8 +4478,9 @@ func _mechs_page() -> void:
 			b.custom_minimum_size = Vector2(150, 50)
 			b.clip_text = true
 			var nm := str(Data.MECHS[fid].get("short", Data.MECHS[fid]["name"]))
-			b.text = ("[%s]" % nm) if GS.mech_parts[part] == fid else nm
-			b.disabled = GS.mech_parts[part] == fid
+			var fitted := str(GS.mech_parts.get(part, GS.mech_parts.get("core", "")))
+			b.text = ("[%s]" % nm) if fitted == fid else nm
+			b.disabled = fitted == fid
 			b.pressed.connect(func(): status.text = GS.fit_mech_part(part, fid); show_screen("mechs"))
 			row.add_child(b)
 		list.add_child(row)
@@ -4548,7 +4549,7 @@ func _mech_preview() -> void:
 	for p in k.values():
 		var pk := ShipFactory.pack_of(str(p))
 		if pk != "" and not Packs.is_ready(pk): ready = false
-	var m: Node3D = ShipFactory.build_mech(str(k["core"]), str(k["arms"]), str(k["legs"])) if ready else ShipFactory.build("mech_player")
+	var m: Node3D = ShipFactory.build_mech(str(k["core"]), str(k["arms"]), str(k["legs"]), str(k.get("head", ""))) if ready else ShipFactory.build("mech_player")
 	m.name = "MechPreview"
 	preview_pivot.add_child(m)
 	preview_key = "mech"
@@ -6237,7 +6238,7 @@ func _gar_attach_fx(m: String) -> void:
 
 ## v12.68: the model on the garage turntable: your mech, your ship, or you (the pilot) on foot
 func _lo_model() -> Node3D:
-	if lo_frame == "mech": return ShipFactory.build_mech(str(GS.mech_keys()["core"]), str(GS.mech_keys()["arms"]), str(GS.mech_keys()["legs"]))
+	if lo_frame == "mech": return ShipFactory.build_mech(str(GS.mech_keys()["core"]), str(GS.mech_keys()["arms"]), str(GS.mech_keys()["legs"]), str(GS.mech_keys().get("head", "")))
 	if lo_frame == "pilot":
 		if PilotRig.ready():
 			var pr := PilotRig.new()
@@ -6386,6 +6387,34 @@ func _ship_page() -> void:
 	var head := _label(22, Color(1, 1, 1))
 	head.text = "%s  ·  %s" % [str(sh["name"]).to_upper(), sh["class"]]
 	v.add_child(head)
+	if Data.SHIP_PARTS and GS.owned_ships.size() > 1:   # v13.266 (owner): your cockpit, body, wings and tail, from any ship you own
+		var cap := _label(16, CYAN)
+		cap.text = "SHIP PARTS  ·  the look is yours, the stats stay the %s's" % str(sh["name"])
+		cap.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(cap)
+		for part in ShipParts.PARTS:
+			var row := HFlowContainer.new()
+			row.name = "ShipPart_" + part
+			row.add_theme_constant_override("h_separation", 8)
+			row.add_theme_constant_override("v_separation", 6)
+			var pl := _label(17, GOLD)
+			pl.text = "%s:" % part.to_upper()
+			pl.custom_minimum_size = Vector2(0, 48)
+			row.add_child(pl)
+			for sid in GS.owned_ships:
+				if not Data.SHIPS.has(str(sid)) or not ShipFactory.has_real_model(str(Data.SHIPS[str(sid)]["model"])): continue
+				var cur := str(GS.ship_parts.get(part, ""))
+				var on: bool = (cur == "" and str(sid) == GS.ship_id) or cur == str(sid)
+				var b := Button.new()
+				b.name = "FitShip_%s_%s" % [part, sid]
+				b.custom_minimum_size = Vector2(130, 48)
+				b.clip_text = true
+				b.text = ("[%s]" % Data.SHIPS[str(sid)]["name"]) if on else str(Data.SHIPS[str(sid)]["name"])
+				b.disabled = on
+				var sid2 := str(sid)
+				b.pressed.connect(func(): status.text = GS.fit_ship_part(part, sid2); show_screen("ship"))
+				row.add_child(b)
+			v.add_child(row)
 	# v13.09 (owner: "this should activate while you're in the pilot's room"): your pilot and his gear, from your quarters
 	var gs_btn := Button.new()
 	gs_btn.name = "QuartersGear"

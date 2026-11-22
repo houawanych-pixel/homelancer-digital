@@ -7251,6 +7251,17 @@ func fleet_mech() -> bool: return Data.FLEET_MECH and boarding and Boarding.INFO
 var _mech_ok := Vector3.ZERO      # the mech's last place outside the pilot areas
 var _mech_said := 0.0
 var pilot_rig: PilotRig
+## v13.266: your ship, wearing the cockpit, body, wings and tail you fitted (all real models: else your own ship)
+func _player_ship_model() -> Node3D:
+	if Data.SHIP_PARTS and GS.ship_swapped():
+		var keys := GS.ship_keys()
+		if keys.values().all(func(k): return ShipFactory.has_real_model(str(k)) and (ShipFactory.pack_of(str(k)) == "" or Packs.is_ready(ShipFactory.pack_of(str(k))))):
+			return ShipParts.build(keys)
+		for k in keys.values():
+			var pk := ShipFactory.pack_of(str(k))
+			if pk != "" and not Packs.is_ready(pk): Packs.request(pk)
+	return ShipFactory.build(Data.SHIPS[GS.ship_id]["model"])
+
 func _player_mech_model() -> Node3D:
 	if (escape_pilot or on_foot) and PilotRig.ready():
 		pilot_rig = PilotRig.new()
@@ -7279,7 +7290,7 @@ func _player_mech_model() -> Node3D:
 			if not Packs.pack_ready.is_connected(_on_mech_pack): Packs.pack_ready.connect(_on_mech_pack)
 			Packs.request(pk)
 	if waiting: return ShipFactory.build("mech_player")
-	return ShipFactory.build_mech(str(k["core"]), str(k["arms"]), str(k["legs"]))
+	return ShipFactory.build_mech(str(k["core"]), str(k["arms"]), str(k["legs"]), str(k.get("head", "")))
 
 func _on_mech_pack(pk: String) -> void:
 	if not pk.begins_with("mf_") or not is_inside_tree() or GS.form != "mech" or transform_t > 0.0: return
@@ -7314,7 +7325,7 @@ func set_player_model() -> void:
 			if not Packs.pack_ready.is_connected(_on_ship_pack): Packs.pack_ready.connect(_on_ship_pack)
 			Packs.request(spk)
 	pilot_rig = null
-	model = _player_mech_model() if mech else ShipFactory.build(Data.SHIPS[GS.ship_id]["model"])   # (v1.9i: the mech wears its fitted parts)
+	model = _player_mech_model() if mech else _player_ship_model()   # (v1.9i: the mech wears its fitted parts)
 	player.add_child(model)
 	model.visible = GS.view != "cockpit"
 	# damage maps between forms: left wing = left arm, right wing = right arm, hull = core

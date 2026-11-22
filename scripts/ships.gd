@@ -341,14 +341,16 @@ static func pack_of(key: String) -> String:
 	return ""
 
 ## v1.9i: a mech built from three frames' parts: the core's body and skeleton, the arms' and legs' meshes on it.
-static func build_mech(core_key: String, arms_key: String, legs_key: String) -> Node3D:
+static func build_mech(core_key: String, arms_key: String, legs_key: String, head_key := "") -> Node3D:
 	var m := build(core_key)
 	var arms_src: Node3D = raw(arms_key) if arms_key != core_key else null
 	var legs_src: Node3D = raw(legs_key) if legs_key != core_key else null
 	if arms_src != null or legs_src != null: MechParts.assemble(m, arms_src, legs_src)
-	for n in [arms_src, legs_src]:
+	var head_src: Node3D = raw(head_key) if head_key != "" and head_key != core_key and Data.MECH_HEADS else null   # v13.266: another frame's head
+	if head_src != null: MechParts.swap_head(m, head_src)
+	for n in [arms_src, legs_src, head_src]:
 		if n != null: n.free()
-	m.set_meta("mech_keys", [core_key, arms_key, legs_key])
+	m.set_meta("mech_keys", [core_key, arms_key, legs_key, head_key])
 	return m
 
 ## v6.2 (owner): a creature ship's back half waves (tentacles, tails): the model's own texture on a material whose

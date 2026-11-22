@@ -242,6 +242,98 @@ static func assemble(model: Node3D, arms_src: Node3D, legs_src: Node3D) -> Dicti
 	model.set_meta("mech_parts", info)
 	return info
 
+## v13.266 (owner: "switch out the mech's head too"): a core mesh cut once more, at the neck: a HORIZONTAL plane a
+## little above the Neck joint (towards the Head joint). [the core without its head, the head] (cached; null when the
+## mesh has no part above the neck).
+const NECK_CUT := 0.3
+static var _head_cache := {}
+static func split_head(mi: MeshInstance3D, skel: Skeleton3D) -> Array:
+	var key := mi.mesh.get_instance_id()
+	if _head_cache.has(key): return _head_cache[key]
+	var skin := mi.skin
+	var names: Array = []
+	for b in skin.get_bind_count():
+		var nm := str(skin.get_bind_name(b))
+		if nm == "" and skel != null and skin.get_bind_bone(b) >= 0: nm = skel.get_bone_name(skin.get_bind_bone(b))
+		names.append(nm)
+	var neck := _joint(skin, names, "Neck", Vector3(0, 1e9, 0))
+	var headj := _joint(skin, names, "Head", neck + Vector3.UP)
+	var cut_y: float = lerpf(neck.y, headj.y, NECK_CUT)
+	var outs := [ArrayMesh.new(), ArrayMesh.new()]
+	var used := [false, false]
+	var src: Mesh = mi.mesh
+	if neck.y > 1e8:
+		_head_cache[key] = [null, null]
+		return [null, null]
+	for s in src.get_surface_count():
+		var arr: Array = src.surface_get_arrays(s)
+		var verts: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+		var bones = arr[Mesh.ARRAY_BONES]
+		var nv := verts.size()
+		if nv == 0 or bones == null or (bones as PackedInt32Array).size() == 0: continue
+		var nb: int = (bones as PackedInt32Array).size() / nv
+		var idx: PackedInt32Array = arr[Mesh.ARRAY_INDEX]
+		if idx.size() == 0:
+			idx.resize(nv)
+			for v in nv: idx[v] = v
+		var ed := _Edit.new(arr, nb)
+		var lists := [PackedInt32Array(), PackedInt32Array()]
+		var pl := Plane(Vector3.UP, cut_y)
+		for t in idx.size() / 3:
+			var tri := [idx[t * 3], idx[t * 3 + 1], idx[t * 3 + 2]]
+			var up := 0
+			for v in tri: if verts[v].y >= cut_y: up += 1
+			if up == 0: lists[0].append_array(tri)
+			elif up == 3: lists[1].append_array(tri)
+			else:
+				for piece in ed.clip(tri, pl):
+					var c := (ed.pos(piece[0]) + ed.pos(piece[1]) + ed.pos(piece[2])) / 3.0
+					lists[1 if c.y >= cut_y else 0].append_array(piece)
+		var a_all: Array = ed.arrays()
+		var flags: int = (src.surface_get_format(s) & Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS) if src is ArrayMesh else 0
+		var mat := mi.get_surface_override_material(s)
+		if mat == null: mat = src.surface_get_material(s)
+		for k in 2:
+			if lists[k].is_empty(): continue
+			var a2 := a_all.duplicate()
+			a2[Mesh.ARRAY_INDEX] = lists[k]
+			(outs[k] as ArrayMesh).add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, a2, [], {}, flags)
+			(outs[k] as ArrayMesh).surface_set_material((outs[k] as ArrayMesh).get_surface_count() - 1, mat)
+			used[k] = true
+	var res := [outs[0] if used[0] else null, outs[1] if used[1] else null]
+	_head_cache[key] = res
+	return res
+
+## Put another mech's head on this mech: the core's own head is cut off, the other's head (skinned by bone name to this
+## skeleton) goes on.
+static func swap_head(model: Node3D, head_src: Node3D) -> bool:
+	var skel := find_skeleton(model)
+	var src_skel := find_skeleton(head_src)
+	if skel == null or src_skel == null: return false
+	var cores: Array = part_nodes(model, "core")
+	if cores.is_empty(): cores = skinned_meshes(model).filter(func(m): return not str(m.name).begins_with("Part_"))
+	for mi: MeshInstance3D in cores:
+		var cut := split_head(mi, skel)
+		if cut[1] == null: continue
+		if cut[0] == null: mi.visible = false
+		else:
+			mi.mesh = cut[0]
+			for s in (cut[0] as ArrayMesh).get_surface_count(): mi.set_surface_override_material(s, null)
+	var theirs: Array = part_nodes(head_src, "core")
+	if theirs.is_empty(): theirs = skinned_meshes(head_src)
+	var n_on := 0
+	for omi: MeshInstance3D in theirs:
+		var hc := split_head(omi, src_skel)
+		if hc[1] == null: continue
+		var n := MeshInstance3D.new()
+		n.name = "Part_head"
+		n.mesh = hc[1]
+		n.skin = _named_skin(omi.skin, src_skel)
+		skel.add_child(n)
+		n.skeleton = n.get_path_to(skel)
+		n_on += 1
+	return n_on > 0
+
 ## The pre-cut part nodes of one part in a mech model.
 static func part_nodes(n: Node, part: String, out: Array = []) -> Array:
 	if n is MeshInstance3D and str(n.name).begins_with("Part_" + part): out.append(n)

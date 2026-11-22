@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.262"
+const VERSION := "v13.263"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -1758,7 +1758,7 @@ const MECHS := {
 	"mecbrn": {"name": "Cockpit Brute Frame", "short": "Brute", "model": "mf_mecbrn", "price": 17000, "armor": 0.15, "arm": 1.0, "speed": 1.0},
 }
 const MECH_ORDER := ["blackgold", "tannavy", "rifle", "orange", "headless", "minigun_a", "minigun_b", "teal", "white", "mecblu", "mecbrn", "acmec"]
-const MECH_PART_NAMES := {"arms": "Arms", "core": "Core (upper body)", "legs": "Legs (lower body)"}
+const MECH_PART_NAMES := {"head": "Head", "arms": "Arms", "core": "Core (upper body)", "legs": "Legs (lower body)"}
 const FACTION_MECH := {"Savagers": "orange", "Imperium": "rifle", "Unity": "white", "Liberator": "minigun_a", "Elyza": "mecblu",
 	"Covenant": "teal", "Solarion": "mecbrn", "Orion": "minigun_b", "Cybermorph": "headless", "Solrath": "acmec", "Kaijurai": "tannavy"}
 const MECH_BOSS_SCALE := 1.8       # a faction's boss mech is its own mech this much bigger ...
@@ -2391,11 +2391,13 @@ const CREW_DOOR_STEP := 22.0      # m: they line up this far in front of a door,
 const CREW_REACH := 10.0           # m: a door or spot reached
 const CREW_COWER_Y := 0.6          # on an alarm they crouch (their standee this tall)
 const CREW_PLEA_R := 90.0          # m: they plead when you come this close on an alarm
+const MECH_HEADS := true        # v13.266 (owner): the mech's head is its own part (another frame's head on yours)
+const SHIP_PARTS := true        # v13.266 (owner): swap your ship's cockpit, body, wings and tail for those of other ships you own
 const FACTION_PANELS := true    # v13.265 (owner): each faction's ships, stations and facilities wear their own wall panels
 const MAP_ICONS := true         # v13.264 (owner): the deck plan's icons (lifts, card pads, terminals, the way out) and their key
-const PILOT_PARKOUR := false      # v13.263 (owner: "Titanfall: wall-running and grapple, the booster only a certain amount")
+const PILOT_PARKOUR := true      # v13.263 (owner: "Titanfall: wall-running and grapple, the booster only a certain amount")
 const WALLRUN_REACH := 7.0       # m: a wall this close at the pilot's side can be run
-const WALLRUN_MIN := 18.0        # m/s: fast enough to run it
+const WALLRUN_MIN := 6.0         # m/s: running (the pilot runs about 7 m/s)
 const WALLRUN_TIME := 1.8        # s on one wall
 const WALLRUN_GRAV := 0.12       # gravity while on the wall (a slow slide)
 const WALLJUMP_PUSH := 26.0      # m/s off the wall

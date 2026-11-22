@@ -7653,6 +7653,47 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if _flag("HL_PARTS"):   # v13.266 (owner: "switch out the mech's head, core, arms, legs; the ship's cockpit, body, wings, tail")
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		for pk in ["ranger", "lancer", "mechs"]: Packs.request(pk)
+		for pk in ["ranger", "lancer", "mechs"]: await Packs.wait(pk, 120.0)
+		for sid in ["cadet", "ranger", "lancer"]: if not (sid in GS.owned_ships): GS.owned_ships.append(sid)
+		GS.ship_id = "cadet"
+		var cut: Dictionary = ShipParts.cut(str(Data.SHIPS["ranger"]["model"]))
+		var pc := {}
+		for p in ShipParts.PARTS: pc[p] = (cut[p] as Array).size()
+		print("[route] ranger parts: ", pc)
+		var said := GS.fit_ship_part("wings", "lancer") + " / " + GS.fit_ship_part("cockpit", "ranger") + " / " + GS.fit_ship_part("tail", "lancer")
+		var s := _sp()
+		s.set_player_model()
+		await _wait(0.5)
+		var parts_in := {}
+		for c in s.model.get_children(): parts_in[str(c.name).get_slice("@", 0).trim_prefix("Part_")] = true
+		s._update_camera(1.0, true)
+		await _wait(0.5)
+		await _capture("parts_ship_mix")
+		_check("v13.266: your ship wears parts of other ships you own (%s): cockpit, body, wings, tail all on (%s)" % [said, str(parts_in.keys())], GS.ship_swapped() and ShipParts.PARTS.all(func(p): return parts_in.has(p)) and pc.values().all(func(n): return n > 0), "")
+		# the mech: another frame's head
+		var fids: Array = Data.MECH_ORDER.filter(func(f): return ShipFactory.has_real_model(str(Data.MECHS[f]["model"])))
+		for f in fids.slice(0, 2): if not (f in GS.owned_mechs): GS.owned_mechs.append(f)
+		var head_ok := false
+		var said2 := ""
+		if fids.size() >= 2:
+			GS.mech_parts["core"] = fids[0]
+			said2 = GS.fit_mech_part("head", fids[1])
+			var k: Dictionary = GS.mech_keys()
+			var m := ShipFactory.build_mech(str(k["core"]), str(k["arms"]), str(k["legs"]), str(k["head"]))
+			head_ok = not MechParts.part_nodes(m, "head").is_empty()
+			m.free()
+		_check("v13.266: the mech's head is its own part: %s (another frame's head on it: %s)" % [said2, head_ok], head_ok, str(fids))
+		GS.fit_ship_part("wings", "")
+		GS.fit_ship_part("cockpit", "")
+		GS.fit_ship_part("tail", "")
+		for r2 in results: print("[route] ", r2)
+		get_tree().quit()
+		return
 	if _flag("HL_PANELS"):   # v13.265 (owner: "each faction its own texture panels")
 		var dirp := OS.get_environment("HL_SHOT_DIR")
 		var made := 0
@@ -7726,9 +7767,14 @@ func _run() -> void:
 		var dyc: float = Boarding.deck_y(s.player.global_position)   # (the deck you're on: it's built)
 		for k in Boarding.ROOMS:
 			var r: Array = Boarding.ROOMS[k]["r"]
-			if absf(float(Boarding.ROOMS[k]["y"][0]) - dyc) > 1.0 or Boarding.ROOMS[k].has("lift"): continue
+			if absf(float(Boarding.ROOMS[k]["y"][0]) - dyc) > 1.0 or Boarding.ROOMS[k].has("lift") or str(Boarding.ROOMS[k].get("shape", "rect")) != "rect" or bool(Boarding.ROOMS[k].get("flow", false)) or absf(float(Boarding.ROOMS[k]["y"][1]) - float(Boarding.ROOMS[k]["y"][0])) > 1.0: continue
 			var a2: float = (float(r[1]) - float(r[0])) * (float(r[3]) - float(r[2]))
-			if a2 > area and float(r[1]) - float(r[0]) > 120.0: area = a2; best = k
+			if a2 > area and float(r[1]) - float(r[0]) > 70.0 and float(r[1]) - float(r[0]) < 260.0 and float(r[3]) - float(r[2]) > 30.0 and float(Boarding.ROOMS[k]["h"]) > 24.0: area = a2; best = k   # (a plain room: square, flat, tall enough to jump, a wall in grapple reach)
+		if best == "":
+			_check("v13.263: a plain room to test in", false, "none on deck %.0f" % dyc)
+			for r3 in results: print("[route] ", r3)
+			get_tree().quit()
+			return
 		var r0: Array = Boarding.ROOMS[best]["r"]
 		var y0: float = float(Boarding.ROOMS[best]["y"][0])   # (this deck's floor: floor_at over a spot can answer for another deck)
 		var start := Vector3(float(r0[0]) + 30.0, y0 + 14.0, float(r0[2]) + 4.0)
@@ -7737,14 +7783,12 @@ func _run() -> void:
 			await get_tree().process_frame
 		s.yaw = -PI * 0.5   # facing +x, the wall on the left
 		s.vel = Vector3(30, 4, 0)
-		print("[pkdbg] best=%s r=%s y0=%.0f dyc=%.0f floor_at=%.0f room_at=%s esc=%s ground=%s pos=%s" % [best, str(r0), y0, dyc, Boarding.floor_at(start), Boarding.room_at(start), s.escape_pilot, s.ground_mode, str(s.player.global_position)])
 		s.move = Vector2(0, 1)
 		var ran := false
 		var y_hold := 0.0
 		for i in 40:
 			await get_tree().process_frame
 			if s.wallrunning: ran = true
-			if i % 10 == 0: print("[pkdbg] i=%d pos=%s vel=%s grounded=%s wall=%s" % [i, str(s.player.global_position), str(s.vel), s.grounded, str(s._wall_side(Basis.from_euler(Vector3(0, s.yaw, 0))))])
 		y_hold = s.player.global_position.y - y0
 		await _capture("parkour_wallrun")
 		s.move = Vector2.ZERO
