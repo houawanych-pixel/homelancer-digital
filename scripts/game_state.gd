@@ -99,6 +99,7 @@ var kills := 0
 ## by whom, and how many of their ships are on your tail right now (they follow you through a jump or into orbit)
 var heat := 0.0
 var garage: Array = []   # v13.285: the kinds of car kept in your city garage ("car", "bus", "truck")
+var radio := 0            # v13.286: the car radio station (Data.RADIO_STATIONS)
 var rests := 0           # (tests) times you rested at a safehouse
 var heat_fac := ""
 var heat_follow := 0
@@ -140,7 +141,7 @@ var tutorial_seen: Array = []   # v1.7r: tutorial lesson ids already given (see 
 var god_mode := false # only used by the automated route test
 
 # ---------------------------------------------------------------- v1.7y saving
-const SAVE_KEYS := ["garage", "owned_parts", "ship_parts", "cutter_level", "build_mats", "credits", "ship_id", "owned_ships", "weapon_id", "owned_weapons", "missiles", "heavy_missiles", "mines", "nukes", "rack",
+const SAVE_KEYS := ["radio", "garage", "owned_parts", "ship_parts", "cutter_level", "build_mats", "credits", "ship_id", "owned_ships", "weapon_id", "owned_weapons", "missiles", "heavy_missiles", "mines", "nukes", "rack",
 	"owned_racks", "slots", "modes", "view", "system_id", "discovered", "explored", "last_base", "kills", "met", "mood", "memory", "heat_shield",
 	"bounty", "bounties_done", "mission", "cargo", "missions_done", "rep", "cast", "mine_kind", "block_deltas", "tutorial_seen", "bounty_jail", "mounts", "core_gun", "core_gun2", "core_gun3", "modules", "owned_modules", "gun_levels", "owned_mechs", "mech_parts", "pilot_name", "found_stations", "planet_visits", "relics", "respawn", "respawn_prev", "home_pinned", "planet_seen", "atlases", "tips_on", "tips_known", "loadouts", "loadout_presets", "weapon_state", "l3_found", "pilot_body", "owned_gear", "pilot_suit", "creator_done"]   # (v1.9e: + mounts; v1.9i: + owned_mechs, mech_parts; v1.9j: + pilot_name)
 var save_path: String = Data.SAVE_PATH

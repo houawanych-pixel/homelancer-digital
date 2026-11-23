@@ -283,6 +283,9 @@ func music_mood(dt: float) -> String:
 		return Music.faction_mood(Data.SYSTEMS.get(GS.system_id, {}).get("faction", "Neutral"), GS.system_id)
 	if not is_instance_valid(space) or not is_instance_valid(space.player): return Music.mood
 	if state != "flight": return Music.mood          # docking, jumping, map: keep what is playing
+	if space.driving:   # v13.286: in a car the music is the radio
+		var rs: Dictionary = Data.RADIO_STATIONS[posmod(GS.radio, Data.RADIO_STATIONS.size())]
+		return str(rs["mood"])
 	var fighting: bool = space.hostiles_engaged() > 0
 	if fighting:
 		_fight_t = 0.0
@@ -869,6 +872,10 @@ func _on_hud(id: String) -> void:
 			if space.eject() == "loading": hud.flash_message("Pilot still downloading — try again in a moment.")
 		"enter":
 			space.enter_vehicle()
+		"radio":   # v13.286 (owner: "radio")
+			GS.radio = posmod(GS.radio + 1, Data.RADIO_STATIONS.size())
+			var rs: Dictionary = Data.RADIO_STATIONS[GS.radio]
+			hud.flash_message(("📻 %s · %s" % [rs["name"], rs["tag"]]) if str(rs["mood"]) != "" else "📻 RADIO OFF")
 		"rest":   # v13.285 (owner: "safehouses")
 			space.rest()
 		"store_car":

@@ -7987,6 +7987,19 @@ func _run() -> void:
 		main._on_hud("take_car")
 		await _wait(0.5)
 		var out_ok: bool = s.driving and is_instance_valid(s.car) and str(s.car.get_meta("kind", "")) == kind and GS.garage.is_empty() and s.cars_stolen == thefts and GS.heat == 0.0
+		# v13.286: the radio, in the car
+		var radio_btn: bool = main.hud.buttons.has("radio")
+		GS.radio = 0
+		await _wait(0.3)
+		var m0: String = main.music_mood(0.1)
+		main._on_hud("radio")
+		var m1: String = main.music_mood(0.1)
+		for k in Data.RADIO_STATIONS.size() - 2: main._on_hud("radio")
+		var m_off: String = main.music_mood(0.1)
+		main._on_hud("radio")
+		var radio_ok: bool = radio_btn and m0 == "space" and m1 == "battle" and m_off == "" and GS.radio == 0
+		await _capture("radio")
+		_check("Car radio (v13.286): in a car the RADIO button shows (%s) and the music is the station: %s, next %s, ..., off (%s), round again to the first" % [radio_btn, m0, m1, m_off], radio_ok, "")
 		_check("Safehouse and garage (v13.285): the city's safehouse is marked (sign, beam, garage gate: %s); at its door REST (%s) clears the heat when nobody sees you (%s); drive a car to the garage, STORE CAR (%s, kept: %s), on foot TAKE CAR (%s) and drive it out, no crime (%s)" % [marked, pr_rest, rested, pr_store, stored, pr_take, out_ok],
 			marked and pr_rest == "rest" and rested and pr_store == "store_car" and stored and pr_take == "take_car" and out_ok, "")
 		GS.garage.clear()

@@ -135,5 +135,5 @@ func near_garage(p: Vector3) -> bool:
 
 ## Where a car comes out of the garage, and which way it faces.
 func exit_point() -> Array:
-	var bay: Vector2 = (spot["garage"] as Vector2) + (spot["out"] as Vector2) * 14.0
+	var bay: Vector2 = (spot["garage"] as Vector2) + (spot["out"] as Vector2) * 32.0
 	return [bay, spot["out"]]

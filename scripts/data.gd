@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.285"
+const VERSION := "v13.286"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -575,6 +575,11 @@ const GARAGE_MAX := 3               # cars kept in the garage
 const GARAGE_GATE_W := 12.0         # m: the gate's opening
 const GARAGE_GATE_H := 9.0
 const GARAGE_SIDE := 26.0           # m along the street from the safehouse door
+## v13.286 (owner: "radio", GTA style): in a car the music is the radio. RADIO steps through the stations; each plays
+## one of the game's own moods (its tracks, one after another).
+const RADIO_STATIONS := [{"name": "SPACEWAYS 101", "mood": "space", "tag": "easy cruising"}, {"name": "RIFT FM", "mood": "battle", "tag": "loud and fast"},
+	{"name": "BLOODWATER 66", "mood": "dark", "tag": "dark side of the city"}, {"name": "VOID DRIFT", "mood": "void", "tag": "late-night ambient"},
+	{"name": "INTERSTELLAR AM", "mood": "explore", "tag": "the long road"}, {"name": "RADIO OFF", "mood": "", "tag": ""}]
 const CITY_FLOOR_LAYERS := 2        # layers (5 m) a floor: 1 of room (5 m: people, not mechs), 1 of slab (v13.273: was 3)
 const MODULE := 10                  # v13.273: cells a building module is across: a 3 x 3 grid of 2 x 2-cell rooms (10 m) in 1-cell walls, the middle room the lift
 const CITY_BRIDGE_CHANCE := 0.6     # the chance of a walkway across the alley between two facing buildings
