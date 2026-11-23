@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.282"
+const VERSION := "v13.283"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -553,6 +553,9 @@ const TRAFFIC_LANE_W := 6.0         # m a lane
 const TRAFFIC_RANGE := 400.0        # m round you that has traffic
 const TRAFFIC_ALT := 250.0          # m over the street: higher than this, none
 const TRAFFIC_SPAWN_EVERY := 0.3    # s between new vehicles (until the pool is out)
+const STEAL_REACH := 14.0           # v13.283 (owner: "stealing cars"): m from a vehicle (your middle to its) to STEAL it
+const CAR_DRIVE_SPEED := 55.0       # m/s top speed in a car you took (the traffic drives 10-30)
+const TRAFFIC_PARKED_MAX := 6       # vehicles you left on the street that stay (the oldest goes)
 const CITY_FLOOR_LAYERS := 2        # layers (5 m) a floor: 1 of room (5 m: people, not mechs), 1 of slab (v13.273: was 3)
 const MODULE := 10                  # v13.273: cells a building module is across: a 3 x 3 grid of 2 x 2-cell rooms (10 m) in 1-cell walls, the middle room the lift
 const CITY_BRIDGE_CHANCE := 0.6     # the chance of a walkway across the alley between two facing buildings

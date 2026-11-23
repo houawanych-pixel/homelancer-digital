@@ -869,6 +869,8 @@ func _on_hud(id: String) -> void:
 			if space.eject() == "loading": hud.flash_message("Pilot still downloading — try again in a moment.")
 		"enter":
 			space.enter_vehicle()
+		"steal":   # v13.283 (owner: "stealing cars")
+			if not space.steal_car(): hud.flash_message("Nothing to take here.")
 		"form":
 			if space.on_foot:
 				hud.flash_message("You're on foot: walk back to it and ENTER.")

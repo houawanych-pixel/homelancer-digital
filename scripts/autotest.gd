@@ -7853,6 +7853,68 @@ func _run() -> void:
 			n_on >= 10 and kinds.size() >= 2 and moved >= n_on - 1 and low == n_on and on_road == n_on, "")
 		_finish_group()
 		return
+	if _flag("HL_STEAL"):   # v13.283 (owner: "stealing cars")
+		var pid := "new_terra"
+		var tile := 4
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main._load_surface(pid, tile)
+		await _until(func(): return is_instance_valid(main.space) and main.space.surface_mode and main.space.planet_id == pid, 40.0)
+		var s: Node = _sp()
+		var cr: Rect2i = CityPlan.rect(pid, tile)
+		var c2: Vector2 = BlockField.region_centre(cr.position + Vector2i(1, 1)) - Vector2(Data.BLOCK_REGION, Data.BLOCK_REGION) * 0.5
+		var g: float = CityPlan.ground(pid, tile)
+		var spot := Vector3(c2.x + 20.0, g + Data.PILOT_FEET_BELOW + 0.5, c2.y + 60.0)
+		await _until(func(): s.player.global_position = spot; s.vel = Vector3.ZERO; return s._regions.size() >= 4 and s._building == null and s.city_traffic != null and is_instance_valid(s.city_traffic) and s.city_traffic.active() >= 6, 150.0)
+		GS.form = "mech"
+		s.set_player_model()
+		s.ground_mode = true
+		s.player.global_position = spot
+		s.vel = Vector3.ZERO
+		await _wait(1.0)
+		var ej: String = s.eject()
+		await _wait(1.0)
+		# walk up to a car: stand right by the nearest one and hold it still
+		var tr: CityTraffic = s.city_traffic
+		var q: Dictionary = {}
+		for p in tr.pool:
+			if p["state"] != "off" and p["kind"] == "car": q = p; break
+		var got := false
+		var prompt_steal := false
+		var driving := false
+		var hidden := false
+		var top := 0.0
+		var capped := false
+		if not q.is_empty():
+			q["parked"] = true
+			var cn: Node3D = q["node"]
+			s.player.global_position = cn.global_position + cn.global_basis.x * 6.0 + Vector3(0, Data.PILOT_FEET_BELOW - Data.TRAFFIC_HOVER, 0)
+			await _frames(3)
+			prompt_steal = s.prompt() == "steal"
+			main._on_hud("steal")
+			await _wait(0.5)
+			got = s.car == cn and cn.get_parent() == s.player
+			driving = s.driving and s.prompt() == "eject"
+			hidden = is_instance_valid(s.model) and not s.model.visible
+			var fwd: Vector3 = -s.player.global_basis.z
+			for i in 30:
+				s.vel = Vector3(fwd.x * 200.0, s.vel.y, fwd.z * 200.0)
+				s._foot_speed(1.0 / 60.0)
+				top = Vector2(s.vel.x, s.vel.z).length()
+			capped = top <= Data.CAR_DRIVE_SPEED + 0.5 and top > Data.FOOT_SPEED * 2.0
+			s.vel = Vector3.ZERO
+			main.hud.visible = true
+			await _wait(0.6)
+			await _capture("steal_driving")
+		var out: bool = s.eject() == "out"
+		await _wait(0.5)
+		var left_ok: bool = not s.driving and s.car == null and is_instance_valid(s.model) and s.model.visible and tr.parked.size() == 1
+		var again: bool = s.prompt() == "steal" or s.car_candidate().size() > 0
+		_check("Stealing cars (v13.283): out of the mech (%s), by a car STEAL shows (%s); it's yours (%s), you drive it (%s, pilot hidden %s) up to %.0f m/s (%s); EJECT and it stays parked (%s, you can take it again %s); crime noted (%s, %d taken)" % [ej, prompt_steal, got, driving, hidden, top, capped, left_ok, again, s.last_crime, s.cars_stolen],
+			ej == "out" and prompt_steal and got and driving and hidden and capped and out and left_ok and again and s.last_crime == "car_theft" and s.cars_stolen == 1, "")
+		_finish_group()
+		return
 	if _flag("HL_DOME"):   # v13.280 (owner: "oxygen domes over the cities on airless, Mars-like worlds")
 		var dpid := ""
 		var dtile := -1

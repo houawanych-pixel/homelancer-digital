@@ -219,6 +219,36 @@ func _place(p: Dictionary, _dt: float) -> void:
 	var bob := sin(Time.get_ticks_msec() * 0.002 + float(p["phase"])) * 0.25
 	nd.position = Vector3(at.x, _g + Data.TRAFFIC_HOVER + bob, at.y)
 
+## v13.283 (owner: "stealing cars"): take a vehicle out of the traffic (or off the kerb where someone left it): it
+## is yours now (the caller hangs it on the player). A fresh one takes its place in the pool.
+var parked: Array = []    # vehicles left on the street by you: [Node3D]
+var _fresh := 1000
+func take(q: Dictionary) -> Node3D:
+	var nd: Node3D = q["node"]
+	if bool(q.get("kerb", false)):
+		parked.erase(nd)
+		return nd
+	for p in pool:
+		if p["node"] == nd:
+			var nn := _vehicle(str(p["kind"]), _fresh)
+			_fresh += 1
+			nn.visible = false
+			add_child(nn)
+			p["node"] = nn
+			p["state"] = "off"
+			p["parked"] = false
+			break
+	return nd
+
+## A vehicle you got out of: it stays where you left it, hovering, and you can take it again.
+func leave(nd: Node3D) -> void:
+	if nd.get_parent() != null: nd.get_parent().remove_child(nd)
+	add_child(nd)
+	parked.append(nd)
+	while parked.size() > Data.TRAFFIC_PARKED_MAX:
+		var old: Node3D = parked.pop_front()
+		if is_instance_valid(old): old.queue_free()
+
 func active() -> int:
 	return pool.filter(func(p): return p["state"] != "off").size()
 
@@ -232,4 +262,10 @@ func nearest(p: Vector3, reach: float) -> Dictionary:
 		if d < bd:
 			bd = d
 			best = q
+	for nd in parked:
+		if not is_instance_valid(nd): continue
+		var d2 := (nd as Node3D).global_position.distance_to(p)
+		if d2 < bd:
+			bd = d2
+			best = {"node": nd, "kind": str(nd.get_meta("kind", "car")), "kerb": true}
 	return best

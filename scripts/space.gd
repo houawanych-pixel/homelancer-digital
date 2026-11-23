@@ -6963,7 +6963,8 @@ var _boost_glow: OmniLight3D
 func _foot_speed(dt: float) -> void:
 	var fh := Vector3(vel.x, 0, vel.z)
 	var scale_k := esc_h() / Data.FOOT_H if escape_pilot else 1.0   # (the breakout pilot is drawn at mech size)
-	var run_cap: float = Data.FOOT_SPEED
+	var run_cap: float = Data.CAR_DRIVE_SPEED if driving else Data.FOOT_SPEED   # v13.283: in a car you took
+	if driving: ground_mode = true   # (cars stay low: no jetpack)
 	# v12.46 (owner: "the speed run has to charge before it starts running fast, with shadow runners behind you"):
 	# run with SPEED on and it CHARGES (a plain run, the glow building); full, it kicks in all at once: speed-booster pace,
 	# shadow runners trailing. Stop or slow right down and it's lost.
@@ -6974,7 +6975,7 @@ func _foot_speed(dt: float) -> void:
 	if speed_k >= 1.0 and not was_full:
 		Sfx.play("whoosh", -3.0, 1.4)
 		message.emit("SPEED BOOST!")
-	if sprint: run_cap = Data.FOOT_SPEED * (Data.SPEED_BOOST_K if speed_k >= 1.0 else Data.SPRINT_K * Data.SPEED_CHARGE_K)
+	if sprint and not driving: run_cap = Data.FOOT_SPEED * (Data.SPEED_BOOST_K if speed_k >= 1.0 else Data.SPRINT_K * Data.SPEED_CHARGE_K)
 	var cap: float = (run_cap if ground_mode else (Data.JETPACK_SPEED * (Data.JETPACK_BOOST_K if boosting else 1.0))) * (scale_k if escape_pilot else 1.0)
 	if escape_pilot and ground_mode: cap = maxf(cap, Data.BOARD_MAX_SPEED)
 	if speed_k >= 1.0 and fh.length() > walk_cap * 0.6 and (move.length() > 0.3 or _test_run):
@@ -7156,6 +7157,7 @@ func near_parked() -> bool:
 	return Vector2(d.x, d.z).length() < Data.ENTER_REACH and absf(d.y) < 40.0   # (across the ground; it may stand lower or higher)
 
 func eject() -> String:
+	if driving: return exit_car()   # v13.283
 	if not can_eject(): return ""
 	if not PilotRig.ready(): return "loading"
 	if fleet_mech(): return _fleet_eject()
@@ -10408,6 +10410,10 @@ func _update_blasts(dt: float) -> void:
 
 ## The player's ship blows up: both sides and the core go, then the wreck is gone.
 func _die() -> void:
+	if driving:   # v13.283: the car you took goes up with you
+		if is_instance_valid(car): car.queue_free()
+		car = null
+		driving = false
 	var p := player.global_position
 	for side in ["l", "r"]: _blast(Sections.side_point(player_vis, side, model) if is_instance_valid(model) else p, Data.BLAST_WING, "wing_" + side)
 	_blast(p, Data.BLAST_DEATH, "death")
@@ -12810,6 +12816,15 @@ func _update_camera(dt: float, snap: bool) -> void:
 		_set_cam(rel1, ahead, b.y)
 		cam.fov = lerpf(cam.fov, 92.0 if warp_look() else (82.0 if boosting else 76.0), minf(1.0, dt * 2.0))
 		return
+	if driving and is_instance_valid(player) and is_instance_valid(car):   # v13.283: behind and over the car you took
+		var cb := player.global_basis
+		var ln: float = (Data.TRAFFIC_SIZE.get(str(car.get_meta("kind", "car")), Vector3(4, 3, 10)) as Vector3).z
+		var want_c := cb * Vector3(0.0, -Data.PILOT_FEET_BELOW + Data.TRAFFIC_HOVER + ln * 0.9 + 9.0, ln * 0.9 + 18.0)
+		var coff: Vector3 = want_c if snap or _cam_off.length() > 120.0 else _cam_off.lerp(want_c, minf(1.0, dt * 6.0))
+		_cam_off = coff
+		_set_cam(_cam_clip(coff), cb * Vector3(0.0, -Data.PILOT_FEET_BELOW - 2.0, -ln * 0.5 - 6.0), Vector3.UP)
+		cam.fov = lerpf(cam.fov, 70.0, minf(1.0, dt * 4.0) if not snap else 1.0)
+		return
 	if on_foot and is_instance_valid(player):   # v12.39: close over the pilot's right shoulder (he stands 6 m under the frame's middle)
 		var fb := player.global_basis
 		var head := -6.0 + Data.FOOT_H * 0.9
@@ -13931,6 +13946,8 @@ func prompt() -> String:
 		if not lc.is_empty() and player.global_position.distance_to(lc["pos"]) < dock_distance(dc): return "lane"
 		return "dock"
 	if gate_in_range(): return "jump"
+	if driving: return "eject"   # v13.283: get out of the car you took
+	if on_foot and not car_candidate().is_empty() and not near_parked(): return "steal"
 	if on_foot or (fleet_mech() and escape_pilot and is_instance_valid(parked)): return "enter" if near_parked() else ""   # v12.39
 	if not board_candidate().is_empty() or not facility_candidate().is_empty(): return "board"   # v11.60 (owner); v11.96: ENTER a facility
 	if can_eject(): return "eject"
@@ -16264,6 +16281,60 @@ var wild_park := false   # (v12.41) the wildlife test area: every species at fix
 ## v13.276 (owner: "populate the city with people"): a city tile's people (scripts/city_life.gd).
 var city_life: CityLife
 var city_traffic: CityTraffic   # v13.282: the hover traffic
+## v13.283 (owner: "stealing cars"): on foot by a hover car, bus or truck in a city, STEAL takes it: you drive it
+## low over the streets (EJECT to get out; it stays where you leave it and you can take it again)
+var driving := false
+var car: Node3D = null
+var cars_stolen := 0     # (tests; the police chase reads it)
+var last_crime := ""     # what you last did that the law cares about ("car_theft" ...)
+var last_crime_at := Vector3.ZERO
+
+## The vehicle you could take right now ({} if none).
+func car_candidate() -> Dictionary:
+	if not on_foot or driving or city_traffic == null or not is_instance_valid(city_traffic) or not is_instance_valid(player): return {}
+	var feet := player.global_position + Vector3(0, -Data.PILOT_FEET_BELOW + Data.PILOT_H * 0.5, 0)
+	return city_traffic.nearest(feet, Data.STEAL_REACH)
+
+func steal_car() -> bool:
+	var q := car_candidate()
+	if q.is_empty(): return false
+	var nd: Node3D = city_traffic.take(q)
+	var at := nd.global_transform
+	if nd.get_parent() != null: nd.get_parent().remove_child(nd)
+	nd.visible = true
+	player.global_position = at.origin + Vector3(0, Data.PILOT_FEET_BELOW - Data.TRAFFIC_HOVER, 0)
+	_face(-at.basis.z)
+	player.add_child(nd)
+	nd.position = Vector3(0, -Data.PILOT_FEET_BELOW + Data.TRAFFIC_HOVER, 0)
+	nd.rotation = Vector3.ZERO
+	car = nd
+	driving = true
+	ground_mode = true
+	sprint = false
+	speed_k = 0.0
+	vel = Vector3.ZERO
+	if is_instance_valid(model): model.visible = false
+	cars_stolen += 1
+	last_crime = "car_theft"
+	last_crime_at = player.global_position
+	Sfx.play("button", -2.0, 0.6)
+	message.emit("You took the %s. Drive it low through the streets. EJECT to get out." % str(nd.get_meta("kind", "car")))
+	return true
+
+func exit_car() -> String:
+	if not driving or not is_instance_valid(car): return ""
+	var at := car.global_transform
+	if is_instance_valid(city_traffic): city_traffic.leave(car)
+	else: car.queue_free()
+	car.global_transform = at
+	car = null
+	driving = false
+	vel = Vector3.ZERO
+	if is_instance_valid(model): model.visible = true
+	player.global_position += player.global_basis.x * (Data.TRAFFIC_SIZE["bus"] as Vector3).x
+	_update_camera(1.0, true)
+	message.emit("Out of the car.")
+	return "out"
 func _update_city_life(dt: float) -> void:
 	if not Data.CITIES or not is_instance_valid(tile_root) or not CityPlan.is_city_tile(planet_id, tile) or not BlockField.regions_on():
 		return
