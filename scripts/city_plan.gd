@@ -144,14 +144,17 @@ static func block(pid: String, tile: int, r: Vector2i) -> Dictionary:
 			for x in range(lr.position.x, lr.end.x): plan["walk"][Vector2i(x, z)] = true
 		var inner := lr.grow(-Data.CITY_PAVEMENT)
 		var t: Vector2i = toward[li]
-		var b := _building(_pick_kind(rng, downtown), rng, downtown)
+		var rmax: int = (mini(inner.size.x, inner.size.y) - 1) / 2
+		var b := _building(_pick_kind(rng, downtown), rng, downtown, mini(rmax, rng.randi_range(8, 12)))
 		var bs: Vector2i = b["size"]
 		var at := Vector2i(inner.end.x - bs.x if t.x > 0 else inner.position.x, inner.end.y - bs.y if t.y > 0 else inner.position.y)
 		_place(plan, b, at)
 		first.append(b)
-		if bs.x <= inner.size.x - Data.MODULE - 2 and bs.y <= inner.size.y - Data.MODULE - 2 and rng.randf() < 0.7:   # a tower in the far corner too
-			var b2 := _building("tower", rng, downtown)
-			var at2 := Vector2i(inner.position.x if t.x > 0 else inner.end.x - Data.MODULE, inner.position.y if t.y > 0 else inner.end.y - Data.MODULE)
+		var r2 := mini(6, (mini(inner.size.x, inner.size.y) - bs.x - 3) / 2)
+		if r2 >= 4 and rng.randf() < 0.8:   # a slim round or hex tower in the far corner too
+			var b2 := _building(["round", "hex", "oct"][rng.randi() % 3], rng, downtown, r2)
+			var s2: Vector2i = b2["size"]
+			var at2 := Vector2i(inner.position.x if t.x > 0 else inner.end.x - s2.x, inner.position.y if t.y > 0 else inner.end.y - s2.y)
 			_place(plan, b2, at2)
 	# bridges across the alley between the main buildings: east-west pairs, then north-south
 	for pr in [[0, 1, Vector2i(1, 0)], [2, 3, Vector2i(1, 0)], [0, 2, Vector2i(0, 1)], [1, 3, Vector2i(0, 1)]]:
@@ -161,17 +164,28 @@ static func block(pid: String, tile: int, r: Vector2i) -> Dictionary:
 	_blocks[key] = plan
 	return plan
 
+## v13.280 (owner: "futuristic buildings: hexagons, pentagons, round towers, domes, glowing trim, clean angled walls,
+## not jagged voxel stairs"; references: Star Citizen's New Babbage and Area18, Cyberpunk's Night City): each building
+## is one clean prism (a hexagon, pentagon, octagon or round tower) with a crown on top (a glass dome, a spire, a
+## glowing halo). The blocks under it are only its body for walking, shooting and digging; the outside is drawn as
+## the real shape (BlockField._draw_shells).
 static func _pick_kind(rng: RandomNumberGenerator, downtown: bool) -> String:
-	var kinds: Array = ["tower", "tower", "podium", "L"] if downtown else ["tower", "wide", "L", "podium", "wide"]
+	var kinds: Array = ["round", "hex", "oct", "pent", "hex"] if downtown else ["hex", "pent", "oct", "round", "hex", "pent"]
 	return kinds[rng.randi() % kinds.size()]
 
+const SIDES := {"hex": 6, "pent": 5, "oct": 8, "round": 24}
+
 static func _place(plan: Dictionary, b: Dictionary, at: Vector2i) -> void:
-	for k in ["cells", "rooms", "walls"]:
+	for k in ["cells", "rooms", "walls", "band"]:
 		var moved := {}
 		for c in b[k]: moved[c + at] = b[k][c]
 		b[k] = moved
 	b["shaft"] = (b["shaft"] as Array).map(func(c): return c + at)
 	b["door"] = (b["door"] as Array).map(func(c): return c + at)
+	var pv := PackedVector2Array()
+	for q in b["poly"]: pv.append(q + Vector2(at))
+	b["poly"] = pv
+	b["centre"] = (b["centre"] as Vector2) + Vector2(at)
 	b["at"] = at
 	var outs: Array = []   # v13.276: which way each street door faces (out of the building)
 	for c in b["door"]:
@@ -184,105 +198,132 @@ static func _place(plan: Dictionary, b: Dictionary, at: Vector2i) -> void:
 	for c in b["cells"]: plan["cells"][c] = b["cells"][c]
 	for c in b["rooms"]: plan["rooms"][c] = true
 
-## One building of a kind, at (0, 0): modules (10 x 10 cells: walls on the 0 / 3 / 6 / 9 lines, rooms of 2 x 2 cells
-## between, the middle room the lift shaft) side by side sharing walls, the outer corners notched, a door from each
-## module's rooms to the street on the ground floor.
-static func _building(kind: String, rng: RandomNumberGenerator, downtown: bool) -> Dictionary:
-	var M: int = Data.MODULE
-	var S := M - 1   # modules overlap by their shared wall
-	var mods: Array = []   # [offset, floors]
-	var tall := func(lo2: int, hi2: int) -> int: return rng.randi_range(lo2 + (4 if downtown else 0), hi2 + (6 if downtown else 0))
-	match kind:
-		"tower": mods = [[Vector2i(0, 0), tall.call(6, 12)]]
-		"wide":
-			var f := rng.randi_range(3, 6)
-			mods = [[Vector2i(0, 0), f], [Vector2i(S, 0) if rng.randf() < 0.5 else Vector2i(0, S), f]]
-		"L":
-			var f2 := rng.randi_range(4, 8)
-			var corner := rng.randi() % 4   # the missing one of the four
-			var all := [Vector2i(0, 0), Vector2i(S, 0), Vector2i(0, S), Vector2i(S, S)]
-			for q in 4:
-				if q != corner: mods.append([all[q], f2 + (2 if q == (corner + 3) % 4 else 0)])
-		_:   # podium: four low modules, one goes on up as a tower
-			var base := rng.randi_range(2, 4)
-			var up := rng.randi() % 4
-			var all2 := [Vector2i(0, 0), Vector2i(S, 0), Vector2i(0, S), Vector2i(S, S)]
-			for q in 4: mods.append([all2[q], tall.call(8, 14) if q == up else base])
+## The corners of a regular shape (n sides, circumradius rr) round centre c, turned by rot (cell units).
+static func shape_poly(c: Vector2, rr: float, n: int, rot: float) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	for i in n: out.append(c + Vector2(cos(rot + TAU * i / n), sin(rot + TAU * i / n)) * rr)
+	return out
+
+## Is p inside the convex polygon (either winding)?
+static func in_poly(poly: PackedVector2Array, p: Vector2) -> bool:
+	var sgn := 0.0
+	for i in poly.size():
+		var a: Vector2 = poly[i]
+		var b: Vector2 = poly[(i + 1) % poly.size()]
+		var cr := (b - a).cross(p - a)
+		if absf(cr) < 1e-6: continue
+		if sgn == 0.0: sgn = signf(cr)
+		elif signf(cr) != sgn: return false
+	return true
+
+## One building of a shape, at (0, 0) (box 2R+1 cells across): the cells whose middle is inside the shape; a wall band
+## round the outside (every cell the drawn outline cuts through: the clean shell is drawn there); inside, rooms of
+## 2 x 2 cells in 1-cell walls on a 3-cell grid, the middle room the lift shaft; a street door on each face, through
+## the wall band to the first room.
+static func _building(kind: String, rng: RandomNumberGenerator, downtown: bool, rad := -1) -> Dictionary:
+	if not SIDES.has(kind): kind = "hex"
+	var R: int = rad if rad > 0 else rng.randi_range(8, 12)
+	var ns: int = SIDES[kind]
+	var rot := rng.randf() * TAU / ns
+	if kind == "hex" and rng.randf() < 0.5: rot = 0.0
+	var C := Vector2(R + 0.5, R + 0.5)
+	var outer := shape_poly(C, R + 0.5, ns, rot)                                # (whose cells are the building)
+	var vis := shape_poly(C, R + 0.5 - 0.75 / cos(PI / ns), ns, rot)           # the drawn outline: inside the cells
+	var fl: int = rng.randi_range(Data.CITY_FLOORS_DOWNTOWN[0], Data.CITY_FLOORS_DOWNTOWN[1]) if downtown else rng.randi_range(Data.CITY_FLOORS[0], Data.CITY_FLOORS[1])
+	if R <= 6: fl += rng.randi_range(2, 6)   # (a slim tower goes higher)
 	var cells := {}
 	var walls := {}
 	var rooms := {}
 	var shaft: Array = []
-	var size := Vector2i.ZERO
-	for md in mods:
-		var o: Vector2i = md[0]
-		var fl: int = md[1]
-		size = Vector2i(maxi(size.x, o.x + M), maxi(size.y, o.y + M))
-		for z in M:
-			for x in M:
-				var c := o + Vector2i(x, z)
-				cells[c] = maxi(int(cells.get(c, 0)), fl)
-				var wx := x % 3 == 0
-				var wz := z % 3 == 0
-				if x >= 4 and x <= 5 and z >= 4 and z <= 5:
-					shaft.append(c)
-				elif wx or wz:
-					walls[c] = true
-				else:
-					rooms[c] = true
+	var o := posmod(R - 2, 3)   # the grid: the middle two cells (R-1, R) are a room pair
+	for z in 2 * R + 1:
+		for x in 2 * R + 1:
+			var c := Vector2i(x, z)
+			if not in_poly(outer, Vector2(x + 0.5, z + 0.5)): continue
+			cells[c] = fl
+			var inside := in_poly(vis, Vector2(x, z)) and in_poly(vis, Vector2(x + 1, z)) and in_poly(vis, Vector2(x, z + 1)) and in_poly(vis, Vector2(x + 1, z + 1))
+			if x >= R - 1 and x <= R and z >= R - 1 and z <= R:
+				shaft.append(c)
+			elif not inside or posmod(x - o, 3) == 0 or posmod(z - o, 3) == 0:
+				walls[c] = true
+			else:
+				rooms[c] = true
+	var band := {}   # the outer wall band (where the shell is drawn)
+	for c in walls:
+		var cv: Vector2i = c
+		if not (in_poly(vis, Vector2(cv.x, cv.y)) and in_poly(vis, Vector2(cv.x + 1, cv.y)) and in_poly(vis, Vector2(cv.x, cv.y + 1)) and in_poly(vis, Vector2(cv.x + 1, cv.y + 1))): band[c] = true
 	# doorways: one cell in every inner wall between two rooms (into the lift room too)
 	for c in walls.keys():
+		if band.has(c): continue
 		var l := Vector2i(c.x - 1, c.y)
 		var rr := Vector2i(c.x + 1, c.y)
 		var u := Vector2i(c.x, c.y - 1)
 		var dn := Vector2i(c.x, c.y + 1)
-		var open_x: bool = (rooms.has(l) or shaft.has(l)) and (rooms.has(rr) or shaft.has(rr)) and posmod(c.y, 3) == 1
-		var open_z: bool = (rooms.has(u) or shaft.has(u)) and (rooms.has(dn) or shaft.has(dn)) and posmod(c.x, 3) == 1
+		var open_x: bool = (rooms.has(l) or shaft.has(l)) and (rooms.has(rr) or shaft.has(rr)) and posmod(c.y - o, 3) == 1
+		var open_z: bool = (rooms.has(u) or shaft.has(u)) and (rooms.has(dn) or shaft.has(dn)) and posmod(c.x - o, 3) == 1
 		if open_x or open_z: walls.erase(c)
-	# notch the outer corners (a cell with two open sides)
-	var corners: Array = []   # (found first, then taken: taking one must not make its neighbours corners)
-	for c in cells:
-		var open := 0
-		for e in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
-			if not cells.has(c + e): open += 1
-		if open >= 2: corners.append(c)
-	for c in corners:
-		cells.erase(c)
-		walls.erase(c)
-	# street doors: on the ground floor, the outline cell in front of each module's first room on its outward sides
+	# street doors: on each face, a short passage straight in through the wall band to a room
 	var door: Array = []
-	for c in walls:
-		if not _edge(cells, c): continue
-		var inward := Vector2i.ZERO
-		for e in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
-			if not cells.has(c - e) and rooms.has(c + e): inward = e
-		if inward == Vector2i.ZERO: continue
-		var along: int = c.y if inward.x != 0 else c.x
-		if posmod(along, 9) == 1: door.append(c)   # (the first room cell of a module's middle band)
-	var fl_max := 0
-	for c in cells: fl_max = maxi(fl_max, int(cells[c]))
-	return {"kind": kind, "cells": cells, "walls": walls, "rooms": rooms, "shaft": shaft, "door": door, "floors": fl_max, "size": size, "shape": kind}
+	for i in ns if ns <= 8 else 6:
+		var k := i if ns <= 8 else i * 4
+		var a: Vector2 = vis[k]
+		var b2: Vector2 = vis[(k + 1) % ns]
+		var mid := (a + b2) * 0.5
+		var nrm := (mid - C).normalized()
+		var e := Vector2i(int(signf(nrm.x)), 0) if absf(nrm.x) >= absf(nrm.y) else Vector2i(0, int(signf(nrm.y)))
+		var c0 := Vector2i(floori(mid.x - nrm.x * 0.6), floori(mid.y - nrm.y * 0.6))
+		if not cells.has(c0): continue
+		var guard := 0
+		while cells.has(c0 + e) and guard < 6:
+			c0 += e
+			guard += 1
+		var chain: Array = []
+		var c1 := c0
+		while walls.has(c1) and chain.size() < 5:
+			chain.append(c1)
+			c1 -= e
+		if chain.is_empty() or not rooms.has(c1): continue
+		for q in chain:
+			if not door.has(q): door.append(q)
+	var crowns := {"round": ["dome", "dome", "halo"], "oct": ["dome", "spire"], "hex": ["spire", "halo", "dome"], "pent": ["halo", "spire"]}
+	var cr: Array = crowns[kind]
+	return {"kind": kind, "cells": cells, "walls": walls, "rooms": rooms, "shaft": shaft, "door": door, "floors": fl, "size": Vector2i(2 * R + 1, 2 * R + 1),
+		"shape": kind, "poly": vis, "centre": C, "radius": R + 0.5 - 0.75 / cos(PI / ns), "sides": ns, "band": band, "crown": cr[rng.randi() % cr.size()]}
 
-## A walkway across the alley between two buildings facing each other (dir = from a to b): at a floor both have, on a
-## row of rooms both have, the deck from a's facade to b's; it opens a door in each facade.
+## A walkway across the alley between two buildings facing each other (dir = from a to b): at a floor both have, the
+## deck from a's facade to b's; it opens a passage through each one's wall band to a room.
 static func _bridge(a: Dictionary, b: Dictionary, dir: Vector2i, rng: RandomNumberGenerator) -> Dictionary:
 	var ca: Dictionary = a["cells"]
 	var cb: Dictionary = b["cells"]
 	var cand: Array = []
 	for c in ca:
-		if not ca.has(c) or ca.has(c + dir): continue   # a's facade toward b
-		if not (a["rooms"] as Dictionary).has(c - dir): continue
+		if ca.has(c + dir): continue   # a's facade toward b
+		var into_a := _passage(a, c, -dir)
+		if into_a.is_empty(): continue
 		var q: Vector2i = c + dir
 		var span: Array = []
 		while not cb.has(q) and span.size() < 30:
 			span.append(q)
 			q += dir
-		if not cb.has(q) or not (b["rooms"] as Dictionary).has(q + dir) or span.is_empty(): continue
+		if not cb.has(q) or span.is_empty(): continue
+		var into_b := _passage(b, q, dir)
+		if into_b.is_empty(): continue
 		var fmax := mini(int(ca[c]), int(cb[q])) - 1
 		if fmax < 1: continue
-		cand.append([c, q, span, fmax])
+		cand.append([into_a + into_b, span, fmax])
 	if cand.is_empty(): return {}
 	var pick: Array = cand[rng.randi() % cand.size()]
-	return {"cells": pick[2], "f": rng.randi_range(1, mini(int(pick[3]), 4)), "ends": [pick[0], pick[1]], "dir": dir}
+	return {"cells": pick[1], "f": rng.randi_range(1, mini(int(pick[2]), 4)), "ends": pick[0], "dir": dir}
+
+## The wall cells from facade cell c straight in (step e) to the first room ([] if no room within 4).
+static func _passage(b: Dictionary, c: Vector2i, e: Vector2i) -> Array:
+	var out: Array = []
+	var q := c
+	while (b["walls"] as Dictionary).has(q) and out.size() < 4:
+		out.append(q)
+		q += e
+	if out.is_empty() or not (b["rooms"] as Dictionary).has(q): return []
+	return out
 
 static func _cut(foot: Dictionary, r: Rect2i) -> void:
 	for z in range(r.position.y, r.end.y):
@@ -314,8 +355,34 @@ static func skyline_mesh(pid: String, tile: int, r: Vector2i) -> ArrayMesh:
 	var glass_c: Color = Data.CITY_COLORS["glass"]
 	# the street level as one flat slab, so the far skyline stands on something level
 	_quad(st, Vector3(org.x, g, org.y), Vector3(org.x + Data.BLOCK_REGION, g, org.y), Vector3(org.x + Data.BLOCK_REGION, g, org.y + Data.BLOCK_REGION), Vector3(org.x, g, org.y + Data.BLOCK_REGION), Vector3.UP, ground_c)
+	# v13.280: each building its real shape: glass and panel bands each floor, a glowing rim, the roof
+	var trim: Color = Data.CITY_TRIM
+	for b in plan["buildings"]:
+		if not b.has("poly"): continue
+		var pw: Array = []
+		for q in b["poly"]: pw.append(org + (q as Vector2) * s)
+		var cw: Vector2 = org + (b["centre"] as Vector2) * s
+		var fl: int = b["floors"]
+		var np := pw.size()
+		for e in np:
+			var a: Vector2 = pw[e]
+			var bb: Vector2 = pw[(e + 1) % np]
+			var o2 := ((a + bb) * 0.5 - cw).normalized()
+			var nrm := Vector3(o2.x, 0, o2.y)
+			for f in fl:
+				var y0f := g + f * Data.CITY_FLOOR_LAYERS * s
+				_quad(st, Vector3(a.x, y0f + s, a.y), Vector3(bb.x, y0f + s, bb.y), Vector3(bb.x, y0f, bb.y), Vector3(a.x, y0f, a.y), nrm, Data.CITY_GLASS.lerp(Data.CITY_WINDOW_LIT, 0.2))
+				_quad(st, Vector3(a.x, y0f + 2.0 * s - 0.5, a.y), Vector3(bb.x, y0f + 2.0 * s - 0.5, bb.y), Vector3(bb.x, y0f + s, bb.y), Vector3(a.x, y0f + s, a.y), nrm, Data.CITY_PANEL)
+				_quad(st, Vector3(a.x, y0f + 2.0 * s, a.y), Vector3(bb.x, y0f + 2.0 * s, bb.y), Vector3(bb.x, y0f + 2.0 * s - 0.5, bb.y), Vector3(a.x, y0f + 2.0 * s - 0.5, a.y), nrm, trim)
+		var top_b := roof(g, fl)
+		for k in range(1, np - 1):
+			_quad(st, Vector3((pw[0] as Vector2).x, top_b, (pw[0] as Vector2).y), Vector3((pw[k] as Vector2).x, top_b, (pw[k] as Vector2).y), Vector3((pw[k + 1] as Vector2).x, top_b, (pw[k + 1] as Vector2).y), Vector3((pw[k + 1] as Vector2).x, top_b, (pw[k + 1] as Vector2).y), Vector3.UP, wall_c)
 	for c in cells:
 		var cv: Vector2i = c
+		var on_shape := false
+		for b in plan["buildings"]:
+			if b.has("poly") and (b["cells"] as Dictionary).has(cv): on_shape = true
+		if on_shape: continue
 		var top := roof(g, int(cells[c]))
 		var x0: float = org.x + cv.x * s
 		var z0: float = org.y + cv.y * s

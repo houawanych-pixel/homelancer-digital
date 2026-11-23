@@ -506,10 +506,22 @@ func _build_city() -> void:
 	var ends := {}   # facade cell -> floor a bridge opens there
 	for br in plan["bridges"]:
 		for e in br["ends"]: ends[e] = int(br["f"])
+	_city_band.clear()
+	_city_cell.clear()
+	_shells.clear()
 	for b in plan["buildings"]:
 		var cells: Dictionary = b["cells"]
 		var walls: Dictionary = b["walls"]
 		var rooms: Dictionary = b["rooms"]
+		var band: Dictionary = b.get("band", {})
+		var sid := -1
+		if b.has("poly"):   # v13.280: the clean outline drawn round it (tile-local metres)
+			var pw := PackedVector2Array()
+			for q in b["poly"]: pw.append(Vector2(x0 + (q as Vector2).x * Data.BLOCK_MIN, z0 + (q as Vector2).y * Data.BLOCK_MIN))
+			var cw := Vector2(x0 + (b["centre"] as Vector2).x * Data.BLOCK_MIN, z0 + (b["centre"] as Vector2).y * Data.BLOCK_MIN)
+			_shells.append({"pts": pw, "kg": kg, "top": kg + int(b["floors"]) * L, "centre": cw, "radius": float(b["radius"]) * Data.BLOCK_MIN,
+				"crown": str(b.get("crown", "")), "sides": int(b.get("sides", 6)), "seed": absi(hash(str(b["at"])))})
+			sid = _shells.size() - 1
 		var shaft := {}
 		for c in b["shaft"]: shaft[c] = true
 		var door := {}
@@ -519,6 +531,8 @@ func _build_city() -> void:
 			if cv.x < 0 or cv.y < 0 or cv.x >= n or cv.y >= n: continue
 			var i := cv.y * n + cv.x
 			var fl: int = cells[c]
+			_city_cell[i] = true
+			if band.has(c) and sid >= 0: _city_band[i] = sid
 			_split_one(i)
 			lsz[i] = 1
 			var top := kg + fl * L
@@ -539,14 +553,17 @@ func _build_city() -> void:
 				for k in range(k0, k0 + L):
 					var roof_layer := k == top - 1
 					var m := "concrete"
-					if outline and win and f >= 1 and not roof_layer: m = "glass"
-					if f == 0 and outline and (frame or (door.has(cv) and k == k0 + L - 1)): m = "door"
+					if (outline and win or band.has(c)) and f >= 1 and not roof_layer and k == k0: m = "glass"
+					if f == 0 and (outline or band.has(c)) and (frame or (door.has(cv) and k == k0 + L - 1)): m = "door"
 					ov[k] = m
 				if shaft.has(cv): continue
-				if outline:
-					if f == 0 and door.has(cv): hl.append(Vector2i(k0, k0 + L - 1))
-					elif ends.get(cv, -1) == f: hl.append(Vector2i(k0, k0 + L - 1))   # a bridge's door
+				if f == 0 and door.has(cv):   # a street door (v13.280: a short passage through the wall band)
+					hl.append(Vector2i(k0, k0 + L - 1))
 					continue
+				if ends.get(cv, -1) == f:   # a bridge's door
+					hl.append(Vector2i(k0, k0 + L - 1))
+					continue
+				if outline: continue
 				if walls.has(cv): continue
 				hl.append(Vector2i(k0, k0 + L - 1))
 			if shaft.has(cv):   # the lift: open from the street floor up to the roof
@@ -556,6 +573,7 @@ func _build_city() -> void:
 			if hl.is_empty(): holes.erase(i)
 			else: holes[i] = hl
 		city_buildings += 1
+	_shell_dirty = true
 	for br in plan["bridges"]:   # the walkways: a deck at the floor's level, open under it down to the street
 		var kd: int = kg + int(br["f"]) * L - 1
 		for c in br["cells"]:
@@ -574,6 +592,11 @@ func _build_city() -> void:
 		city_bridges += 1
 
 var city_bridges := 0   # (tests)
+var _city_band := {}    # v13.280: cell -> shell index: the wall band under a building's clean outline (drawn clipped to it)
+var _city_cell := {}    # every building cell
+var _shells: Array = [] # [{pts (tile-local m), kg, top (layers), centre, radius, crown, sides, seed}]
+var _shell_dirty := false
+var shell_quads := 0    # (tests) wall pieces of the clean outlines drawn
 ## A bridge's side rails (only a look: the deck is the blocks): a top rail and posts on both sides.
 func _bridge_rails(br: Dictionary, deck: float) -> void:
 	var st := SurfaceTool.new()
@@ -615,6 +638,274 @@ func _rail_box(st: SurfaceTool, a: Vector3, b: Vector3, t: float) -> void:
 		for idx in [0, 1, 2, 0, 2, 3]:
 			st.set_normal(f[4])
 			st.add_vertex(v[f[idx]])
+
+## v13.280: a wall-band cell, drawn only inside the building's clean outline: its floors and ceilings clipped to it,
+## and its sides only where they face into the building (the outline's own wall is drawn by _draw_shells).
+func _draw_band_cell(st: SurfaceTool, ox: int, oz: int) -> void:
+	var step: float = Data.BLOCK_MIN
+	var i0 := oz * n + ox
+	var sh: Dictionary = _shells[_city_band[i0]]
+	var poly: PackedVector2Array = sh["pts"]
+	var ax := x0 + ox * step
+	var az := z0 + oz * step
+	var bx := ax + step
+	var bz := az + step
+	var sq := PackedVector2Array([Vector2(ax, az), Vector2(bx, az), Vector2(bx, bz), Vector2(ax, bz)])
+	var cp := _clip_poly(sq, poly)
+	var sp := spans(i0)
+	for j in sp.size():
+		var o: Vector2i = sp[j]
+		var ty: float = y0 + o.y * step
+		var m := mat_at(ox, oz, ty)
+		var tc := tone(m)
+		var cs := _sky([tc, tc, tc, tc], j < sp.size() - 1)
+		if cp.size() >= 3:
+			_look(st, m)
+			_fan(st, cp, ty, cs[0], Vector3.UP)
+			if j > 0:
+				var by: float = y0 + o.x * step
+				var rm := mat_at(ox, oz, _ly(o.x))
+				var rc := tone(rm).lerp(Color.BLACK, 0.4)
+				_look(st, rm)
+				_fan(st, cp, by, Color(rc.r, rc.g, rc.b, Data.CAVE_DARK), Vector3.DOWN)
+	var corners := [Vector3(ax, 0, az), Vector3(bx, 0, az), Vector3(bx, 0, bz), Vector3(ax, 0, bz), Vector3(ax, 0, az)]
+	var normals := [Vector3.FORWARD, Vector3.RIGHT, Vector3.BACK, Vector3.LEFT]
+	var top: float = h[i0]
+	for side in 4:
+		var nb := _nb_cell(side, ox, oz, 1, 0)
+		if nb < 0 or not _city_cell.has(nb): continue   # (the outside: the clean wall is there)
+		var c0: Vector3 = corners[side]
+		var c1: Vector3 = corners[side + 1]
+		var seg := _clip_seg(Vector2(c0.x, c0.z), Vector2(c1.x, c1.z), poly)
+		if seg.is_empty(): continue
+		var p0 := Vector3((seg[0] as Vector2).x, 0, (seg[0] as Vector2).y)
+		var p1 := Vector3((seg[1] as Vector2).x, 0, (seg[1] as Vector2).y)
+		var air := _air_iv(nb, top)
+		for o in sp:
+			var lo: float = -INF if (o as Vector2i).x <= -1000 else y0 + (o as Vector2i).x * step
+			var hi: float = y0 + (o as Vector2i).y * step
+			for A in air:
+				var wl := maxf(lo, (A as Vector2).x)
+				var wh := minf(hi, (A as Vector2).y)
+				if wh > wl + 0.01: _wall(st, p0, p1, wh, wl, ox, oz, false, tone("concrete"), normals[side], (A as Vector2).y < INF)
+
+## A flat convex polygon at height y (one colour).
+func _fan(st: SurfaceTool, pts: PackedVector2Array, y: float, col: Color, nrm: Vector3) -> void:
+	for k in range(1, pts.size() - 1):
+		for v in [pts[0], pts[k], pts[k + 1]]:
+			st.set_normal(nrm)
+			st.set_color(col)
+			st.add_vertex(Vector3(v.x, y, v.y))
+
+## The part of convex polygon subj inside convex polygon clip (Sutherland-Hodgman).
+func _clip_poly(subj: PackedVector2Array, clip: PackedVector2Array) -> PackedVector2Array:
+	var area := 0.0
+	for i in clip.size(): area += clip[i].cross(clip[(i + 1) % clip.size()])
+	var sg := signf(area)
+	var out := subj
+	for i in clip.size():
+		if out.is_empty(): break
+		var a: Vector2 = clip[i]
+		var b: Vector2 = clip[(i + 1) % clip.size()]
+		var inp := out
+		out = PackedVector2Array()
+		for k in inp.size():
+			var p: Vector2 = inp[k]
+			var q: Vector2 = inp[(k + 1) % inp.size()]
+			var dp := sg * (b - a).cross(p - a)
+			var dq := sg * (b - a).cross(q - a)
+			if dp >= 0.0: out.append(p)
+			if (dp >= 0.0) != (dq >= 0.0): out.append(p + (q - p) * (dp / (dp - dq)))
+	return out
+
+## The part of segment a-b inside convex polygon clip ([] if none).
+func _clip_seg(a: Vector2, b: Vector2, clip: PackedVector2Array) -> Array:
+	var area := 0.0
+	for i in clip.size(): area += clip[i].cross(clip[(i + 1) % clip.size()])
+	var sg := signf(area)
+	var t0 := 0.0
+	var t1 := 1.0
+	for i in clip.size():
+		var e0: Vector2 = clip[i]
+		var e1: Vector2 = clip[(i + 1) % clip.size()]
+		var da := sg * (e1 - e0).cross(a - e0)
+		var db := sg * (e1 - e0).cross(b - e0)
+		if da < 0.0 and db < 0.0: return []
+		if da < 0.0: t0 = maxf(t0, da / (da - db))
+		elif db < 0.0: t1 = minf(t1, da / (da - db))
+	if t1 - t0 < 0.02: return []
+	return [a.lerp(b, t0), a.lerp(b, t1)]
+
+## v13.280 (owner: "futuristic: hexagons, pentagons, round towers, domes, glowing trim, clean angled walls"): each
+## building's outside drawn as its real shape: a glass band and a panel band each floor with a glowing trim line
+## between, glowing corner fins, a glowing parapet, and its crown (a glass dome, a spire, a halo ring). Each 2.5 m
+## piece of wall is there only while the wall block behind it stands, so doors, bridge doors and shot-out holes show.
+@warning_ignore("integer_division")
+func _draw_shells() -> void:
+	_shell_dirty = false
+	var mi: MeshInstance3D = get_node_or_null("CityShells")
+	if _shells.is_empty():
+		if mi != null: mi.queue_free()
+		return
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var step: float = Data.BLOCK_MIN
+	var L: int = Data.CITY_FLOOR_LAYERS
+	var trim: Color = Data.CITY_TRIM
+	shell_quads = 0
+	for sh in _shells:
+		var pts: PackedVector2Array = sh["pts"]
+		var kg: int = sh["kg"]
+		var kt: int = sh["top"]
+		var cen: Vector2 = sh["centre"]
+		var seed: int = sh["seed"]
+		var np := pts.size()
+		for e in np:
+			var a: Vector2 = pts[e]
+			var b: Vector2 = pts[(e + 1) % np]
+			var mid := (a + b) * 0.5
+			var out2 := (mid - cen).normalized()
+			var nrm := Vector3(out2.x, 0, out2.y)
+			var m := maxi(1, int(ceil(a.distance_to(b) / Data.CITY_SHELL_PIECE)))
+			for k in range(kg, kt):
+				var li := (k - kg) % L
+				var ylo := y0 + k * step
+				var yhi := ylo + step
+				for t in m:
+					var q0 := a.lerp(b, float(t) / m)
+					var q1 := a.lerp(b, float(t + 1) / m)
+					var qm := (q0 + q1) * 0.5
+					var ci := _cell_at(qm - out2 * 1.2)
+					if ci < 0 or not _city_cell.has(ci): ci = _cell_at(qm - out2 * 3.0)
+					if ci < 0 or not _solid_k(ci, k): continue   # (a door, a bridge door, or shot through)
+					var mm := str((mats.get(ci, {}) as Dictionary).get(k, "concrete"))
+					var col: Color
+					var glow := 0.0
+					var gloss := 0.0
+					if mm == "door":
+						col = Data.CITY_COLORS["door"]
+						glow = 1.3
+					elif li == 0:   # the window band: glass, some rooms lit
+						col = Data.CITY_GLASS
+						gloss = 0.9
+						var hsh := absi(hash(Vector3i(seed, k, e * 97 + t)))
+						if hsh % 100 < int(Data.CITY_LIT_SHARE * 100.0):
+							col = col.lerp(Data.CITY_WINDOW_LIT, 0.55)
+							glow = 0.5
+						else: glow = 0.08
+					else:
+						col = Data.CITY_PANEL
+						gloss = 0.35
+					st.set_uv(Vector2(glow, gloss))
+					_wquad(st, Vector3(q0.x, ylo, q0.y), Vector3(q1.x, ylo, q1.y), yhi, col, nrm)
+					shell_quads += 1
+					if li == L - 1:   # the glowing trim line along the top of each floor's panel band
+						st.set_uv(Vector2(1.4, 0.0))
+						var o := nrm * 0.12
+						_wquad(st, Vector3(q0.x, yhi - 0.7, q0.y) + o, Vector3(q1.x, yhi - 0.7, q1.y) + o, yhi - 0.1, trim, nrm)
+			if int(sh["sides"]) <= 8:   # a slim glowing fin up each corner of a straight-sided building
+				st.set_uv(Vector2(0.9, 0.3))
+				var fo2 := (a - cen).normalized()
+				var fo := Vector3(fo2.x, 0, fo2.y)
+				var tv := fo.cross(Vector3.UP) * 0.35
+				var c3 := Vector3(a.x, 0, a.y) + fo * 0.25
+				_wquad(st, c3 - tv, c3 + tv, y0 + kt * step + 1.0, trim, fo, y0 + kg * step)
+		var ytop := y0 + kt * step   # the parapet: a glowing rim round the roof
+		st.set_uv(Vector2(1.2, 0.0))
+		for e in np:
+			var a2: Vector2 = pts[e]
+			var b2: Vector2 = pts[(e + 1) % np]
+			var o2 := ((a2 + b2) * 0.5 - cen).normalized()
+			_wquad(st, Vector3(a2.x, ytop, a2.y), Vector3(b2.x, ytop, b2.y), ytop + 1.2, trim, Vector3(o2.x, 0, o2.y))
+		_crown(st, sh, ytop)
+	if mi == null:
+		mi = MeshInstance3D.new()
+		mi.name = "CityShells"
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(mi)
+	if _ground_mat == null:
+		_ground_mat = ShaderMaterial.new()
+		var sh2 := Shader.new()
+		sh2.code = GROUND_SHADER
+		_ground_mat.shader = sh2
+	mi.material_override = _ground_mat
+	mi.mesh = st.commit()
+
+## The cell under a tile-local point (-1 outside).
+func _cell_at(p: Vector2) -> int:
+	var fx := int(floor((p.x - x0) / Data.BLOCK_MIN))
+	var fz := int(floor((p.y - z0) / Data.BLOCK_MIN))
+	if fx < 0 or fz < 0 or fx >= n or fz >= n: return -1
+	return fz * n + fx
+
+## An upright quad from the bottom edge a-b (at a.y, or at `bottom` if given) up to height top.
+func _wquad(st: SurfaceTool, a: Vector3, b: Vector3, top: float, col: Color, nrm: Vector3, bottom := INF) -> void:
+	var ya := a.y if bottom == INF else bottom
+	var c := Color(col.r, col.g, col.b, 1.0)
+	for v in [Vector3(a.x, ya, a.z), Vector3(b.x, ya, b.z), Vector3(b.x, top, b.z), Vector3(a.x, ya, a.z), Vector3(b.x, top, b.z), Vector3(a.x, top, a.z)]:
+		st.set_normal(nrm)
+		st.set_color(c)
+		st.add_vertex(v)
+
+## A building's crown on its roof (a look only): a glass dome, a spire with a glowing tip, or a glowing halo ring.
+func _crown(st: SurfaceTool, sh: Dictionary, y: float) -> void:
+	var cen: Vector2 = sh["centre"]
+	var r: float = float(sh["radius"])
+	var kind := str(sh["crown"])
+	var glass: Color = (Data.CITY_COLORS["glass"] as Color).lerp(Data.CITY_TRIM, 0.15)
+	var trim: Color = Data.CITY_TRIM
+	var seg := 24
+	if kind == "dome":
+		var rd := r * 0.72
+		var hd := rd * 0.55
+		var rings := 6
+		st.set_uv(Vector2(0.25, 0.9))
+		for ri in rings:
+			var a0 := PI * 0.5 * ri / rings
+			var a1 := PI * 0.5 * (ri + 1) / rings
+			for q in seg:
+				var t0 := TAU * q / seg
+				var t1 := TAU * (q + 1) / seg
+				for pp in [[a0, t0], [a0, t1], [a1, t1], [a0, t0], [a1, t1], [a1, t0]]:
+					var la: float = pp[0]
+					var lo: float = pp[1]
+					var dv := Vector3(cos(la) * cos(lo), sin(la), cos(la) * sin(lo))
+					st.set_normal(Vector3(dv.x * hd, dv.y * rd, dv.z * hd).normalized())
+					var gc: Color = glass if ri % 2 == 0 else glass.lightened(0.1)
+					st.set_color(Color(gc.r, gc.g, gc.b, 1.0))
+					st.add_vertex(Vector3(cen.x + dv.x * rd, y + dv.y * hd, cen.y + dv.z * rd))
+		st.set_uv(Vector2(1.3, 0.0))   # a glowing ring at its foot
+		for q in seg:
+			var t0b := TAU * q / seg
+			var t1b := TAU * (q + 1) / seg
+			_wquad(st, Vector3(cen.x + cos(t0b) * rd * 1.02, y, cen.y + sin(t0b) * rd * 1.02), Vector3(cen.x + cos(t1b) * rd * 1.02, y, cen.y + sin(t1b) * rd * 1.02), y + 0.8, trim, Vector3(cos(t0b), 0, sin(t0b)))
+	elif kind == "spire":
+		var hs := r * 2.2 + 20.0
+		st.set_uv(Vector2(0.0, 0.4))
+		_tube(st, Vector3(cen.x, y, cen.y), Vector3(cen.x, y + hs, cen.y), r * 0.22, 0.4, 8, Data.CITY_COLORS["concrete"], false, true)
+		st.set_uv(Vector2(1.6, 0.0))
+		_tube(st, Vector3(cen.x, y + hs, cen.y), Vector3(cen.x, y + hs + 6.0, cen.y), 0.9, 0.2, 8, trim, true, true)
+		st.set_uv(Vector2(1.2, 0.0))
+		for hk in 3:   # glowing rings up the spire
+			var fr := 0.3 + 0.2 * hk
+			var yy := y + hs * fr
+			var rr := r * 0.22 * (1.0 - fr) + 0.6
+			for q in 12:
+				var t0c := TAU * q / 12
+				var t1c := TAU * (q + 1) / 12
+				_wquad(st, Vector3(cen.x + cos(t0c) * rr, yy, cen.y + sin(t0c) * rr), Vector3(cen.x + cos(t1c) * rr, yy, cen.y + sin(t1c) * rr), yy + 0.7, trim, Vector3(cos(t0c), 0, sin(t0c)))
+	else:   # halo: a glowing ring held over the roof on four struts
+		var rh := r * 0.6
+		var yh := y + 8.0
+		st.set_uv(Vector2(1.5, 0.0))
+		for q in seg:
+			var t0d := TAU * q / seg
+			var t1d := TAU * (q + 1) / seg
+			_wquad(st, Vector3(cen.x + cos(t0d) * rh, yh, cen.y + sin(t0d) * rh), Vector3(cen.x + cos(t1d) * rh, yh, cen.y + sin(t1d) * rh), yh + 1.6, trim, Vector3(cos(t0d), 0, sin(t0d)))
+		st.set_uv(Vector2(0.0, 0.3))
+		for q in 4:
+			var tq := TAU * q / 4 + 0.4
+			_tube(st, Vector3(cen.x + cos(tq) * rh, y, cen.y + sin(tq) * rh), Vector3(cen.x + cos(tq) * rh, yh, cen.y + sin(tq) * rh), 0.5, 0.5, 6, Data.CITY_COLORS["concrete"], false, false)
 
 ## On the outline of floor f (a side neighbour has fewer floors than f + 1)?
 func _city_edge(cells: Dictionary, c: Vector2i, f: int) -> bool:
@@ -4260,7 +4551,8 @@ func flush(limit := 0, budget_ms := 0.0) -> void:
 		if budget_ms > 0.0 and (Time.get_ticks_usec() - tf) / 1000.0 >= budget_ms: break   # v1.9c: one square at least, then only while there is time
 	perf["flush_us"] += Time.get_ticks_usec() - tf
 	perf["chunks"] += done
-	if done > 0 and not leaf_cards.is_empty() and built: _draw_leaf_cards()   # v12.53: cards over shot-away leaves go
+	if done > 0 and not leaf_cards.is_empty() and built: _draw_leaf_cards()   # v12.53: the fluffy leaf cards over shot-away leaves go
+	if _shell_dirty and _dirty.is_empty(): _draw_shells()
 
 @warning_ignore("integer_division")
 func _draw_chunk(k: int) -> void:
@@ -4283,6 +4575,7 @@ func _draw_chunk(k: int) -> void:
 			_draw_block(st, fx, fz, s)
 			any = true
 	if not _tree_wood.is_empty() and _draw_wood(st, ci * c, cj * c, mini((ci + 1) * c, n), mini((cj + 1) * c, n)): any = true
+	if not _city_band.is_empty() and built: _shell_dirty = true   # (a wall may have been shot through: the outline follows)
 	var mi: MeshInstance3D = _chunks.get(k)
 	if mi == null:
 		if _ground_mat == null:   # v1.7m: vertex colour alpha = how much sun / sky reaches it; uv.x = its own glow, uv.y = gloss
@@ -4317,6 +4610,9 @@ func _draw_chunk(k: int) -> void:
 func _draw_block(st: SurfaceTool, ox: int, oz: int, s: int) -> void:
 	var step: float = Data.BLOCK_MIN
 	var i0 := oz * n + ox
+	if _city_band.has(i0):   # v13.280: under a building's clean outline: only what's inside the outline
+		_draw_band_cell(st, ox, oz)
+		return
 	var top: float = h[i0]
 	var ax := x0 + ox * step
 	var az := z0 + oz * step
