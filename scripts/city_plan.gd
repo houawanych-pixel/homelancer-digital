@@ -100,12 +100,14 @@ static func ground(pid: String, tile: int) -> float:
 	var r := rect(pid, tile)
 	var sum := 0.0
 	var cnt := 0
+	Surface._no_city = true   # (the bare land, not the land already eased to the city)
 	for jz in 13:
 		for jx in 13:
 			var x := -Surface.EDGE + r.position.x * Data.BLOCK_REGION + jx * Data.BLOCK_REGION * r.size.x / 12.0
 			var z := -Surface.EDGE + r.position.y * Data.BLOCK_REGION + jz * Data.BLOCK_REGION * r.size.y / 12.0
 			sum += maxf(Surface.height(pid, tile, x, z), 0.0)
 			cnt += 1
+	Surface._no_city = false
 	var g := ceilf((sum / maxf(1, cnt) + Data.BLOCK_MARGIN) / Data.BLOCK_MIN) * Data.BLOCK_MIN
 	_ground[key] = g
 	return g

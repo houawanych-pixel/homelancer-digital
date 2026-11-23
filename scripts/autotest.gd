@@ -7752,6 +7752,24 @@ func _run() -> void:
 			if not rs.is_empty() and CityPlan.in_city(pid, int(rs["tile"]), rs["spot"] as Vector2): on_city += 1
 			var dp: Vector2 = Missions._dry_point(rng0, pid, tile, Vector2.INF)
 			if CityPlan.in_city(pid, tile, dp): on_city += 1
+		# v13.275: the land eases into the city: at its edge it's at the street, 350 m out it's the land's own, no cliff between
+		var g0: float = CityPlan.ground(pid, tile)
+		var rr0 := Rect2(-Surface.EDGE + crect.position.x * Data.BLOCK_REGION, -Surface.EDGE + crect.position.y * Data.BLOCK_REGION, crect.size.x * Data.BLOCK_REGION, crect.size.y * Data.BLOCK_REGION)
+		var cx0: float = rr0.get_center().x
+		var at_edge: float = Surface.height(pid, tile, cx0, rr0.position.y - 1.0)
+		var worst := 0.0
+		var prev := Surface.height(pid, tile, cx0, rr0.position.y - Data.CITY_SLOPE - 100.0)
+		var zz: float = rr0.position.y - Data.CITY_SLOPE - 100.0
+		while zz < rr0.position.y + 50.0:
+			zz += 5.0
+			var hh: float = Surface.height(pid, tile, cx0, zz)
+			worst = maxf(worst, absf(hh - prev))
+			prev = hh
+		Surface._no_city = true
+		var bare: float = Surface.height(pid, tile, cx0, rr0.position.y - 1.0)
+		Surface._no_city = false
+		_check("v13.275: the land eases into the city: at its edge %.0f m (street %.0f, bare land there %.0f), steepest step every 5 m on the way in %.1f m" % [at_edge, g0, bare, worst],
+			absf(at_edge - (g0 - Data.BLOCK_MARGIN)) < 2.0 and worst < 6.0, "")
 		_check("v13.274: cities only on green land (New Terra: %s on %s), %s gets one block (%s), and no base or mission point lands on a city square (%d did)" % [str(nt), str(nt.keys().map(func(t): return tl[t])), harsh_pid, str(harsh), on_city],
 			green_only and nt.size() == 2 and nt.has(4) and harsh_ok and on_city == 0, "")
 		main.start_game()

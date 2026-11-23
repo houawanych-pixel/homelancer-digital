@@ -337,7 +337,20 @@ static func sample(planet_id: String, gx: float, gz: float) -> Array:
 			if dd < r * 1.8:
 				var kb := clampf((dd - r) / (r * 0.8), 0.0, 1.0)
 				h = lerpf(float(bp[3]), h, kb * kb * (3.0 - 2.0 * kb))
+	# v13.275 (owner: "the city shouldn't be a flat slab pressed on the hills: blend into the land"): the ground meets the
+	# city's street level at its edge and eases back to the land's own over Data.CITY_SLOPE (inside: the street level,
+	# just under it so the blocks built from this come out at the street)
+	if Data.CITIES and not _no_city and CityPlan.is_city_tile(planet_id, tc):
+		var cr := CityPlan.rect(planet_id, tc)
+		var rr := Rect2(-EDGE + cr.position.x * Data.BLOCK_REGION, -EDGE + cr.position.y * Data.BLOCK_REGION, cr.size.x * Data.BLOCK_REGION, cr.size.y * Data.BLOCK_REGION)
+		var q := Vector2(clampf(lx, rr.position.x, rr.end.x), clampf(lz, rr.position.y, rr.end.y))
+		var dc := q.distance_to(Vector2(lx, lz))
+		if dc < Data.CITY_SLOPE:
+			var kc := clampf(dc / Data.CITY_SLOPE, 0.0, 1.0)
+			h = lerpf(CityPlan.ground(planet_id, tc) - Data.BLOCK_MARGIN - 0.01, h, kc * kc * (3.0 - 2.0 * kc))
 	return [h, col]
+
+static var _no_city := false   # (v13.275: while the city's own street level is being worked out from the bare land)
 
 ## v12.32 (owner: "on the moon should have more like craters"): impact craters, a bowl with a raised rim, big ones
 ## (90-240 m across... radius) and small ones, scattered by a hash of the cell so they're the same every visit and meet
