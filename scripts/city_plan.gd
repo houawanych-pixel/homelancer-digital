@@ -45,6 +45,96 @@ static func city_tiles(pid: String) -> Dictionary:
 	_tiles[pid] = out
 	return out
 
+## v13.280 (owner: "domes over the cities on airless worlds, Mars-like"): a world with no green land has no air to
+## breathe: its city stands under an oxygen dome.
+static func domed(pid: String) -> bool:
+	if not Surface.PLANETS.has(pid): return false
+	for kd in Surface.PLANETS[pid].get("tiles", []):
+		if Data.CITY_LAND.has(str(kd)): return false
+	return true
+
+## The dome over a tile's city: {centre (tile-local x, z), g (street), r (m across the ground), h (m tall)}.
+static func dome_shape(pid: String, tile: int) -> Dictionary:
+	var cr := rect(pid, tile)
+	if cr.size == Vector2i.ZERO: return {}
+	var org := Vector2(-Surface.EDGE, -Surface.EDGE) + Vector2(cr.position) * Data.BLOCK_REGION
+	var size := Vector2(cr.size) * Data.BLOCK_REGION
+	var g := ground(pid, tile)
+	var tallest := 0.0
+	for rz in cr.size.y:
+		for rx in cr.size.x:
+			for b in block(pid, tile, cr.position + Vector2i(rx, rz))["buildings"]:
+				var crown := float(b.get("radius", 0.0)) * Data.BLOCK_MIN * 2.2 + 26.0 if str(b.get("crown", "")) == "spire" else 12.0
+				tallest = maxf(tallest, roof(g, int(b["floors"])) - g + crown)
+	var r := size.length() * 0.5 * Data.CITY_DOME_SPREAD
+	return {"centre": org + size * 0.5, "g": g, "r": r, "h": maxf(tallest + Data.CITY_DOME_HEADROOM, r * 0.55)}
+
+## The dome itself: a glass shell (surface 0) and a glowing frame of ribs and rings with a lit foot (surface 1).
+static func dome_mesh(pid: String, tile: int) -> ArrayMesh:
+	var d := dome_shape(pid, tile)
+	if d.is_empty(): return null
+	var c: Vector2 = d["centre"]
+	var g: float = d["g"]
+	var r: float = d["r"]
+	var hh: float = d["h"]
+	var seg := 48
+	var rings := 16
+	var pt := func(la: float, lo: float) -> Vector3: return Vector3(c.x + cos(la) * cos(lo) * r, g + sin(la) * hh, c.y + cos(la) * sin(lo) * r)
+	var nr := func(la: float, lo: float) -> Vector3: return Vector3(cos(la) * cos(lo) * hh, sin(la) * r, cos(la) * sin(lo) * hh).normalized()
+	var glass := SurfaceTool.new()
+	glass.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for ri in rings:
+		var a0 := PI * 0.5 * ri / rings
+		var a1 := PI * 0.5 * (ri + 1) / rings
+		for q in seg:
+			var t0 := TAU * q / seg
+			var t1 := TAU * (q + 1) / seg
+			for v in [[a0, t0], [a0, t1], [a1, t1], [a0, t0], [a1, t1], [a1, t0]]:
+				glass.set_normal(nr.call(v[0], v[1]))
+				glass.add_vertex(pt.call(v[0], v[1]))
+	var fr := SurfaceTool.new()
+	fr.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var w := Data.CITY_DOME_RIB
+	var ribs := 24
+	for q in ribs:   # the ribs, foot to crown, crossing in a diamond lattice (two sets, leaning opposite ways)
+		for sg in [-1.0, 1.0]:
+			for ri in rings:
+				var a0b := PI * 0.5 * ri / rings
+				var a1b := PI * 0.5 * (ri + 1) / rings
+				var l0: float = TAU * q / ribs + sg * a0b * 0.9
+				var l1: float = TAU * q / ribs + sg * a1b * 0.9
+				var p0: Vector3 = pt.call(a0b, l0)
+				var p1: Vector3 = pt.call(a1b, l1)
+				var nn: Vector3 = nr.call(a0b, l0)
+				var side := (p1 - p0).cross(nn).normalized() * w
+				for v2 in [p0 - side, p0 + side, p1 + side, p0 - side, p1 + side, p1 - side]:
+					fr.set_normal(nn)
+					fr.add_vertex(v2 + nn * 0.3)
+	for ri in [3, 7, 11]:   # rings round it
+		var la: float = PI * 0.5 * ri / rings
+		for q in seg:
+			var t0b := TAU * q / seg
+			var t1b := TAU * (q + 1) / seg
+			var p0b: Vector3 = pt.call(la, t0b)
+			var p1b: Vector3 = pt.call(la, t1b)
+			var up := Vector3.UP * w
+			var nb: Vector3 = nr.call(la, t0b)
+			for v3 in [p0b - up, p1b - up, p1b + up, p0b - up, p1b + up, p0b + up]:
+				fr.set_normal(nb)
+				fr.add_vertex(v3 + nb * 0.3)
+	for q in seg:   # the lit foot: a low wall round the base
+		var t0c := TAU * q / seg
+		var t1c := TAU * (q + 1) / seg
+		var f0 := Vector3(c.x + cos(t0c) * r, g - 2.0, c.y + sin(t0c) * r)
+		var f1 := Vector3(c.x + cos(t1c) * r, g - 2.0, c.y + sin(t1c) * r)
+		var nf := Vector3(cos(t0c), 0, sin(t0c))
+		for v4 in [f0, f1, f1 + Vector3.UP * 8.0, f0, f1 + Vector3.UP * 8.0, f0 + Vector3.UP * 8.0]:
+			fr.set_normal(nf)
+			fr.add_vertex(v4)
+	var mesh := glass.commit()
+	fr.commit(mesh)
+	return mesh
+
 ## Is there a city on this tile?
 static func is_city_tile(pid: String, tile: int) -> bool:
 	return rect(pid, tile).size.x > 0

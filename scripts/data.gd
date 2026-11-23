@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.280"
+const VERSION := "v13.281"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -539,6 +539,10 @@ const CITY_GLASS := Color(0.1, 0.17, 0.26)    # its window band (dark glass)
 const CITY_WINDOW_LIT := Color(1.0, 0.85, 0.55)   # a lit room seen through the glass
 const CITY_LIT_SHARE := 0.35        # share of window pieces lit
 const CITY_SHELL_PIECE := 2.5       # m: a building's outline wall is drawn in pieces this wide (each one there while the wall behind it stands)
+const CITY_DOME_SPREAD := 1.04     # v13.280 (owner: "domes over cities on airless worlds"): the dome reaches this much past the city's corners
+const CITY_DOME_HEADROOM := 70.0    # m over the tallest roof (spires and crowns stay inside)
+const CITY_DOME_RIB := 1.6          # m: half the width of a glowing rib of its frame
+const CITY_DOME_GLASS := Color(0.55, 0.85, 1.0, 0.13)   # the dome glass (a faint blue shimmer: you fly through it, the air stays in)
 const CITY_FLOOR_LAYERS := 2        # layers (5 m) a floor: 1 of room (5 m: people, not mechs), 1 of slab (v13.273: was 3)
 const MODULE := 10                  # v13.273: cells a building module is across: a 3 x 3 grid of 2 x 2-cell rooms (10 m) in 1-cell walls, the middle room the lift
 const CITY_BRIDGE_CHANCE := 0.6     # the chance of a walkway across the alley between two facing buildings

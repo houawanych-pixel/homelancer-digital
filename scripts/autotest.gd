@@ -7792,6 +7792,53 @@ func _run() -> void:
 		for r2 in results: print("[route] ", r2)
 		get_tree().quit()
 		return
+	if _flag("HL_DOME"):   # v13.280 (owner: "oxygen domes over the cities on airless, Mars-like worlds")
+		var dpid := ""
+		var dtile := -1
+		for p2 in Surface.PLANETS:
+			if not Surface.has_surface(p2) or Surface.is_sun(p2) or not CityPlan.domed(p2): continue
+			var ct: Dictionary = CityPlan.city_tiles(p2)
+			if ct.is_empty(): continue
+			dpid = p2
+			dtile = int(ct.keys()[0])
+			break
+		var shape: Dictionary = CityPlan.dome_shape(dpid, dtile) if dpid != "" else {}
+		var covers := false
+		var tall_ok := false
+		if not shape.is_empty():
+			var cr: Rect2i = CityPlan.rect(dpid, dtile)
+			var half := Vector2(cr.size) * Data.BLOCK_REGION * 0.5
+			covers = float(shape["r"]) > half.length()
+			var top := 0.0
+			for rz in cr.size.y:
+				for rx in cr.size.x:
+					for b in CityPlan.block(dpid, dtile, cr.position + Vector2i(rx, rz))["buildings"]:
+						top = maxf(top, CityPlan.roof(float(shape["g"]), int(b["floors"])) - float(shape["g"]))
+			tall_ok = float(shape["h"]) > top + 20.0
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var drawn := false
+		if dpid != "":
+			main._load_surface(dpid, dtile)
+			await _until(func(): return is_instance_valid(main.space) and main.space.surface_mode and main.space.planet_id == dpid, 40.0)
+			var s: Node = _sp()
+			var dn: Node = s.tile_root.get_node_or_null("CityDome") if is_instance_valid(s.tile_root) else null
+			drawn = dn != null and (dn as MeshInstance3D).mesh != null and (dn as MeshInstance3D).mesh.get_surface_count() == 2
+			var c: Vector2 = shape["centre"]
+			var g: float = shape["g"]
+			main.hud.visible = false
+			_tp(Vector3(c.x - float(shape["r"]) * 1.9, g + float(shape["h"]) * 0.9, c.y + float(shape["r"]) * 1.9), Vector3(c.x, g + float(shape["h"]) * 0.3, c.y))
+			await _wait(2.0)
+			await _capture("dome_far")
+			_tp(Vector3(c.x + 40.0, g + 30.0, c.y + float(shape["r"]) * 0.55), Vector3(c.x, g + float(shape["h"]) * 0.8, c.y))
+			await _wait(2.0)
+			await _capture("dome_inside")
+		var green_none: bool = not CityPlan.domed("new_terra")
+		_check("Oxygen domes (v13.280): an airless world (%s) has its city under a glass dome with a glowing frame (covers the city %s, over the tallest roof %s, drawn %s); green worlds have none (%s)" % [dpid, covers, tall_ok, drawn, green_none],
+			dpid != "" and covers and tall_ok and drawn and green_none, "")
+		_finish_group()
+		return
 	if _flag("HL_CITY"):   # v13.272-274 (owner: "cities dead centre of green tiles, sized by the land; bases never on a city square")
 		var pid := "new_terra"
 		var tile := 4

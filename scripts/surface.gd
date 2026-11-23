@@ -852,6 +852,32 @@ static func build_tile(planet_id: String, tile: int) -> Node3D:
 				ci.material_override = cm
 				ci.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				root.add_child(ci)
+		if CityPlan.domed(planet_id):   # v13.280: an airless world's city under its oxygen dome
+			var dm := CityPlan.dome_mesh(planet_id, tile)
+			if dm != null:
+				var di := MeshInstance3D.new()
+				di.name = "CityDome"
+				di.mesh = dm
+				var gm := StandardMaterial3D.new()
+				gm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+				gm.albedo_color = Data.CITY_DOME_GLASS
+				gm.cull_mode = BaseMaterial3D.CULL_DISABLED
+				gm.roughness = 0.05
+				gm.metallic_specular = 1.0
+				gm.rim_enabled = true
+				gm.rim = 0.8
+				gm.rim_tint = 0.6
+				gm.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+				di.set_surface_override_material(0, gm)
+				var fm := StandardMaterial3D.new()
+				fm.albedo_color = Data.CITY_TRIM
+				fm.emission_enabled = true
+				fm.emission = Data.CITY_TRIM
+				fm.emission_energy_multiplier = 1.6
+				fm.cull_mode = BaseMaterial3D.CULL_DISABLED
+				di.set_surface_override_material(1, fm)
+				di.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				root.add_child(di)
 	if BlockField.wanted(planet_id, tile):   # EXPERIMENT: the big-block test patch
 		var bf := BlockField.new()
 		bf.build(planet_id, tile)
