@@ -45,6 +45,8 @@ var dmg := {}                  # hits taken per layer: block's first cell -> {la
 var holes := {}                # v1.5y: air pockets under a cell's top: cell -> [Vector2i(lo, hi)] layers, sorted
 var y0 := 0.0                  # height of layer 0 (layers are BLOCK_MIN thick; below the depth floor is bedrock)
 var collapses := 0             # pieces that lost their support and fell (tests)
+var wood_rings := 0             # (tests) round wood pieces drawn
+var _tree_wood := {}           # v13.278: Vector2i(cell, layer) of tree wood above the ground (drawn as round trunks and limbs)
 var mats := {}                 # v1.5z: layers whose material is not the ground's own (rubble that settled, pieces that fell): cell -> {layer: material}
 var fill := {}                 # v1.5z: rubble merged into a cell but not yet a whole layer: cell -> amount (layers)
 var merged := 0                # rubble pieces that merged into the ground (tests)
@@ -449,6 +451,11 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 	_phase = "_place_veins"
 	_slab_expect()
 	_phase = "_slab_expect"
+	_tree_wood.clear()   # v13.278: the trees' own wood (drawn round); wood you build later stays blocks
+	for i in mats:
+		var ov: Dictionary = mats[i]
+		for k in ov:
+			if str(ov[k]) == "wood" and _ly(int(k)) > h0[i] + 0.01: _tree_wood[Vector2i(i, int(k))] = true
 	# 5. re-apply the blasts made here before (seed + deltas), quietly
 	var key := _sk
 	if not GS.block_deltas.has(key): GS.block_deltas[key] = []
@@ -4046,6 +4053,184 @@ func glow_points(near: Vector3, reach: float) -> Array:
 			if _ktop(c3) <= _kfloor(c3) + 1: add.call(Vector3(x0 + (x + 0.5) * step, h[c3] + 2.0, z0 + (z + 0.5) * step), "kill")
 	return out
 
+## v13.278: is layer k of cell i a tree's wood (still there, above the ground)? It is drawn round, not as a block.
+func _round_wood(i: int, k: int) -> bool:
+	if not _tree_wood.has(Vector2i(i, k)): return false
+	if str((mats.get(i, {}) as Dictionary).get(k, "")) != "wood": return false
+	return _solid_k(i, k)
+
+## v13.278 (owner: "round, smooth tree trunks, not blocky"): the trees' wood in cells [fx0, fx1) x [fz0, fz1), drawn as
+## smooth round tubes. Look only: the blocks are still there (collision, cutting, fire). Each 5 m layer of a trunk or
+## limb is a ring at the middle of its cells, as thick as their area; a ring joins the one above and below it half way,
+## so the trunk tapers and a limb leans smoothly as it climbs. A long run of cells in one layer (a branch reaching out
+## sideways) is a log lying along it. Returns true if it drew anything.
+@warning_ignore("integer_division")
+func _draw_wood(st: SurfaceTool, fx0: int, fz0: int, fx1: int, fz1: int) -> bool:
+	var step: float = Data.BLOCK_MIN
+	var clusters := {}   # Vector2i(k, min cell) -> {cells, c (Vector2 world xz), r, k, long: [a, b] or []}
+	var of_cell := {}    # Vector2i(cell, k) -> cluster key
+	var mine: Array = []
+	for fz in range(fz0, fz1):
+		for fx in range(fx0, fx1):
+			var i := fz * n + fx
+			var ov: Dictionary = mats.get(i, {})
+			if ov.is_empty(): continue
+			for k in ov:
+				if not _round_wood(i, int(k)) or of_cell.has(Vector2i(i, int(k))): continue
+				var key := _wood_cluster(i, int(k), clusters, of_cell)
+				if key.y >= 0 and _in_box(key.y, fx0, fz0, fx1, fz1): mine.append(key)
+	if mine.is_empty(): return false
+	var col := tone("wood")
+	_look(st, "wood")
+	wood_rings += mine.size()
+	var sides := Data.WOOD_ROUND_SIDES
+	for key in mine:
+		var cl: Dictionary = clusters[key]
+		var k: int = cl["k"]
+		var c: Vector2 = cl["c"]
+		var r: float = cl["r"]
+		var tint: float = 0.92 + float(absi(hash(key)) % 100) / 1250.0
+		var cc := Color(col.r * tint, col.g * tint, col.b * tint, 1.0)
+		if not (cl["long"] as Array).is_empty():   # a branch lying out sideways: a log along it
+			var a: Vector2 = cl["long"][0]
+			var b: Vector2 = cl["long"][1]
+			var ym := y0 + (k + 0.5) * step
+			_tube(st, Vector3(a.x, ym, a.y), Vector3(b.x, ym, b.y), r, r, sides, cc, true, true)
+			continue
+		var below := _wood_links(cl, k - 1, clusters, of_cell)
+		var above := _wood_links(cl, k + 1, clusters, of_cell)
+		var cb := c
+		var rb := r * Data.WOOD_ROOT_FLARE
+		if below.size() == 1:
+			var o: Dictionary = clusters[below[0]]
+			cb = (c + (o["c"] as Vector2)) * 0.5
+			rb = (r + float(o["r"])) * 0.5 if (o["long"] as Array).is_empty() else r
+		elif below.size() > 1: rb = r
+		var ct := c
+		var rt := r * Data.WOOD_TIP_TAPER
+		if above.size() == 1:
+			var o2: Dictionary = clusters[above[0]]
+			ct = (c + (o2["c"] as Vector2)) * 0.5
+			rt = (r + float(o2["r"])) * 0.5 if (o2["long"] as Array).is_empty() else r
+		elif above.size() > 1: rt = r
+		_tube(st, Vector3(cb.x, y0 + k * step, cb.y), Vector3(ct.x, y0 + (k + 1) * step, ct.y), rb, rt, sides, cc, below.is_empty(), above.is_empty())
+	return true
+
+func _in_box(i: int, fx0: int, fz0: int, fx1: int, fz1: int) -> bool:
+	var x := i % n
+	var z := i / n
+	return x >= fx0 and x < fx1 and z >= fz0 and z < fz1
+
+## The tree-wood cells joined to cell i in layer k (8 ways round), worked out once: its key Vector2i(k, lowest cell).
+@warning_ignore("integer_division")
+func _wood_cluster(i: int, k: int, clusters: Dictionary, of_cell: Dictionary) -> Vector2i:
+	if of_cell.has(Vector2i(i, k)): return of_cell[Vector2i(i, k)]
+	if not _round_wood(i, k): return Vector2i(k, -1)
+	var cells: Array = [i]
+	var seen := {i: true}
+	var q := 0
+	while q < cells.size():
+		var ci: int = cells[q]
+		q += 1
+		var x := ci % n
+		var z := ci / n
+		for dz in [-1, 0, 1]:
+			for dx in [-1, 0, 1]:
+				var nx: int = x + dx
+				var nz: int = z + dz
+				if nx < 0 or nz < 0 or nx >= n or nz >= n: continue
+				var nj := nz * n + nx
+				if seen.has(nj) or not _round_wood(nj, k): continue
+				seen[nj] = true
+				cells.append(nj)
+	var lo: int = cells.min()
+	var key := Vector2i(k, lo)
+	var step: float = Data.BLOCK_MIN
+	var sum := Vector2.ZERO
+	for ci in cells:
+		of_cell[Vector2i(ci, k)] = key
+		sum += Vector2(x0 + (ci % n + 0.5) * step, z0 + (ci / n + 0.5) * step)
+	var c := sum / cells.size()
+	var long: Array = []
+	var r := step * sqrt(float(cells.size()) / PI) * Data.WOOD_ROUND_K
+	if cells.size() >= 3:   # long and thin (a branch out sideways): a log from end to end
+		var sxx := 0.0
+		var szz := 0.0
+		var sxz := 0.0
+		for ci in cells:
+			var d := Vector2(x0 + (ci % n + 0.5) * step, z0 + (ci / n + 0.5) * step) - c
+			sxx += d.x * d.x
+			szz += d.y * d.y
+			sxz += d.x * d.y
+		var tr := (sxx + szz) / cells.size()
+		var det := (sxx * szz - sxz * sxz) / float(cells.size() * cells.size())
+		var disc := sqrt(maxf(0.0, tr * tr * 0.25 - det))
+		var l1 := tr * 0.5 + disc
+		var l2 := maxf(0.0, tr * 0.5 - disc)
+		if l1 > 0.0 and sqrt(l1) > Data.WOOD_LOG_RATIO * maxf(sqrt(l2), step * 0.29):
+			var ax := Vector2(sxz, l1 - sxx) if absf(sxz) > 0.0001 else (Vector2.RIGHT if sxx >= szz else Vector2.DOWN)
+			ax = ax.normalized()
+			var mn := INF
+			var mx := -INF
+			for ci in cells:
+				var t := (Vector2(x0 + (ci % n + 0.5) * step, z0 + (ci / n + 0.5) * step) - c).dot(ax)
+				mn = minf(mn, t)
+				mx = maxf(mx, t)
+			r = clampf(step * float(cells.size()) / ((mx - mn) / step + 1.0) * 0.5 * Data.WOOD_ROUND_K, step * 0.4, step * 1.5)
+			long = [c + ax * (mn - step * 0.3), c + ax * (mx + step * 0.3)]
+	clusters[key] = {"cells": cells, "c": c, "r": r, "k": k, "long": long}
+	return key
+
+## The wood clusters in layer k2 touching this one (a cell over, under or diagonally next to one of its cells).
+@warning_ignore("integer_division")
+func _wood_links(cl: Dictionary, k2: int, clusters: Dictionary, of_cell: Dictionary) -> Array:
+	var out: Array = []
+	for ci in cl["cells"]:
+		var x: int = ci % n
+		var z: int = ci / n
+		for dz in [-1, 0, 1]:
+			for dx in [-1, 0, 1]:
+				var nx: int = x + dx
+				var nz: int = z + dz
+				if nx < 0 or nz < 0 or nx >= n or nz >= n: continue
+				var key := _wood_cluster(nz * n + nx, k2, clusters, of_cell)
+				if key.y >= 0 and not out.has(key): out.append(key)
+	return out
+
+## A smooth round tube from a (radius ra) to b (radius rb), capped at the ends asked for.
+func _tube(st: SurfaceTool, a: Vector3, b: Vector3, ra: float, rb: float, sides: int, col: Color, cap_a: bool, cap_b: bool) -> void:
+	var ax := (b - a).normalized()
+	var ref := Vector3.UP if absf(ax.y) < 0.9 else Vector3.RIGHT
+	var u := ax.cross(ref).normalized()
+	var v := ax.cross(u).normalized()
+	var slope := (ra - rb) / maxf(0.001, a.distance_to(b))
+	var dark := col   # (one colour all the way up: the light and the bark pattern shade it, no bands per layer)
+	for q in sides:
+		var t0 := TAU * q / sides
+		var t1 := TAU * (q + 1) / sides
+		var d0 := u * cos(t0) + v * sin(t0)
+		var d1 := u * cos(t1) + v * sin(t1)
+		var n0 := (d0 + ax * slope).normalized()
+		var n1 := (d1 + ax * slope).normalized()
+		var p0 := a + d0 * ra
+		var p1 := a + d1 * ra
+		var p2 := b + d1 * rb
+		var p3 := b + d0 * rb
+		for vv in [[p0, n0, dark], [p2, n1, col], [p1, n1, dark], [p0, n0, dark], [p3, n0, col], [p2, n1, col]]:
+			st.set_normal(vv[1])
+			st.set_color(vv[2])
+			st.add_vertex(vv[0])
+		if cap_a and ra > 0.01:
+			for vv in [[a, dark], [p1, dark], [p0, dark]]:
+				st.set_normal(-ax)
+				st.set_color(vv[1])
+				st.add_vertex(vv[0])
+		if cap_b and rb > 0.01:
+			for vv in [[b, col], [p3, col], [p2, col]]:
+				st.set_normal(ax)
+				st.set_color(vv[1])
+				st.add_vertex(vv[0])
+
 ## v1.7m: set how the next faces glow and shine (their material's own light and gloss).
 func _look(st: SurfaceTool, m: String) -> void:
 	# v12.0 (owner: "how did Minecraft do the leaves"): uv.y over 1.5 marks a leaf face: the shader gives it a
@@ -4097,6 +4282,7 @@ func _draw_chunk(k: int) -> void:
 			if fx % s != 0 or fz % s != 0: continue
 			_draw_block(st, fx, fz, s)
 			any = true
+	if not _tree_wood.is_empty() and _draw_wood(st, ci * c, cj * c, mini((ci + 1) * c, n), mini((cj + 1) * c, n)): any = true
 	var mi: MeshInstance3D = _chunks.get(k)
 	if mi == null:
 		if _ground_mat == null:   # v1.7m: vertex colour alpha = how much sun / sky reaches it; uv.x = its own glow, uv.y = gloss
@@ -4187,13 +4373,28 @@ func _draw_block(st: SurfaceTool, ox: int, oz: int, s: int) -> void:
 			var kc: Color = Data.KILL_COLOR
 			_quad(_kill_st, Vector3(ax, ty, az), Vector3(bx, ty, az), Vector3(bx, ty, bz), Vector3(ax, ty, bz), [kc, kc, kc, kc], Vector3.UP)
 			_kill_any = true
+		elif _round_wood(i0, o.y - 1):   # v13.278: a tree's wood is drawn round (_draw_wood); the ground under it gets its top
+			var kb := o.y - 1
+			while kb > o.x and _round_wood(i0, kb - 1): kb -= 1
+			if kb > o.x and kb > -1000:
+				var yb := y0 + kb * step
+				var gm := mat_at(cfx, cfz, yb)
+				var gc: Array
+				if absf(yb - h0[i0]) < 0.01 and not (mats.get(i0, {}) as Dictionary).has(kb - 1):
+					gc = [ccol[oz * n1 + ox], ccol[oz * n1 + ox + s], ccol[(oz + s) * n1 + ox + s], ccol[(oz + s) * n1 + ox]]
+					_look(st, "")
+				else:
+					var tg := tone(gm) * jit
+					gc = [tg, tg, tg, tg]
+					_look(st, gm)
+				_quad(st, Vector3(ax, yb, az), Vector3(bx, yb, az), Vector3(bx, yb, bz), Vector3(ax, yb, bz), _sky(gc, j < sp.size() - 1), Vector3.UP)
 		elif j == sp.size() - 1 and not vh.is_empty():
 			_slant_top(st, ax, az, bx, bz, vh, cs)
 		elif j == sp.size() - 1 and (drop > 0.0 or fused):
 			_skin_top(st, ax, az, bx, bz, ty, edge, inset, drop, cs, fused, shard, s * step)
 		else:
 			_quad(st, Vector3(ax, ty, az), Vector3(bx, ty, az), Vector3(bx, ty, bz), Vector3(ax, ty, bz), cs, Vector3.UP)
-		if j > 0 and not (slo < INF and y0 + o.x * step >= slo - step - 0.01):   # the roof of a hole under it (a tunnel or cave ceiling)
+		if j > 0 and not (slo < INF and y0 + o.x * step >= slo - step - 0.01) and not _round_wood(i0, o.x):   # the roof of a hole under it (a tunnel or cave ceiling)
 			var by: float = y0 + o.x * step
 			var rm := mat_at(cfx, cfz, _ly(o.x))
 			var cc0 := tone(rm).lerp(Color.BLACK, 0.4)
@@ -4455,6 +4656,12 @@ func _wall(st: SurfaceTool, p0: Vector3, p1: Vector3, top: float, low: float, cf
 		else:
 			var m := mat_at(cfx, cfz, y)
 			y_end = y - step
+			if m == "wood" and _round_wood(cfz * n + cfx, _k(y - 0.01)):   # v13.278: tree wood is drawn round, not as walls
+				while y_end > low + 0.01 and _round_wood(cfz * n + cfx, _k(y_end - 0.01)): y_end -= step
+				y = maxf(y_end, low)
+				first = false
+				prev_flat = false
+				continue
 			while y_end > low + 0.01 and mat_at(cfx, cfz, y_end) == m: y_end -= step
 			y_end = maxf(y_end, low)
 			col = tone(m)

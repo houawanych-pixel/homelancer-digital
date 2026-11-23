@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.277"
+const VERSION := "v13.278"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -677,6 +677,11 @@ const MOLD_RAMP := 2                 # the entrance tunnel climbs one layer ever
 # its chamber. Wood and leaves CATCH FIRE (owner): missiles and lava set them burning, fire spreads to touching wood
 # and leaves, burns them away and dies out; water puts it out. Like the fluids, fire only runs near the player.
 const WOOD_COLOR := Color(0.40, 0.35, 0.30)
+const WOOD_ROUND_SIDES := 10        # v13.278 (owner: "round, smooth tree trunks"): sides of a trunk / limb ring (look only)
+const WOOD_ROUND_K := 1.0           # ring radius = a circle as big as the layer's wood cells, times this
+const WOOD_ROOT_FLARE := 1.2        # the foot of a trunk flares out a little where it meets the ground
+const WOOD_TIP_TAPER := 0.7         # the end of a limb narrows
+const WOOD_LOG_RATIO := 2.2         # a layer's wood this much longer than wide is a branch lying out sideways (a log)
 const LEAF_COLORS := {"leaf": Color(0.16, 0.55, 0.50), "leaf2": Color(0.52, 0.40, 0.72),
 	"vine": Color(0.10, 0.40, 0.22), "frond": Color(0.30, 0.68, 0.26), "glow": Color(0.22, 0.95, 0.92), "bloom": Color(0.95, 0.34, 0.74)}   # (v12.22: the lush ones keep their own colour)
 ## v12.22 (owner: "lush forests ... Avatar style ... floating voxels connected by vines ... high lush waterfalls ... lots of

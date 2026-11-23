@@ -5800,6 +5800,39 @@ func _run() -> void:
 			_tp(wp + Vector3(60, 40, 60), wp)
 			await _wait(1.0)
 			await _capture("trees_%s_high" % pid)
+		# v13.278 (owner: "round, smooth tree trunks"): the trunk's wood above the ground is drawn round, not as blocks
+		var round_ok := false
+		var trunk_round := 0
+		var trunk_all := 0
+		if not tr.is_empty():
+			for c in tr["trunk"]:
+				for k in range(int(tr["k_ground"]), int(tr["k_top"])):
+					if str((best.mats.get(c, {}) as Dictionary).get(k, "")) == "wood" and best._ly(k) > best.h0[c] + 0.01:
+						trunk_all += 1
+						if best._round_wood(c, k): trunk_round += 1
+			round_ok = trunk_all > 0 and trunk_round == trunk_all and best.wood_rings > 0
+			var tc: int = tr["trunk"][0]
+			var bx: float = best.x0 + (tc % best.n + 1.0) * Data.BLOCK_MIN
+			var bz: float = best.z0 + (tc / best.n + 1.0) * Data.BLOCK_MIN
+			var by: float = best.h0[tc]
+			var look := best.to_global(Vector3(bx, by + 18.0, bz))
+			var tcam := Camera3D.new()
+			s.add_child(tcam)
+			var prev_cam := get_viewport().get_camera_3d()
+			s.player.visible = false
+			for v in [Vector2(45, 30), Vector2(-60, 50), Vector2(30, -70)]:
+				var cl := Vector3(bx + v.x, 0.0, bz + v.y)
+				cl.y = maxf(best.top_at(cl.x, cl.z) + 8.0, by + 10.0 + v.length() * 0.3)
+				tcam.global_position = best.to_global(cl)
+				tcam.look_at(look, Vector3.UP)
+				tcam.make_current()
+				await _wait(0.6)
+				await _capture("trees_%s_trunk_%d" % [pid, int(v.x)])
+			tcam.queue_free()
+			if prev_cam: prev_cam.make_current()
+			s.player.visible = true
+		_check("Round trunks (v13.278): a tree's wood above the ground is drawn as smooth round trunks and limbs (the blocks stay underneath)",
+			round_ok, "trunk layers round %d of %d, wood pieces drawn %d" % [trunk_round, trunk_all, best.wood_rings if best != null else 0])
 		_check("v12.53 (owner): trees fork into diagonal limbs with cloud-shaped canopies (%d puffs), dressed in %d leaf cards; you move through leaves (ground in a canopy: below you %s)" % [puffs, cards, through], puffs >= 3 and cards > 20 and through, "puffs %d cards %d through %s trees %d" % [puffs, cards, through, best.trees.size() if best != null else 0])
 		_finish_group()
 		return
