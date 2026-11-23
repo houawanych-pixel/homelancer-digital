@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.276"
+const VERSION := "v13.277"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -585,7 +585,7 @@ const DIRT_BROWN := Color(0.46, 0.31, 0.19)   # dirt's own colour...
 const DIRT_PLANET := 0.25            # ...with this much of the planet's ground colour in it
 const BLOCK_SHAPES := [[1, 1, 34], [2, 1, 18], [1, 2, 18], [2, 2, 12], [3, 1, 6], [1, 3, 6], [3, 2, 3], [2, 3, 3]]   # [cols wide, cols deep, weight]
 const BLOCK_SHAPE_EVEN := 10.0       # m: columns only join into one block where the ground under them is this even
-const BLOCK_BIG_RISE := 0.25         # the chance a big joined block (4+ columns) stands a step or two proud of the ground
+const BLOCK_BIG_RISE := 0.0   # v13.277 (owner: "smooth hills"): no big blocks standing a step proud any more (was 0.25)         # the chance a big joined block (4+ columns) stands a step or two proud of the ground
 const BLOCK_TONES := {"sand": [0.38, 0.8], "dirt": [-0.12, 0.9], "stone": [-0.45, 0.45], "obsidian": [-0.8, 0.35]}
 const BLOCK_DAMAGE_DARK := 0.35      # a cracked block darkens up to this much before it breaks
 # v1.5u (owner): underground you touch walls all the time. Over the block ground a bump is free up to cruising speed
@@ -607,6 +607,7 @@ const BLOCK_SHARD_HEIGHT := 8.0      # how far a fused obsidian top points up (m
 # leans into slanted slabs and wedges instead of square stairs, worked out per corner so slabs always meet edge
 # to edge (no gaps); where something stands higher the block stays square, so slabs and steps interlock.
 const BLOCK_SLANT_MAX := 10.0        # how far a top corner may lean down (m)
+const BLOCK_SMOOTH_MAX := 10.0       # v13.277 (owner: "smooth hills, only big jumps linear"): steps this small (2 layers) round a corner blend into one slope
 const BLOCK_SLANT_ZONE := -1.0       # v12.41 (owner: "anything we can do so they don't look so boxy"): every whole big block of sand / dirt / stone may lean now (was 0.22: patches only). v1.7g (owner: "a few slants"): slants only in patches, where the planet's slant
 const BLOCK_SLANT_FREQ := 0.006      #   noise is over this; the rest is square steps like the owner's pictures
 # v1.6b water and lava. Sealed pockets from the seed (water in stone, lava deeper in obsidian), asleep until opened;

@@ -16913,7 +16913,9 @@ func _regions() -> void:
 		var fz: int = c / sr.n
 		if int(sr.lsz[c]) != sr.R or fx % sr.R != 0 or fz % sr.R != 0 or fx + sr.R >= sr.n or fz + sr.R >= sr.n: continue
 		var A: Array = cv.call(sr, c)
-		if (A[4] as Array).min() < float(A[3]) - 0.01: slanted += 1
+		var lean_any := false   # (v13.277: a corner may rise as well as fall now)
+		for q in 4: lean_any = lean_any or absf(float(A[4][q]) - float(A[3])) > 0.01
+		if lean_any: slanted += 1
 		else: square += 1
 		for side in [1, 2]:   # east and south neighbours
 			var nc: int = c + (sr.R if side == 1 else sr.R * sr.n)
@@ -16923,14 +16925,16 @@ func _regions() -> void:
 			var a1: float = A[4][2]
 			var b0: float = B[4][0]   # B's (NW, SW) or (NW, NE)
 			var b1: float = B[4][3] if side == 1 else B[4][1]
+			# v13.277 (smooth hills): a crack shows only where the LOWER block's edge stands above the higher one's at a
+			# shared corner (the higher block's wall covers everything below its own edge)
 			if absf(float(A[3]) - float(B[3])) < 0.01:
 				if absf(a0 - b0) > 0.01 or absf(a1 - b1) > 0.01: gaps += 1
 			elif float(A[3]) > float(B[3]):
-				if minf(a0, a1) < float(B[3]) - 0.01 or absf(b0 - float(B[3])) > 0.01 or absf(b1 - float(B[3])) > 0.01: gaps += 1
+				if b0 > a0 + 0.01 or b1 > a1 + 0.01: gaps += 1
 			else:
-				if minf(b0, b1) < float(A[3]) - 0.01 or absf(a0 - float(A[3])) > 0.01 or absf(a1 - float(A[3])) > 0.01: gaps += 1
-	_check("Slanted ground (v1.7e): in patches the natural ground leans into slanted slabs and wedges (look only, blocks underneath); most of it is square steps (owner: a few slants), and neighbouring blocks always meet with no gap",
-		slanted > 10 and square > slanted and gaps == 0, "slanted %d, square %d, gaps %d" % [slanted, square, gaps])
+				if a0 > b0 + 0.01 or a1 > b1 + 0.01: gaps += 1
+	_check("Smooth ground (v13.277, was v1.7e slants): small steps blend into rolling slopes (look only, blocks underneath), and neighbouring blocks always meet with no gap",
+		slanted > square and gaps == 0, "sloped %d, square %d, gaps %d" % [slanted, square, gaps])
 	# v1.7g (owner's pictures): brown dirt under a thin grass cap in the planet's colour, and blocks of many sizes:
 	# neighbouring columns join into long rectangles and big solid blocks
 	var jn := 0

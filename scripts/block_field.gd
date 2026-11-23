@@ -4307,7 +4307,7 @@ func _slant(ox: int, oz: int, s: int, top: float, _tm: String, _untouched: bool,
 		var vz: int = oz + (s if q >= 2 else 0)
 		var v := _corner_h(vx, vz, top)
 		vh.append(v)
-		any = any or v < top - 0.01
+		any = any or absf(v - top) > 0.01
 	return vh if any else []
 
 var _pox := 0.0
@@ -4315,6 +4315,31 @@ var _poz := 0.0
 var _slant_noise: FastNoiseLite
 ## The height a top at `top` takes at grid corner (vx, vz) (see _slant).
 func _corner_h(vx: int, vz: int, top: float) -> float:
+	# v13.277 (owner: "smooth the ground out like hills: small stair steps one smooth slope, only big jumps stay
+	# linear"): where the blocks round a corner differ by no more than BLOCK_SMOOTH_MAX, the corner takes their
+	# average (it may rise as well as fall), so a staircase of small steps draws as one rolling surface. It is worked
+	# out from the four cells alone (not the asking block's own top), so every block sharing the corner gets the same
+	# height and they meet with no gap. A block that may not lean (dug, built on, a city top, a split block) stays square
+	# at its top, so a corner it touches is pinned to that top and the leaning blocks round it slope to meet its edge.
+	if Data.BLOCK_SMOOTH_MAX > 0.0:
+		var mn := INF
+		var mx := -INF
+		var sum := 0.0
+		var fixed := NAN
+		var ok := true
+		for c: Vector2i in [Vector2i(vx - 1, vz - 1), Vector2i(vx, vz - 1), Vector2i(vx - 1, vz), Vector2i(vx, vz)]:
+			if c.x < 0 or c.y < 0 or c.x >= n or c.y >= n or holes.has(c.y * n + c.x):
+				ok = false
+				break
+			var hc: float = h[c.y * n + c.x]
+			mn = minf(mn, hc)
+			mx = maxf(mx, hc)
+			sum += hc
+			if not _slant_ok(c.y * n + c.x):
+				if is_nan(fixed): fixed = hc
+				elif absf(fixed - hc) > 0.01: ok = false   # (two square blocks of different heights: no smoothing here)
+		if ok and mx - mn > 0.01 and mx - mn <= Data.BLOCK_SMOOTH_MAX + 0.01:
+			return sum * 0.25 if is_nan(fixed) else fixed
 	if _slant_noise == null or _slant_noise.get_noise_2d(_pox + x0 + vx * Data.BLOCK_MIN, _poz + z0 + vz * Data.BLOCK_MIN) < Data.BLOCK_SLANT_ZONE: return top   # (v1.7g: square steps outside the slant patches)
 	var lmax := -INF
 	for c: Vector2i in [Vector2i(vx - 1, vz - 1), Vector2i(vx, vz - 1), Vector2i(vx - 1, vz), Vector2i(vx, vz)]:
@@ -4322,7 +4347,7 @@ func _corner_h(vx: int, vz: int, top: float) -> float:
 		var i := c.y * n + c.x
 		var hc: float = h[i]
 		if hc > top + 0.01: return top
-		if hc >= top - 0.01:
+		elif hc >= top - 0.01:
 			if not _slant_ok(i): return top
 		else:
 			if holes.has(i): return top
