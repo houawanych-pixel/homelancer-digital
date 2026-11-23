@@ -997,6 +997,7 @@ func _swap_btn(r: Rect2) -> void:
 	swap_drawn = "SET %d: %s" % [int(lo["active"]) + 1, ", ".join(names)]
 
 func _top_bar_draw() -> void:
+	if GS.heat > 0.0 and GS.heat_fac != "": _heat_bar()   # v13.284
 	if buttons.has("build"):
 		var rb: Rect2 = buttons["build"]
 		var bon: bool = space.build_mode
@@ -1189,6 +1190,25 @@ func button_at(p: Vector2) -> String:
 
 # ---------------------------------------------------------------- drawing helpers
 var _boxes := {}   # v1.7q: one style box per look, made once (not a new one for every box, every frame)
+## v13.284 (owner: "a heat bar in the faction's colour, not GTA stars"): how wanted you are, by whom, and what the
+## place you're in means for the chase.
+func _heat_bar() -> void:
+	var col: Color = Factions.def(GS.heat_fac).get("primary_color", RED)
+	var r := Rect2(S.x * 0.5 + 92.0, TOP_BAR_Y + TOP_BAR_H * 2.0 + 12.0, 230.0, 46.0)
+	_box(r, Color(0.02, 0.05, 0.1, 0.88), Color(col, 0.95), 8, 2)
+	_text(Vector2(r.position.x + 10.0, r.position.y + 15.0), "WANTED · %s" % str(Factions.def(GS.heat_fac).get("display_name", GS.heat_fac)).to_upper(), 11, Color(col.lightened(0.35), 1.0))
+	var n := int(Data.HEAT_MAX)
+	var w := (r.size.x - 20.0 - (n - 1) * 4.0) / n
+	var pulse := 0.75 + 0.25 * sin(Time.get_ticks_msec() * 0.008)
+	for i in n:
+		var cell := Rect2(r.position.x + 10.0 + i * (w + 4.0), r.position.y + 21.0, w, 10.0)
+		var fill := clampf(GS.heat - i, 0.0, 1.0)
+		draw_rect(cell, Color(col, 0.18))
+		if fill > 0.0: draw_rect(Rect2(cell.position, Vector2(cell.size.x * fill, cell.size.y)), Color(col.r, col.g, col.b, pulse))
+	var z: String = space.heat_zone()
+	var hint: String = {"home": "THEIR SPACE: MORE ARE COMING", "enemy": "ENEMY SPACE: NO BACKUP", "neutral": "NEUTRAL: LOSING THEM"}.get(z, "")
+	_text(Vector2(r.position.x + 10.0, r.end.y - 4.0), hint, 9, CYAN_HI if z == "neutral" else GOLD)
+
 func _box(r: Rect2, bg := PANEL, edge := EDGE, radius := 10, bw := 2) -> void:
 	var key := Vector4i(bg.to_rgba32(), edge.to_rgba32(), radius, bw)
 	var sb: StyleBoxFlat = _boxes.get(key)

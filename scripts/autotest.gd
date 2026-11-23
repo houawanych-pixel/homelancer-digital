@@ -7915,6 +7915,88 @@ func _run() -> void:
 			ej == "out" and prompt_steal and got and driving and hidden and capped and out and left_ok and again and s.last_crime == "car_theft" and s.cars_stolen == 1, "")
 		_finish_group()
 		return
+	if _flag("HL_HEAT"):   # v13.284 (owner: "police chase: heat bar in the faction's colour; follows you; backup at home, none in enemy space; nebulae and neutral space let you escape")
+		var pid := "new_terra"
+		var tile := 4
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main._load_surface(pid, tile)
+		await _until(func(): return is_instance_valid(main.space) and main.space.surface_mode and main.space.planet_id == pid, 40.0)
+		var s: Node = _sp()
+		var cr: Rect2i = CityPlan.rect(pid, tile)
+		var c2: Vector2 = BlockField.region_centre(cr.position + Vector2i(1, 1)) - Vector2(Data.BLOCK_REGION, Data.BLOCK_REGION) * 0.5
+		var g: float = CityPlan.ground(pid, tile)
+		var spot := Vector3(c2.x + 20.0, g + Data.PILOT_FEET_BELOW + 0.5, c2.y + 60.0)
+		await _until(func(): s.player.global_position = spot; s.vel = Vector3.ZERO; return s._regions.size() >= 4 and s._building == null and s.city_traffic != null and is_instance_valid(s.city_traffic) and s.city_traffic.active() >= 6, 150.0)
+		GS.form = "mech"
+		s.set_player_model()
+		s.ground_mode = true
+		s.player.global_position = spot
+		await _wait(0.5)
+		s.eject()
+		await _wait(0.5)
+		var q: Dictionary = {}
+		for p in s.city_traffic.pool:
+			if p["state"] != "off": q = p; break
+		q["parked"] = true
+		var cn: Node3D = q["node"]
+		s.player.global_position = cn.global_position + cn.global_basis.x * 6.0 + Vector3(0, Data.PILOT_FEET_BELOW - Data.TRAFFIC_HOVER, 0)
+		await _frames(3)
+		main._on_hud("steal")
+		var fac: String = GS.heat_fac
+		var owner_here: String = s.police_here()
+		var wanted: bool = GS.heat >= 1.0 and fac == owner_here and s.heat_zone() == "home"
+		await _until(func(): return s.police_ships().size() >= 2, 15.0)
+		var first: int = s.police_ships().size()
+		main.hud.visible = true
+		await _wait(1.5)
+		await _capture("heat_bar_city")
+		# more heat: more backup comes (their space)
+		GS.heat = 3.0
+		s._heat_wave_t = 0.0
+		await _until(func(): s._heat_wave_t = minf(s._heat_wave_t, 0.0); return s.police_ships().size() >= 6, 15.0)
+		var backup: int = s.police_ships().size()
+		# they follow you up into space
+		var tail: int = GS.heat_follow
+		s.exit_car()
+		main.leave_atmosphere()
+		await _until(func(): return is_instance_valid(main.space) and not main.space.surface_mode and main.state == "flight", 40.0)
+		await _wait(2.0)
+		var s2: Node = _sp()
+		var followed: int = s2.police_ships().size()
+		var still: bool = GS.heat > 0.0 and GS.heat_fac == fac
+		await _capture("heat_followed_space")
+		# enemy space: no backup, only the ones on you
+		for e in s2.police_ships():
+			s2.enemies.erase(e)
+			(e["node"] as Node3D).queue_free()
+		var real_fac: String = GS.heat_fac
+		var rival: String = Factions.rival(real_fac) if Factions.rival(real_fac) != "" else "Savagers"
+		var keep_sys: Dictionary = s2.sys
+		s2.sys = keep_sys.duplicate()
+		s2.sys["faction"] = rival
+		var st2: Dictionary = (keep_sys.get("station", {}) as Dictionary).duplicate()
+		st2["faction"] = rival
+		s2.sys["station"] = st2
+		var zone_e: String = s2.heat_zone()
+		s2._heat_wave_t = 0.0
+		var before_e: int = s2.police_spawned
+		for k in 90:
+			await get_tree().process_frame
+		var no_backup: bool = s2.police_spawned == before_e
+		s2.sys = keep_sys
+		# a nebula: you get away
+		s2.in_nebula = 1.0
+		var zone_n: String = s2.heat_zone()
+		await _until(func(): s2.in_nebula = 1.0; return GS.heat <= 0.0, 12.0)
+		var escaped: bool = GS.heat <= 0.0 and GS.heat_fac == ""
+		s2.in_nebula = 0.0
+		var col: Color = Factions.def(fac).get("primary_color", Color.RED)
+		_check("Police chase (v13.284): stealing a car makes you WANTED by the %s (heat bar in their colour %s, %s): %d police after you, at heat 3 backup brings %d; %d were on your tail and %d followed you up into space (still wanted %s); in enemy space (%s) no backup comes (%s); in a nebula (%s) you get away (%s)" % [fac, col.to_html(false), str(wanted), first, backup, tail, followed, still, zone_e, no_backup, zone_n, escaped],
+			wanted and first >= 2 and backup >= 6 and followed >= mini(tail, Data.HEAT_FOLLOW_MAX) and followed > 0 and still and zone_e == "enemy" and no_backup and zone_n == "neutral" and escaped, "")
+		_finish_group()
+		return
 	if _flag("HL_DOME"):   # v13.280 (owner: "oxygen domes over the cities on airless, Mars-like worlds")
 		var dpid := ""
 		var dtile := -1

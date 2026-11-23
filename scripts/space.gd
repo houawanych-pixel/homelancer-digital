@@ -6921,6 +6921,7 @@ func _npc_hit(e: Dictionary, dmg: float) -> void:
 	_explode(n.global_position, float(n.get_meta("radius", 7.0)))
 	_spark(n.global_position, Color(1.0, 0.95, 0.85), 40.0, 0.35)
 	enemies.erase(e)
+	if bool(e.get("police", false)): crime("cop_kill", Data.HEAT_COP_KILL)   # v13.284
 	for pe in e.get("parts", []): enemies.erase(pe)
 	if target == n: target = null
 	npc_kills += 1
@@ -8440,6 +8441,7 @@ func _process(dt: float) -> void:
 		_mem_reported = true
 		if OS.has_feature("web") or OS.get_environment("HL_PROFILE") != "": print(memory_report())
 	if not is_instance_valid(player): return
+	_update_heat(dt)   # v13.284
 	_update_player(dt)
 	_update_nacelles(dt)   # v9.8
 	_fog_t -= dt
@@ -10410,6 +10412,9 @@ func _update_blasts(dt: float) -> void:
 
 ## The player's ship blows up: both sides and the core go, then the wreck is gone.
 func _die() -> void:
+	GS.heat = 0.0   # v13.284: dead, you're off their list
+	GS.heat_fac = ""
+	GS.heat_follow = 0
 	if driving:   # v13.283: the car you took goes up with you
 		if is_instance_valid(car): car.queue_free()
 		car = null
@@ -16317,9 +16322,111 @@ func steal_car() -> bool:
 	cars_stolen += 1
 	last_crime = "car_theft"
 	last_crime_at = player.global_position
+	crime("car_theft", Data.HEAT_CAR_THEFT)   # v13.284
 	Sfx.play("button", -2.0, 0.6)
 	message.emit("You took the %s. Drive it low through the streets. EJECT to get out." % str(nd.get_meta("kind", "car")))
 	return true
+
+# ---------------------------------------------------------------- v13.284: the police chase
+## Owner: "a police chase with a heat bar in the faction's colour (not GTA stars). It follows you into space and onto
+## planets. Endless reinforcements in the faction's and its allies' space. In enemy space only the ships already
+## chasing you can follow. Neutral systems and nebulae let you escape."
+var police_spawned := 0   # (tests)
+var _heat_key := ""
+var _heat_wave_t := 0.0
+var _heat_cool_t := 0.0
+
+## Whose law runs here (the system's owner; "" = nobody's).
+func police_here() -> String:
+	return Factions.owner_of(sys.get("station", {}), sys) if not sys.is_empty() else ""
+
+## How this place stands to the faction after you: "home" (theirs or an ally's: backup keeps coming), "enemy" (their
+## enemies' space: only the ships already on you), "neutral" (nobody's, someone else's, or inside a nebula: you get away).
+func heat_zone() -> String:
+	var f := GS.heat_fac
+	var o := police_here()
+	if in_nebula > 0.5: return "neutral"
+	if o == f or (Data.FACTION_ALLIES.get(f, []) as Array).has(o): return "home"
+	if o == "" or not Factions.has(o): return "neutral"
+	if Factions.rival(f) == o or not Factions.normal(o) or (Data.FACTION_ALLIES.get(Factions.rival(f), []) as Array).has(o): return "enemy"
+	return "neutral"
+
+## Something the law here cares about: the heat goes up (with the police of this place).
+func crime(kind: String, amount: float) -> void:
+	var f := police_here()
+	if f == "" or not Factions.has(f): return
+	if GS.heat <= 0.0 or GS.heat_fac == "": GS.heat_fac = f
+	elif GS.heat_fac != f: return   # (already wanted by someone else: they keep you)
+	var was := int(ceil(GS.heat))
+	GS.heat = minf(Data.HEAT_MAX, GS.heat + amount)
+	_heat_cool_t = 0.0
+	last_crime = kind
+	if is_instance_valid(player): last_crime_at = player.global_position
+	if int(ceil(GS.heat)) > was: message.emit("WANTED by the %s: heat %d." % [Factions.def(f).get("display_name", f), int(ceil(GS.heat))])
+	_heat_wave_t = minf(_heat_wave_t, 1.0)
+
+func police_ships() -> Array:
+	return enemies.filter(func(e): return bool(e.get("police", false)) and is_instance_valid(e.get("node")))
+
+func _spawn_police(count: int) -> Array:
+	if count <= 0 or GS.heat_fac == "" or not is_instance_valid(player): return []
+	var fwd := -player.global_basis.z
+	var at := player.global_position - fwd * 650.0 + Vector3(0, 90, 0)
+	if surface_mode: at.y = maxf(at.y, _ground(at.x, at.z) + 120.0)
+	var g := spawn_mission_group(at, GS.heat_fac, count, 2, "", -9)
+	for e in g:
+		e["police"] = true
+		e["aggro"] = true
+		e["provoked"] = true
+		(e["node"] as Node3D).name = "%s Police %d" % [Factions.def(GS.heat_fac).get("display_name", GS.heat_fac), police_spawned + 1]
+		police_spawned += 1
+	return g
+
+func _update_heat(dt: float) -> void:
+	if GS.heat <= 0.0:
+		GS.heat = 0.0
+		GS.heat_follow = 0
+		return
+	var cops := police_ships()
+	var key := "%s|%s|%s|%d" % [sys_id, str(surface_mode), planet_id, tile]
+	if key != _heat_key:   # a new place: the ships that were on your tail come through after you (not into neutral space)
+		_heat_key = key
+		if heat_zone() != "neutral": _spawn_police(mini(Data.HEAT_FOLLOW_MAX, GS.heat_follow) - cops.size())
+		cops = police_ships()
+		_heat_wave_t = Data.HEAT_WAVE_EVERY
+	var zone := heat_zone()
+	if zone == "neutral":   # you got away: the bar drains and they break off
+		GS.heat = maxf(0.0, GS.heat - dt * Data.HEAT_ESCAPE_RATE)
+		for e in cops:
+			e["aggro"] = false
+			e["provoked"] = false
+		if GS.heat <= 0.0:
+			message.emit("You lost them.")
+			GS.heat_follow = 0
+			GS.heat_fac = ""
+		return
+	var seen := false
+	for e in cops:
+		if (e["node"] as Node3D).global_position.distance_to(player.global_position) < Data.HEAT_SIGHT: seen = true
+	if seen: _heat_cool_t = 0.0
+	else:
+		_heat_cool_t += dt
+		if _heat_cool_t >= Data.HEAT_COOL:
+			_heat_cool_t = 0.0
+			GS.heat = maxf(0.0, ceil(GS.heat) - 1.0)
+			if GS.heat <= 0.0:
+				message.emit("The %s gave up looking for you." % Factions.def(GS.heat_fac).get("display_name", GS.heat_fac))
+				GS.heat_fac = ""
+				GS.heat_follow = 0
+				return
+	if zone == "home":   # their space (or an ally's): backup keeps coming
+		_heat_wave_t -= dt
+		var want := int(ceil(GS.heat)) * Data.HEAT_COPS_PER_LEVEL
+		if _heat_wave_t <= 0.0 and cops.size() < want:
+			_heat_wave_t = Data.HEAT_WAVE_EVERY
+			_spawn_police(mini(Data.HEAT_WAVE_MAX, want - cops.size()))
+			cops = police_ships()
+	GS.heat_follow = cops.size()
 
 func exit_car() -> String:
 	if not driving or not is_instance_valid(car): return ""

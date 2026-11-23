@@ -95,6 +95,11 @@ func explore(sys: String, p: Vector3, r: float) -> bool:
 	return m != before
 var last_base := "liberty_hub"
 var kills := 0
+## v13.284 (owner: "a police chase with a heat bar in the faction's colour, not GTA stars"): how wanted you are (0..5),
+## by whom, and how many of their ships are on your tail right now (they follow you through a jump or into orbit)
+var heat := 0.0
+var heat_fac := ""
+var heat_follow := 0
 var met: Array = [] # character ids, most recent first
 var mood := {} # id -> friendly | neutral | enraged
 var memory := {} # id -> what that character remembers about you (see scripts/brain.gd)
