@@ -7792,6 +7792,67 @@ func _run() -> void:
 		for r2 in results: print("[route] ", r2)
 		get_tree().quit()
 		return
+	if _flag("HL_TRAFFIC"):   # v13.282 (owner: "hover traffic: cars, buses, trucks, low along the streets")
+		var pid := "new_terra"
+		var tile := 4
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main._load_surface(pid, tile)
+		await _until(func(): return is_instance_valid(main.space) and main.space.surface_mode and main.space.planet_id == pid, 40.0)
+		var s: Node = _sp()
+		var cr: Rect2i = CityPlan.rect(pid, tile)
+		var rd := cr.position + Vector2i(1, 1)
+		var c2: Vector2 = BlockField.region_centre(rd) - Vector2(Data.BLOCK_REGION, Data.BLOCK_REGION) * 0.5
+		var g: float = CityPlan.ground(pid, tile)
+		var spot := Vector3(c2.x + 20.0, g + 25.0, c2.y + 60.0)   # over the avenue between the blocks
+		var hold := func(): s.player.global_position = spot; s.vel = Vector3.ZERO; return false
+		await _until(func(): hold.call(); return s.city_traffic != null and is_instance_valid(s.city_traffic) and s.city_traffic.active() >= 10, 30.0)
+		for k in 60:
+			hold.call()
+			await get_tree().process_frame
+		var tr: CityTraffic = s.city_traffic
+		var n_on := 0
+		var on_road := 0
+		var low := 0
+		var kinds := {}
+		var moved := 0
+		var before := {}
+		for p in tr.pool:
+			if p["state"] != "off": before[p["node"]] = (p["node"] as Node3D).position
+		await _wait(1.0)
+		for p in tr.pool:
+			if p["state"] == "off": continue
+			var nd: Node3D = p["node"]
+			n_on += 1
+			kinds[p["kind"]] = true
+			if before.has(nd) and (before[nd] as Vector3).distance_to(nd.position) > 3.0: moved += 1
+			if absf(nd.position.y - (g + Data.TRAFFIC_HOVER)) < 1.0: low += 1
+			# on a road: not over a building cell
+			var rx := int(floor((nd.position.x + Surface.EDGE) / Data.BLOCK_REGION))
+			var rz := int(floor((nd.position.z + Surface.EDGE) / Data.BLOCK_REGION))
+			var plan: Dictionary = CityPlan.block(pid, tile, Vector2i(rx, rz))
+			var org := BlockField.region_centre(Vector2i(rx, rz)) - Vector2(Data.BLOCK_REGION, Data.BLOCK_REGION) * 0.5
+			var cc := Vector2i(int(floor((nd.position.x - org.x) / Data.BLOCK_MIN)), int(floor((nd.position.z - org.y) / Data.BLOCK_MIN)))
+			if not (plan["cells"] as Dictionary).has(cc): on_road += 1
+		main.hud.visible = false
+		s.player.visible = false
+		var cam := Camera3D.new()
+		s.add_child(cam)
+		cam.global_position = spot + Vector3(-30.0, 10.0, 25.0)
+		cam.look_at(spot + Vector3(60.0, -22.0, -10.0), Vector3.UP)
+		cam.make_current()
+		await _wait(0.5)
+		await _capture("traffic_street")
+		cam.global_position = spot + Vector3(0.0, 120.0, 140.0)
+		cam.look_at(spot + Vector3(0.0, -25.0, 0.0), Vector3.UP)
+		await _wait(0.3)
+		await _capture("traffic_above")
+		cam.queue_free()
+		_check("Hover traffic (v13.282): %d vehicles out round you (%s), %d moving, %d hovering low over the street, %d on the roads (not in a building)" % [n_on, str(kinds.keys()), moved, low, on_road],
+			n_on >= 10 and kinds.size() >= 2 and moved >= n_on - 1 and low == n_on and on_road == n_on, "")
+		_finish_group()
+		return
 	if _flag("HL_DOME"):   # v13.280 (owner: "oxygen domes over the cities on airless, Mars-like worlds")
 		var dpid := ""
 		var dtile := -1

@@ -653,6 +653,12 @@ func _draw_band_cell(st: SurfaceTool, ox: int, oz: int) -> void:
 	var sq := PackedVector2Array([Vector2(ax, az), Vector2(bx, az), Vector2(bx, bz), Vector2(ax, bz)])
 	var cp := _clip_poly(sq, poly)
 	var sp := spans(i0)
+	# the pavement round the building's foot: the whole square at street level (just under the floor inside)
+	var kg: int = sh["kg"]
+	var wm := mat_at(ox, oz, y0 + kg * step)
+	var wc := tone(wm)
+	_look(st, wm)
+	_fan(st, sq, y0 + kg * step - 0.03, Color(wc.r, wc.g, wc.b, 1.0), Vector3.UP)
 	for j in sp.size():
 		var o: Vector2i = sp[j]
 		var ty: float = y0 + o.y * step

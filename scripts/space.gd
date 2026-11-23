@@ -16263,6 +16263,7 @@ var wildlife: Wildlife
 var wild_park := false   # (v12.41) the wildlife test area: every species at fixed spots (?wildtest / HL_WILDTEST)
 ## v13.276 (owner: "populate the city with people"): a city tile's people (scripts/city_life.gd).
 var city_life: CityLife
+var city_traffic: CityTraffic   # v13.282: the hover traffic
 func _update_city_life(dt: float) -> void:
 	if not Data.CITIES or not is_instance_valid(tile_root) or not CityPlan.is_city_tile(planet_id, tile) or not BlockField.regions_on():
 		return
@@ -16271,6 +16272,11 @@ func _update_city_life(dt: float) -> void:
 		city_life.setup(self, planet_id, tile)
 		tile_root.add_child(city_life)
 	city_life.tick(dt)
+	if city_traffic == null or not is_instance_valid(city_traffic) or city_traffic.get_parent() != tile_root:   # v13.282
+		city_traffic = CityTraffic.new()
+		city_traffic.setup(self, planet_id, tile)
+		tile_root.add_child(city_traffic)
+	city_traffic.tick(dt)
 
 func _update_wildlife(dt: float) -> void:
 	if not is_instance_valid(tile_root) or not BlockField.regions_on() or sun_surface: return
