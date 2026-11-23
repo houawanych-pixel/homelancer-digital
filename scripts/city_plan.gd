@@ -121,7 +121,7 @@ static func ground(pid: String, tile: int) -> float:
 static func block(pid: String, tile: int, r: Vector2i) -> Dictionary:
 	var key := "%s|%d|%d|%d" % [pid, tile, r.x, r.y]
 	if _blocks.has(key): return _blocks[key]
-	var plan := {"g": ground(pid, tile), "cells": {}, "rooms": {}, "walk": {}, "buildings": [], "bridges": []}
+	var plan := {"g": ground(pid, tile), "cells": {}, "rooms": {}, "walk": {}, "buildings": [], "bridges": [], "lots": []}
 	if not is_city_region(pid, tile, r):
 		_blocks[key] = plan
 		return plan
@@ -139,6 +139,7 @@ static func block(pid: String, tile: int, r: Vector2i) -> Dictionary:
 	var first: Array = []   # the main building on each lot (bridges join these)
 	for li in 4:
 		var lr: Rect2i = lots[li]
+		plan["lots"].append(lr)
 		for z in range(lr.position.y, lr.end.y):   # the lot's pavement
 			for x in range(lr.position.x, lr.end.x): plan["walk"][Vector2i(x, z)] = true
 		var inner := lr.grow(-Data.CITY_PAVEMENT)
@@ -172,6 +173,13 @@ static func _place(plan: Dictionary, b: Dictionary, at: Vector2i) -> void:
 	b["shaft"] = (b["shaft"] as Array).map(func(c): return c + at)
 	b["door"] = (b["door"] as Array).map(func(c): return c + at)
 	b["at"] = at
+	var outs: Array = []   # v13.276: which way each street door faces (out of the building)
+	for c in b["door"]:
+		var o := Vector2i.ZERO
+		for e in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			if not (b["cells"] as Dictionary).has(c + e): o = e
+		outs.append(o)
+	b["door_out"] = outs
 	plan["buildings"].append(b)
 	for c in b["cells"]: plan["cells"][c] = b["cells"][c]
 	for c in b["rooms"]: plan["rooms"][c] = true
@@ -336,3 +344,7 @@ static func _quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector
 		st.set_normal(n)
 		st.set_color(col)
 		st.add_vertex(v)
+
+## v13.276: a cell's centre in tile-local metres (x, z).
+static func cell_pos(r: Vector2i, c: Vector2) -> Vector2:
+	return BlockField.region_centre(r) - Vector2(Data.BLOCK_REGION, Data.BLOCK_REGION) * 0.5 + (c + Vector2(0.5, 0.5)) * Data.BLOCK_MIN

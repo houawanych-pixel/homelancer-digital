@@ -7694,6 +7694,65 @@ func _run() -> void:
 		for r2 in results: print("[route] ", r2)
 		get_tree().quit()
 		return
+	if _flag("HL_CITYPEOPLE"):   # v13.276 (owner: "populate the city with people")
+		var pid := "new_terra"
+		var tile := 4
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		Packs.request(Crowd3D.PACK)
+		await Packs.wait(Crowd3D.PACK, 120.0)
+		main._load_surface(pid, tile)
+		await _until(func(): return is_instance_valid(main.space) and main.space.surface_mode and main.space.planet_id == pid, 40.0)
+		var s: Node = _sp()
+		var cr: Rect2i = CityPlan.rect(pid, tile)
+		var rd: Vector2i = cr.position + Vector2i(cr.size.x / 2, cr.size.y / 2)
+		var c2: Vector2 = BlockField.region_centre(rd)
+		var g: float = CityPlan.ground(pid, tile)
+		var key := Vector4i(0, 0, rd.x, rd.y)
+		var spot := Vector3(c2.x - 150.0, g + 40.0, c2.y + 238.0)
+		_tp(spot, Vector3(c2.x + 100.0, g + 10.0, c2.y + 238.0))
+		await _until(func(): _tp(spot, Vector3(c2.x + 100.0, g + 10.0, c2.y + 238.0)); return s._regions.has(key) and is_instance_valid(s._regions[key]) and (s._regions[key] as BlockField).built, 240.0)
+		for k in 20:
+			_tp(spot, Vector3(c2.x + 100.0, g + 10.0, c2.y + 238.0))
+			await _wait(0.5)
+		var cl: CityLife = s.city_life
+		var n_on: int = cl.active() if cl != null else 0
+		var pos0 := {}
+		var bad := 0
+		var walking := 0
+		if cl != null:
+			for p in cl.pool:
+				if p["state"] == "off": continue
+				var nd: Node3D = p["node"]
+				pos0[nd] = nd.position
+				if absf(nd.position.y - g) > 0.5: bad += 1
+				var ap: AnimationPlayer = p["anim"]
+				if p["state"] == "walk" and ap != null and ap.is_playing() and str(ap.current_animation).to_lower().ends_with("walk"): walking += 1
+		for k in 6:
+			_tp(spot, Vector3(c2.x + 100.0, g + 10.0, c2.y + 238.0))
+			await _wait(0.5)
+		var moved := 0
+		for nd in pos0: if is_instance_valid(nd) and (nd as Node3D).position.distance_to(pos0[nd]) > 1.0: moved += 1
+		_tp(Vector3(c2.x - 40.0, g + 6.0, c2.y + 238.0), Vector3(c2.x + 60.0, g + 2.0, c2.y + 238.0))
+		await _wait(0.8)
+		await _capture("city_people")
+		_tp(Vector3(c2.x - 30.0, g + 60.0, c2.y + 300.0), Vector3(c2.x, g, c2.y + 200.0))
+		await _wait(0.5)
+		await _capture("city_people_above")
+		for k in 60:
+			_tp(spot, Vector3(c2.x + 100.0, g + 10.0, c2.y + 238.0))
+			await _wait(0.5)
+			if cl != null and cl.entered > 0 and cl.came_out > 0: break
+		var doors_ok: bool = cl != null and (cl.entered > 0 or cl.came_out > 0)
+		_check("v13.276: the city has people round you (%d of %d out, all on the street level: %s), walking with their Walk clip (%d) and moving (%d moved), in and out of street doors (%d went in, %d came out)" % [n_on, Data.CITY_PEDS, str(bad == 0), walking, moved, cl.entered if cl else -1, cl.came_out if cl else -1],
+			n_on >= Data.CITY_PEDS * 0.6 and bad == 0 and walking >= 5 and moved >= 5 and doors_ok, "")
+		_tp(Vector3(c2.x - 2500.0, g + 300.0, c2.y), Vector3(c2.x, g, c2.y))
+		await _wait(1.5)
+		_check("v13.276: fly away and they're all taken back (%d out)" % (cl.active() if cl else -1), cl != null and cl.active() == 0, "")
+		for r2 in results: print("[route] ", r2)
+		get_tree().quit()
+		return
 	if _flag("HL_CITY"):   # v13.272-274 (owner: "cities dead centre of green tiles, sized by the land; bases never on a city square")
 		var pid := "new_terra"
 		var tile := 4

@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.275"
+const VERSION := "v13.276"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -518,7 +518,15 @@ const CITY_LAND := {"city": 2, "coast": 2, "jungle": 2, "forest": 1, "industrial
 const CITY_TILES_BIG := 2           # a 3 x 3 world has cities on at most this many tiles (a smaller one: 1)
 const CITY_NO_OUTPOST := ["ocean", "sun", "clouds"]   # a world with no green land gets one block on its first tile that isn't one of these
 const CITY_SLOPE := 350.0           # v13.275: m over which the land round a city eases from its street level back to its own
-const CITY_BASE_CLEAR := 250.0      # m: a facility / raid base / mission point keeps this far off a city square
+const CITY_BASE_CLEAR := 250.0
+# v13.276 (owner: "populate the city with people"): scripts/city_life.gd
+const CITY_PEDS := 24               # people in the pool round you (reused, never more)
+const CITY_PED_RANGE := 260.0       # m: they're only on the blocks this close; past it they go back in the pool
+const CITY_PED_ALT := 220.0         # m over the street: higher than this (flying over) there's nobody down there
+const CITY_PED_INDOORS := 0.15      # share standing about in a ground-floor room
+const CITY_PED_OUT_OF_DOOR := 0.2   # share that step out of a street door
+const CITY_PED_GO_IN := 0.35        # of the walkers, the share that turn in at a door later
+const CITY_PED_MODELS := ["future_soldier", "phenom_isara", "phenom_thalen", "phenom_vyrela", "phenom_xerathion", "phenom_aurelian_guard"]      # m: a facility / raid base / mission point keeps this far off a city square
 const CITY_CLEAR := 120.0           # m kept clear between the city and a port's pad island / a facility
 const CITY_AVENUE := 6              # cells (5 m) of avenue on each edge of a block: 60 m between blocks
 const CITY_ALLEY := 4               # cells: the alley through the middle of a block

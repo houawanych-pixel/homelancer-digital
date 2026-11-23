@@ -16261,6 +16261,17 @@ func _ground(x: float, z: float) -> float:
 ## v12.28: the wildlife on this tile's grass (made with the tile, gone with it).
 var wildlife: Wildlife
 var wild_park := false   # (v12.41) the wildlife test area: every species at fixed spots (?wildtest / HL_WILDTEST)
+## v13.276 (owner: "populate the city with people"): a city tile's people (scripts/city_life.gd).
+var city_life: CityLife
+func _update_city_life(dt: float) -> void:
+	if not Data.CITIES or not is_instance_valid(tile_root) or not CityPlan.is_city_tile(planet_id, tile) or not BlockField.regions_on():
+		return
+	if city_life == null or not is_instance_valid(city_life) or city_life.get_parent() != tile_root:
+		city_life = CityLife.new()
+		city_life.setup(self, planet_id, tile)
+		tile_root.add_child(city_life)
+	city_life.tick(dt)
+
 func _update_wildlife(dt: float) -> void:
 	if not is_instance_valid(tile_root) or not BlockField.regions_on() or sun_surface: return
 	if wildlife == null or not is_instance_valid(wildlife) or wildlife.get_parent() != tile_root:
@@ -16284,6 +16295,7 @@ func _surface_update(_dt: float) -> void:
 	var p := player.global_position
 	_update_regions()
 	_update_wildlife(_dt)
+	_update_city_life(_dt)   # v13.276
 	var bfp := _block_field_at(p.x, p.z)
 	var on_blocks := bfp != null
 	var floor_y := (bfp.ground_for(p.x, p.y - 6.0, p.z) if on_blocks else _ground(p.x, p.z)) + 6.0   # v1.5y: tunnel floors
