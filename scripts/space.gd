@@ -6921,7 +6921,6 @@ func _npc_hit(e: Dictionary, dmg: float) -> void:
 	_explode(n.global_position, float(n.get_meta("radius", 7.0)))
 	_spark(n.global_position, Color(1.0, 0.95, 0.85), 40.0, 0.35)
 	enemies.erase(e)
-	if bool(e.get("police", false)): crime("cop_kill", Data.HEAT_COP_KILL)   # v13.284
 	for pe in e.get("parts", []): enemies.erase(pe)
 	if target == n: target = null
 	npc_kills += 1
@@ -10903,6 +10902,8 @@ func _destroy_unit(e: Dictionary) -> void:
 	_explode(n.global_position, float(n.get_meta("radius", 7.0)))
 	_spark(n.global_position, Color(1.0, 0.95, 0.85), 40.0, 0.35)
 	enemies.erase(e)
+	if bool(e.get("police", false)): crime("cop_kill", Data.HEAT_COP_KILL)   # v13.284 (you downed it)
+	if str(e.get("gang", "")) != "": _gang_adjust(str(e["gang"]), -Data.GANG_KILL_REP)   # v13.287
 	for st in e.get("strands", []): (st as Node3D).queue_free()   # v6.4: its tentacles go with it
 	# the wing reacts: the leader went down, or a wingmate did
 	var mates: Array = enemies.filter(func(o): return o.get("group", -1) == e.get("group", -2) and o.has("pilot"))
@@ -16435,6 +16436,143 @@ func _update_heat(dt: float) -> void:
 			cops = police_ships()
 	GS.heat_follow = cops.size()
 
+# ---------------------------------------------------------------- v13.287: gangs and phone jobs
+var city_gangs: CityGangs
+var _gang_wing_t := 0.0
+var gang_wings := 0    # (tests)
+
+func gang_rep(g: String) -> float: return float(GS.gang_rep.get(g, Data.GANG_START_REP))
+func _gang_adjust(g: String, d: float) -> void: GS.gang_rep[g] = clampf(gang_rep(g) + d, -100.0, 100.0)
+
+## In a city (on foot or in a car, low over the streets): the phone works.
+func phone_ok() -> bool:
+	return surface_mode and (on_foot or driving) and CityPlan.is_city_tile(planet_id, tile) and is_instance_valid(player) and altitude < Data.TRAFFIC_ALT
+
+func _gang_named(n: String) -> Dictionary:
+	for g in CityGangs.gangs(planet_id, tile):
+		if g["name"] == n: return g
+	return {}
+
+## PHONE: a job from one of the city's gangs (or, with one on, where it stands).
+func phone() -> String:
+	if not phone_ok(): return ""
+	if not GS.phone_job.is_empty():
+		message.emit("PHONE: %s" % str(GS.phone_job.get("text", "")))
+		return "busy"
+	var gs := CityGangs.gangs(planet_id, tile)
+	if gs.is_empty(): return ""
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash("%s|%d|%d|job" % [planet_id, tile, GS.gang_jobs_done])
+	var giver: Dictionary = gs[rng.randi() % gs.size()]
+	if gang_rep(giver["name"]) < Data.GANG_HOSTILE: giver = gs[(gs.find(giver) + 1) % gs.size()]
+	var other: Dictionary = gs[(gs.find(giver) + 1) % gs.size()]
+	var kinds := ["boost", "courier", "hit"] if not (other["turf"] as Array).is_empty() else ["boost", "courier"]
+	var kind: String = kinds[rng.randi() % kinds.size()]
+	if OS.get_environment("HL_JOB") != "": kind = OS.get_environment("HL_JOB")
+	var spot := CityGangs.turf_spot(planet_id, tile, giver, rng.randi() % 12)
+	var job := {"kind": kind, "gang": giver["name"], "where": "%s|%d" % [planet_id, tile], "at": spot, "pay": int(Data.GANG_JOB_PAY[kind])}
+	match kind:
+		"boost":
+			var want: String = ["car", "bus", "truck"][rng.randi() % 3]
+			job["want"] = want
+			job["text"] = "%s: \"Get us a %s. Bring it to our drop.\" ($%d)" % [giver["name"], want, job["pay"]]
+		"courier":
+			job["t"] = Data.GANG_COURIER_TIME
+			job["text"] = "%s: \"Package for our door. You've got %d seconds.\" ($%d)" % [giver["name"], int(Data.GANG_COURIER_TIME), job["pay"]]
+		"hit":
+			job["at"] = CityGangs.turf_spot(planet_id, tile, other, rng.randi() % 12)
+			job["rival"] = other["name"]
+			job["text"] = "%s: \"The %s are getting loud. Take out their crew.\" ($%d)" % [giver["name"], other["name"], job["pay"]]
+	GS.phone_job = job
+	if kind == "hit": _gang_wing(other, Vector3((job["at"] as Vector2).x, 0, (job["at"] as Vector2).y), true)
+	_job_marker()
+	Sfx.play("button", -2.0, 1.3)
+	message.emit("PHONE: " + str(job["text"]))
+	return kind
+
+func _job_marker() -> void:
+	if city_gangs == null or not is_instance_valid(city_gangs): return
+	var job := GS.phone_job
+	if job.is_empty():
+		city_gangs.clear_target()
+		return
+	var g := _gang_named(str(job.get("rival", job["gang"])) if str(job["kind"]) == "hit" else str(job["gang"]))
+	var col: Color = g.get("color", Color.WHITE)
+	var words: String = {"boost": "DROP · %s" % str(job.get("want", "")).to_upper(), "courier": "DELIVER", "hit": "HIT · %s" % str(job.get("rival", "")).to_upper()}.get(str(job["kind"]), "JOB")
+	city_gangs.show_target(job["at"], col, words)
+
+## A wing of a gang's enforcer gunships, low over the streets near `near` (hit = a job's target).
+func _gang_wing(g: Dictionary, near: Vector3, hit := false) -> Array:
+	var gy := CityPlan.ground(planet_id, tile)
+	var at := Vector3(near.x, gy + 60.0, near.z)
+	if not hit and is_instance_valid(player): at = player.global_position - player.global_basis.z * 300.0 + Vector3(0, 40.0, 0)
+	var grp := spawn_mission_group(at, Data.GANG_FACTION, Data.GANG_WING, 1, "", -10)
+	for i in grp.size():
+		var e: Dictionary = grp[i]
+		e["gang"] = g["name"]
+		e["faction"] = ""
+		e["aggro"] = not hit
+		e["provoked"] = true
+		e["gang_hit"] = hit
+		(e["node"] as Node3D).name = "%s %s %d" % [g["name"], "crew" if hit else "enforcer", i + 1]
+	gang_wings += 1
+	return grp
+
+func gang_ships(n := "") -> Array:
+	return enemies.filter(func(e): return str(e.get("gang", "")) != "" and (n == "" or str(e["gang"]) == n) and is_instance_valid(e.get("node")))
+
+func _update_gangs(dt: float) -> void:
+	if not is_instance_valid(player): return
+	# hostile turf: their enforcers come
+	_gang_wing_t = maxf(0.0, _gang_wing_t - dt)
+	if (on_foot or driving) and altitude < Data.TRAFFIC_ALT:
+		var g := CityGangs.turf_at(planet_id, tile, Vector2(player.global_position.x, player.global_position.z))
+		if not g.is_empty() and gang_rep(g["name"]) < Data.GANG_HOSTILE and _gang_wing_t <= 0.0 and gang_ships(g["name"]).filter(func(e): return not bool(e.get("gang_hit", false))).is_empty():
+			_gang_wing_t = Data.GANG_WING_EVERY
+			_gang_wing(g, player.global_position)
+			message.emit("You're on %s turf. They know your face." % g["name"])
+	# the job
+	var job := GS.phone_job
+	if job.is_empty() or str(job.get("where", "")) != "%s|%d" % [planet_id, tile]: return
+	var at: Vector2 = job["at"]
+	var me := Vector2(player.global_position.x, player.global_position.z)
+	match str(job["kind"]):
+		"boost":
+			if driving and is_instance_valid(car) and str(car.get_meta("kind", "")) == str(job["want"]) and me.distance_to(at) < Data.GANG_DROP_R + 6.0:
+				car.queue_free()
+				car = null
+				driving = false
+				vel = Vector3.ZERO
+				if is_instance_valid(model): model.visible = true
+				_job_done("They take the %s off your hands." % str(job["want"]))
+		"courier":
+			job["t"] = float(job["t"]) - dt
+			if me.distance_to(at) < Data.GANG_DROP_R:
+				_job_done("Package delivered.")
+			elif float(job["t"]) <= 0.0:
+				_job_failed("Too slow. The package is worthless now.")
+		"hit":
+			if gang_ships(str(job["rival"])).filter(func(e): return bool(e.get("gang_hit", false))).is_empty():
+				_gang_adjust(str(job["rival"]), -Data.GANG_JOB_REP)
+				_job_done("The %s crew is down." % str(job["rival"]))
+
+func _job_done(why: String) -> void:
+	var job := GS.phone_job
+	GS.credits += int(job["pay"])
+	_gang_adjust(str(job["gang"]), Data.GANG_JOB_REP)
+	GS.gang_jobs_done += 1
+	GS.phone_job = {}
+	_job_marker()
+	Sfx.play("button", 0.0, 1.5)
+	message.emit("PHONE: %s %s: +$%d. The %s like you more." % [why, "Job done", int(job["pay"]), str(job["gang"])])
+
+func _job_failed(why: String) -> void:
+	var job := GS.phone_job
+	_gang_adjust(str(job["gang"]), -Data.GANG_JOB_REP * 0.5)
+	GS.phone_job = {}
+	_job_marker()
+	message.emit("PHONE: %s The %s aren't happy." % [why, str(job["gang"])])
+
 # ---------------------------------------------------------------- v13.285: the safehouse and its garage
 var safehouse: CitySafehouse
 
@@ -16525,6 +16663,12 @@ func _update_city_life(dt: float) -> void:
 		city_traffic.setup(self, planet_id, tile)
 		tile_root.add_child(city_traffic)
 	city_traffic.tick(dt)
+	if city_gangs == null or not is_instance_valid(city_gangs) or city_gangs.get_parent() != tile_root:   # v13.287
+		city_gangs = CityGangs.new()
+		city_gangs.setup(self, planet_id, tile)
+		tile_root.add_child(city_gangs)
+		if not GS.phone_job.is_empty() and str(GS.phone_job.get("where", "")) == "%s|%d" % [planet_id, tile]: _job_marker()
+	_update_gangs(dt)
 	if safehouse == null or not is_instance_valid(safehouse) or safehouse.get_parent() != tile_root:   # v13.285
 		safehouse = CitySafehouse.new()
 		safehouse.setup(self, planet_id, tile)

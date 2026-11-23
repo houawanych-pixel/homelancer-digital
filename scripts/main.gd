@@ -872,10 +872,12 @@ func _on_hud(id: String) -> void:
 			if space.eject() == "loading": hud.flash_message("Pilot still downloading — try again in a moment.")
 		"enter":
 			space.enter_vehicle()
+		"phone":   # v13.287 (owner: "phone missions")
+			space.phone()
 		"radio":   # v13.286 (owner: "radio")
 			GS.radio = posmod(GS.radio + 1, Data.RADIO_STATIONS.size())
 			var rs: Dictionary = Data.RADIO_STATIONS[GS.radio]
-			hud.flash_message(("📻 %s · %s" % [rs["name"], rs["tag"]]) if str(rs["mood"]) != "" else "📻 RADIO OFF")
+			hud.flash_message(("RADIO: %s · %s" % [rs["name"], rs["tag"]]) if str(rs["mood"]) != "" else "RADIO OFF")
 		"rest":   # v13.285 (owner: "safehouses")
 			space.rest()
 		"store_car":

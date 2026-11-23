@@ -7915,6 +7915,82 @@ func _run() -> void:
 			ej == "out" and prompt_steal and got and driving and hidden and capped and out and left_ok and again and s.last_crime == "car_theft" and s.cars_stolen == 1, "")
 		_finish_group()
 		return
+	if _flag("HL_GANGS"):   # v13.287 (owner: "gangs, phone missions")
+		var pid := "new_terra"
+		var tile := 4
+		var gs: Array = CityGangs.gangs(pid, tile)
+		var safe_r: Vector2i = CityPlan.safehouse(pid, tile)["region"]
+		var split_ok: bool = gs.size() == 2 and gs[0]["name"] != gs[1]["name"] and not (gs[0]["turf"] as Array).is_empty() and not (gs[1]["turf"] as Array).is_empty() and not (gs[0]["turf"] as Array).has(safe_r) and not (gs[1]["turf"] as Array).has(safe_r)
+		for r in gs[0]["turf"]: if (gs[1]["turf"] as Array).has(r): split_ok = false
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main._load_surface(pid, tile)
+		await _until(func(): return is_instance_valid(main.space) and main.space.surface_mode and main.space.planet_id == pid, 40.0)
+		var s: Node = _sp()
+		var g: float = CityPlan.ground(pid, tile)
+		var door: Vector2 = CityPlan.safehouse(pid, tile)["door"]
+		var spot := Vector3(door.x, g + Data.PILOT_FEET_BELOW + 0.5, door.y)
+		await _until(func(): s.player.global_position = spot; s.vel = Vector3.ZERO; return s._regions.size() >= 4 and s._building == null and s.city_gangs != null and is_instance_valid(s.city_gangs) and s.city_traffic != null, 150.0)
+		GS.form = "mech"
+		s.set_player_model()
+		s.ground_mode = true
+		s.player.global_position = spot
+		await _wait(0.5)
+		s.eject()
+		await _wait(0.5)
+		var phone_btn: bool = s.phone_ok()
+		var cr0: int = GS.credits
+		# BOOST
+		OS.set_environment("HL_JOB", "boost")
+		var k1: String = s.phone()
+		var job1: Dictionary = GS.phone_job.duplicate()
+		var marked: bool = s.city_gangs.has_target()
+		main.hud.visible = true
+		var at1: Vector2 = job1["at"]
+		await _wait(0.3)
+		var nd: Node3D = s.city_traffic.make_vehicle(str(job1["want"]))
+		s.add_child(nd)
+		nd.global_position = Vector3(at1.x + 40.0, g + Data.TRAFFIC_HOVER, at1.y)
+		s._drive(nd)
+		await _wait(0.6)
+		await _capture("gang_job")
+		s.player.global_position = Vector3(at1.x, g + Data.PILOT_FEET_BELOW, at1.y)
+		await _frames(3)
+		var boost_ok: bool = GS.phone_job.is_empty() and GS.credits == cr0 + int(Data.GANG_JOB_PAY["boost"]) and s.gang_rep(str(job1["gang"])) >= Data.GANG_JOB_REP - 0.01 and not s.driving
+		# COURIER
+		OS.set_environment("HL_JOB", "courier")
+		s.phone()
+		var job2: Dictionary = GS.phone_job.duplicate()
+		var at2: Vector2 = job2["at"]
+		s.player.global_position = Vector3(at2.x, g + Data.PILOT_FEET_BELOW, at2.y)
+		await _frames(3)
+		var courier_ok: bool = GS.phone_job.is_empty() and GS.gang_jobs_done == 2
+		# HIT
+		OS.set_environment("HL_JOB", "hit")
+		s.phone()
+		var job3: Dictionary = GS.phone_job.duplicate()
+		var rival: String = str(job3.get("rival", ""))
+		var crew: Array = s.gang_ships(rival)
+		var crew_n: int = crew.size()
+		var rep_r0: float = s.gang_rep(rival)
+		for e in crew: s._destroy_unit(e)
+		await _frames(3)
+		var hit_ok: bool = crew_n == Data.GANG_WING and GS.phone_job.is_empty() and s.gang_rep(rival) < rep_r0 - Data.GANG_JOB_REP
+		OS.set_environment("HL_JOB", "")
+		# hostile turf: their enforcers come
+		var bad: Dictionary = gs[1] if rival == gs[1]["name"] else gs[0]
+		GS.gang_rep[bad["name"]] = -60.0
+		var w0: int = s.gang_wings
+		var tp: Vector2 = CityGangs.turf_spot(pid, tile, bad, 1)
+		s._gang_wing_t = 0.0
+		await _until(func(): s.player.global_position = Vector3(tp.x, g + Data.PILOT_FEET_BELOW, tp.y); return s.gang_wings > w0, 5.0)
+		var hostile_ok: bool = s.gang_wings == w0 + 1 and s.gang_ships(bad["name"]).size() == Data.GANG_WING and bool(s.gang_ships(bad["name"])[0].get("aggro", false))
+		_check("Gangs and phone jobs (v13.287): %s and %s split the city's blocks (the safehouse block is nobody's: %s); the PHONE (%s) gives a %s job with a marker (%s) and paying it off works (%s), a courier run (%s), a hit on the %s (%d crew down: %s); on turf of a gang that hates you its enforcers come (%s)" % [gs[0]["name"], gs[1]["name"], split_ok, phone_btn, k1, marked, boost_ok, courier_ok, rival, crew_n, hit_ok, hostile_ok],
+			split_ok and phone_btn and k1 == "boost" and marked and boost_ok and courier_ok and hit_ok and hostile_ok, "")
+		GS.gang_rep.clear()
+		_finish_group()
+		return
 	if _flag("HL_SAFE"):   # v13.285 (owner: "safehouses, garages")
 		var pid := "new_terra"
 		var tile := 4
@@ -8039,6 +8115,9 @@ func _run() -> void:
 		var wanted: bool = GS.heat >= 1.0 and fac == owner_here and s.heat_zone() == "home"
 		await _until(func(): return s.police_ships().size() >= 2, 15.0)
 		var first: int = s.police_ships().size()
+		var h_before: float = GS.heat
+		s._destroy_unit(s.police_ships()[0])
+		var cop_kill_ok: bool = GS.heat >= h_before + Data.HEAT_COP_KILL - 0.01
 		main.hud.visible = true
 		await _wait(1.5)
 		await _capture("heat_bar_city")
@@ -8084,7 +8163,7 @@ func _run() -> void:
 		s2.in_nebula = 0.0
 		var col: Color = Factions.def(fac).get("primary_color", Color.RED)
 		_check("Police chase (v13.284): stealing a car makes you WANTED by the %s (heat bar in their colour %s, %s): %d police after you, at heat 3 backup brings %d; %d were on your tail and %d followed you up into space (still wanted %s); in enemy space (%s) no backup comes (%s); in a nebula (%s) you get away (%s)" % [fac, col.to_html(false), str(wanted), first, backup, tail, followed, still, zone_e, no_backup, zone_n, escaped],
-			wanted and first >= 2 and backup >= 6 and followed >= mini(tail, Data.HEAT_FOLLOW_MAX) and followed > 0 and still and zone_e == "enemy" and no_backup and zone_n == "neutral" and escaped, "")
+			wanted and cop_kill_ok and first >= 2 and backup >= 6 and followed >= mini(tail, Data.HEAT_FOLLOW_MAX) and followed > 0 and still and zone_e == "enemy" and no_backup and zone_n == "neutral" and escaped, "")
 		_finish_group()
 		return
 	if _flag("HL_DOME"):   # v13.280 (owner: "oxygen domes over the cities on airless, Mars-like worlds")

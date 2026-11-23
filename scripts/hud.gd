@@ -773,7 +773,8 @@ func _layout() -> void:
 				gb.position.x = S.x * 0.5 - 146.0
 				db.position.x = S.x * 0.5 + 6.0
 		if pr != "": buttons[pr] = Rect2(S.x * 0.5 - 80.0, TOP_BAR_Y + TOP_BAR_H * 2.0 + 12.0, 160.0, 46.0)
-		if space.driving: buttons["radio"] = Rect2(S.x * 0.5 - 330.0, TOP_BAR_Y + TOP_BAR_H * 2.0 + 12.0, 230.0, 46.0)   # v13.286: the car radio   # v11.58 (owner): DOCK is the top-centre box (v11.60: under the second row)
+		if space.driving: buttons["radio"] = Rect2(S.x * 0.5 - 330.0, TOP_BAR_Y + TOP_BAR_H * 2.0 + 12.0, 230.0, 46.0)   # v13.286: the car radio
+		if space.phone_ok(): buttons["phone"] = Rect2(S.x * 0.5 - 330.0, TOP_BAR_Y + TOP_BAR_H * 2.0 + (64.0 if space.driving else 12.0), 230.0, 46.0)   # v13.287: the phone   # v11.58 (owner): DOCK is the top-centre box (v11.60: under the second row)
 		if pr == "lift_up" and not (space.lift_choice().get("down", []) as Array).is_empty():   # v13.175: a station lift: UP and DOWN side by side
 			buttons["lift_up"] = Rect2(S.x * 0.5 - 166.0, TOP_BAR_Y + TOP_BAR_H * 2.0 + 12.0, 160.0, 46.0)
 			buttons["lift_down"] = Rect2(S.x * 0.5 + 6.0, TOP_BAR_Y + TOP_BAR_H * 2.0 + 12.0, 160.0, 46.0)
@@ -1191,6 +1192,15 @@ func button_at(p: Vector2) -> String:
 
 # ---------------------------------------------------------------- drawing helpers
 var _boxes := {}   # v1.7q: one style box per look, made once (not a new one for every box, every frame)
+## v13.287: the phone: a gang job (or the one you're on, with its time).
+func _phone_btn(r: Rect2) -> void:
+	var job: Dictionary = GS.phone_job
+	var col := Color(0.4, 1.0, 0.6) if job.is_empty() else GOLD
+	_box(r, Color(col, 0.3) if held.has("phone") else Color(0.02, 0.05, 0.1, 0.88), Color(col, 0.95), 8, 2)
+	_text(Vector2(r.position.x + 10.0, r.position.y + 17.0), "PHONE" if job.is_empty() else "PHONE · JOB · %s" % str(job.get("gang", "")).to_upper(), 10, Color(col.lightened(0.3), 1.0))
+	var line: String = "Get a job" if job.is_empty() else {"boost": "Bring a %s" % str(job.get("want", "")), "courier": "Deliver · %ds" % int(maxf(0.0, float(job.get("t", 0.0)))), "hit": "Down the %s" % str(job.get("rival", ""))}.get(str(job.get("kind", "")), "")
+	_text(Vector2(r.position.x + 10.0, r.position.y + 36.0), line, 14, WHITE)
+
 ## v13.286: the car radio: the station playing (tap for the next one).
 func _radio_btn(r: Rect2) -> void:
 	var rs: Dictionary = Data.RADIO_STATIONS[posmod(GS.radio, Data.RADIO_STATIONS.size())]
@@ -2409,6 +2419,7 @@ func _draw() -> void:
 	if buttons.has("enter"): _prompt_btn(buttons["enter"], "ENTER", GREEN, held.has("enter"))
 	if buttons.has("steal"): _prompt_btn(buttons["steal"], "STEAL", Color(1.0, 0.35, 0.3), held.has("steal"))   # v13.283
 	if buttons.has("radio"): _radio_btn(buttons["radio"])   # v13.286
+	if buttons.has("phone"): _phone_btn(buttons["phone"])   # v13.287
 	if buttons.has("rest"): _prompt_btn(buttons["rest"], "REST", GREEN, held.has("rest"))   # v13.285: the safehouse
 	if buttons.has("store_car"): _prompt_btn(buttons["store_car"], "STORE CAR", GOLD, held.has("store_car"))
 	if buttons.has("take_car"): _prompt_btn(buttons["take_car"], "TAKE CAR (%d)" % GS.garage.size(), GOLD, held.has("take_car"))

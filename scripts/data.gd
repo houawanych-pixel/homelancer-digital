@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.286"
+const VERSION := "v13.287"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -580,6 +580,16 @@ const GARAGE_SIDE := 26.0           # m along the street from the safehouse door
 const RADIO_STATIONS := [{"name": "SPACEWAYS 101", "mood": "space", "tag": "easy cruising"}, {"name": "RIFT FM", "mood": "battle", "tag": "loud and fast"},
 	{"name": "BLOODWATER 66", "mood": "dark", "tag": "dark side of the city"}, {"name": "VOID DRIFT", "mood": "void", "tag": "late-night ambient"},
 	{"name": "INTERSTELLAR AM", "mood": "explore", "tag": "the long road"}, {"name": "RADIO OFF", "mood": "", "tag": ""}]
+const GANG_HOSTILE := -20.0         # v13.287 (owner: "gangs"): standing under this and a gang's enforcers come for you on its turf
+const GANG_START_REP := 0.0
+const GANG_WING := 3                # enforcer gunships in a wing
+const GANG_WING_EVERY := 40.0       # s before another wing comes (while you stay on hostile turf)
+const GANG_KILL_REP := 5.0          # standing lost with a gang for each of its enforcers you down
+const GANG_JOB_REP := 12.0          # standing gained for a job done (a hit costs as much with the other gang)
+const GANG_JOB_PAY := {"boost": 900, "courier": 500, "hit": 1400}
+const GANG_COURIER_TIME := 150.0    # s to get there
+const GANG_DROP_R := 14.0           # m: the drop point / door ring
+const GANG_FACTION := "Savagers"    # whose gunships the gangs fly (raider hardware, no faction standing involved)
 const CITY_FLOOR_LAYERS := 2        # layers (5 m) a floor: 1 of room (5 m: people, not mechs), 1 of slab (v13.273: was 3)
 const MODULE := 10                  # v13.273: cells a building module is across: a 3 x 3 grid of 2 x 2-cell rooms (10 m) in 1-cell walls, the middle room the lift
 const CITY_BRIDGE_CHANCE := 0.6     # the chance of a walkway across the alley between two facing buildings
