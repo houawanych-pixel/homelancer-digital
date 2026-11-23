@@ -12813,7 +12813,7 @@ func _update_camera(dt: float, snap: bool) -> void:
 	if on_foot and is_instance_valid(player):   # v12.39: close over the pilot's right shoulder (he stands 6 m under the frame's middle)
 		var fb := player.global_basis
 		var head := -6.0 + Data.FOOT_H * 0.9
-		var want := fb * Vector3(0.75, head + 0.15, 2.6)
+		var want := fb * Vector3(0.75 * Data.FOOT_CAM_K, head + 0.15 * Data.FOOT_CAM_K, 2.6 * Data.FOOT_CAM_K)
 		var foff: Vector3 = want if snap or _cam_off.length() > 40.0 else _cam_off.lerp(want, minf(1.0, dt * 10.0))
 		_cam_off = foff
 		_set_cam(_cam_clip(foff), fb * Vector3(0.3, head, -30.0), fb.y)

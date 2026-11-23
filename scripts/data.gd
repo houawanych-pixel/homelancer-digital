@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.278"
+const VERSION := "v13.279"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -864,8 +864,8 @@ const KILL_CAP := 30.0               # m of obsidian over the kill floor
 const KILL_COLOR := Color(1.0, 0.82, 0.45)
 # v1.6e world generation, part 2: landmarks. Flyable arches (stone, some obsidian, some with treasure in the span) and
 # Pride Rock promontories (a slab jutting out over open air). Sizes in 5 m cells / metres; realistic, no thin spikes.
-const LANDMARK_TEST := {"ARCH_COUNT": 3, "ARCH_SPAN": [6, 11], "ARCH_CLEAR": [25.0, 45.0], "OVERHANG_COUNT": 2, "OVERHANG_JUT": [3, 5], "OVERHANG_RISE": [35.0, 60.0],
-	"LANDMARK_FLAT": 25.0, "CAVE_SIZE": 14, "CAVE_LAYERS": 8, "HALL_SIZE": 24, "HALL_LAYERS": 10, "CANYON_DEPTH": [40.0, 70.0], "SLAB_COUNT": 4, "AFRAME_COUNT": 3}   # v12.7: the route tests' ground keeps the sizes they were written for
+const LANDMARK_TEST := {"ARCH_SPAN": [6, 11], "ARCH_CLEAR": [25.0, 45.0], "OVERHANG_JUT": [3, 5], "OVERHANG_RISE": [35.0, 60.0],
+	"LANDMARK_FLAT": 25.0, "CAVE_SIZE": 14, "CAVE_LAYERS": 8, "HALL_SIZE": 24, "HALL_LAYERS": 10, "CANYON_DEPTH": [40.0, 70.0]}   # v13.279 (owner: "those art shapes need to be deleted permanently"): no arches, rock slabs, lean-tos or A-frames anywhere, test ground included   # v12.7: the route tests' ground keeps the sizes they were written for
 const ARCH_COUNT := 0   # v12.32 (owner: "get rid of those arcs ... looks dumb all over the place"); v12.7 was 6
 const ARCH_SPAN := [8, 20]           # cells of open air between the legs (30-55 m)
 const ARCH_CLEAR := [40.0, 90.0]     # m of headroom under the middle
@@ -889,7 +889,7 @@ const LANDMARK_FLAT := 40.0         # m: how uneven the ground under a landmark 
 const SPIRE_MAX := 15.0              # m a column may stand over all its neighbours
 const CANYON_DEPTH := [60.0, 120.0]   # m under the ground
 const CANYON_WIDTH := 3.0            # cells (half-width; 15 m)
-const ROOT_COUNT := 6
+const ROOT_COUNT := 0                # v13.279 (owner: "delete those art shapes permanently"): no obsidian shards sticking out of the ground (was 6)
 const ROOT_RISE := [12.0, 35.0]      # m the shards stand out of the ground
 const ROOT_DEPTH := 80.0             # m the obsidian root runs down under them
 const ROOT_SOIL_CHANCE := 0.6        # v1.8i: chance each spot beside a tree's buttress roots gets sand / dirt banked up in it
@@ -2954,8 +2954,10 @@ const ESCAPE_3D := true
 const ESCAPE_IN_SPACE := true   # v12.38: the breakout runs in the real mech game (boarding), with the whole HUD
 const ESCAPE_TIME := 300.0
 ## v12.39 EJECT / ENTER (owner): on foot at human size on a world
-const FOOT_H := 1.8            # m tall
-const FOOT_SPEED := 7.0        # m/s at most
+const PILOT_H := 3.8           # v13.279 (owner: "one universal size for the pilot, people-sized everywhere: planets, ships, even the stations a little smaller"): every pilot, crew member, guard and city person is this tall (a mech is 3-4 times bigger)
+const FOOT_H := PILOT_H        # m tall (on foot on a planet; was 1.8)
+const FOOT_CAM_K := FOOT_H / 1.8   # the on-foot camera was set for a 1.8 m pilot: its distances scale with him
+const FOOT_SPEED := 7.0 * FOOT_CAM_K   # m/s at most (a stride as long as he is tall)
 const SPRINT_K := 1.8          # v12.45: SPEED RUN top speed at the start (x the walk)
 const SPEED_BOOST_K := 4.0     # ... and fully built up (Metroid's speed booster)
 const RAM_SHIELD_DRAIN := 6.0   # v13.75 (owner): the ship's swirling RAM SHIELD: energy a second
@@ -2982,7 +2984,7 @@ const EJECT_MAX_ALT := 14.0    # m over the ground at most
 const EJECT_STEP := 9.0        # m to the side you step out
 const ENTER_REACH := 16.0      # m from your mech / ship to ENTER      # s to reach the launch bay
 const ESCAPE_CAM := [0.5, 0.84, 0.5, 6.0]   # v13.69 (owner): the breakout camera, in pilot heights: right of him, eye height, behind; it looks at the point this many heights ahead (the guns' aim)
-const ESCAPE_PILOT_H := 13.0    # m: the pilot drawn at the mech's size (the decks are mech-sized)
+const ESCAPE_PILOT_H := PILOT_H # m: the breakout pilot (was 13, drawn at the mech's size; v13.279 owner: people-sized, a little smaller in the stations too)
 const ESCAPE_CHASERS := 20
 ## v12.46 (owner: "Metal Gear: guards walking around ... Freeze, you're under arrest ... only then you're locked down"):
 ## the breakout hub. Guards patrol their rooms; one that sees you (same room, in front of him, near enough; or right on
@@ -3005,9 +3007,9 @@ const PLANET_HINTS := {
 	"toxic": "Toxic air: don't hang around outside the cockpit.", "machine": "Machine world: the ground itself is built. Odd readings.",
 	"clouds": "A gas world: endless cloud, nowhere solid to land."}
 const LIFT_SPEED := 18.0        # v12.51: m/s a lift platform moves
-const GUARD_H := 13.0           # m: drawn at the pilot's (mech-sized) height
+const GUARD_H := PILOT_H        # m: station guards, the pilot's own size (was 13)
 const FLEET_MECH := true         # v13.128 (owner): aboard a fleet ship in your mech; EJECT for the low pilot rooms
-const SHIP_PILOT_H := 3.8        # m: the pilot (and the crew) inside a fleet ship (v13.137 owner: "mechs are 3 to 4 times bigger than pilots")
+const SHIP_PILOT_H := PILOT_H    # m: the pilot (and the crew) inside a fleet ship (v13.137 owner: "mechs are 3 to 4 times bigger than pilots")
 const SHIP_ENTER_REACH := 60.0   # m: this close to the parked mech, ENTER
 const SHIP_PILOT_GUN := "HL_WPN_DarkGunSet_02"   # v13.134: the pilot's gun inside a fleet ship (a GLB mech long gun, scaled to him)
 const CUTTER_FIND_CHANCE := 0.5  # v13.133: a fleet ship holds your next cutter (lv 1-3) this often

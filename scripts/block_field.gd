@@ -371,7 +371,7 @@ func build(pid: String, t: int, reg := Vector2i(-1, -1), staged := false, frame 
 		if cancel:
 			queue_free()
 			return
-	if region.x >= 0 and not city: _build_slabs()   # (v1.7f; the old test patch keeps its ground as the tests know it)
+	# (v13.279 owner: "art shapes deleted permanently": no leaning slabs or A-frames are built any more)
 	_phase = "_build_slabs"
 	if staged:
 		_slice_end()

@@ -6709,7 +6709,13 @@ func _run() -> void:
 		main._on_hud("eject")
 		await _wait(1.0)
 		var bb := PilotRig._aabb(s.model)
-		var small: bool = s.on_foot and bb.size.y < 3.0 and is_instance_valid(s.parked)
+		var mech_h := PilotRig._aabb(s.parked).size.y if is_instance_valid(s.parked) else 0.0
+		var small: bool = s.on_foot and absf(bb.size.y - Data.PILOT_H) < 0.8 and is_instance_valid(s.parked)
+		# v13.279 (owner: "one universal size for the pilot, people-sized everywhere"): the same height on a planet, in a
+		# fleet ship, in a station and in the city; a mech is about 3-4 times taller
+		var same: bool = Data.FOOT_H == Data.PILOT_H and Data.SHIP_PILOT_H == Data.PILOT_H and Data.ESCAPE_PILOT_H == Data.PILOT_H and Data.GUARD_H == Data.PILOT_H
+		_check("One pilot size (v13.279): on foot he stands %.1f m (pilot size %.1f m everywhere: planets, ships, stations, city), the mech %.1f m (x%.1f)" % [bb.size.y, Data.PILOT_H, mech_h, mech_h / maxf(0.1, bb.size.y)],
+			small and same and mech_h / maxf(0.1, bb.size.y) > 2.3, "pilot %.2f mech %.2f same %s" % [bb.size.y, mech_h, same])
 		main.hud.visible = true
 		await _capture("eject_on_foot")
 		# v12.45: SPEED RUN builds up; GROUND off = jetpack (v13.72: WARP is now the RUSH, so the old run is switched on by hand)
@@ -17393,8 +17399,8 @@ func _regions() -> void:
 			var this_fell: bool = not sb["whole"] and f.collapses > c0 and cells_after < cells_before
 			fell = fell and this_fell
 			slab_detail += "%s: whole %s, collapses +%d, raised cells %d -> %d; " % [kind, sb["whole"], f.collapses - c0, cells_before, cells_after]
-	_check("Leaning slabs (v1.7f): lean-tos and A-frames stand about, each one straight tilted slab while whole; you can fly under an A-frame; shoot the prop or a foot and it stops being one piece and the far part comes down",
-		sl_ok and under_air and drawn and fell, "found lean %s aframe %s, air under the A %s, drawn %s, %s" % [found["lean"] != null, found["aframe"] != null, under_air, drawn, slab_detail])
+	_check("No art shapes (v13.279 owner: \"deleted permanently\"): no leaning slabs or A-frames stand on the ground",
+		found["lean"] == null and found["aframe"] == null, "found lean %s aframe %s (%s %s %s %s)" % [found["lean"] != null, found["aframe"] != null, sl_ok, under_air, drawn, fell])
 	# v1.7d: the blocks run on over the tile border (the next tile's regions are built in this tile's frame), and when
 	# you cross they come with you, the same blocks, no rebuild; a blast right on a region edge digs both sides
 	var ey: float = s._ground(Surface.EDGE - 60.0, p.z) + 80.0
@@ -17445,7 +17451,7 @@ func _craters(s, bf: BlockField, pid: String, t: int) -> void:
 	var deep := 0
 	for c in bf.canyon_cells:
 		if bf.h0[c] - bf.h[c] >= 30.0: deep += 1
-	var roots_ok: bool = bf.roots.size() >= 3
+	var roots_ok: bool = bf.roots.is_empty()   # (v13.279 owner: the obsidian shards are gone for good)
 	for rt in bf.roots:
 		var tc: int = rt["tip"]
 		var around := -INF
@@ -17943,8 +17949,8 @@ func _craters(s, bf: BlockField, pid: String, t: int) -> void:
 		drop_info = "fell %d, far end still up %s, near end down %s" % [bf.collapses - cl1, bf.holes.has(far), not bf.holes.has(near)]
 		bf.restore(snap16)
 		bf.flush()
-	_check("Craters: world generation 2: %d arches you can fly under and %d Pride Rock slabs over open air stand on their own; blast one leg out and what hung from it comes down, the far end stays up" % [bf.arches.size(), bf.overhangs.size()],
-		bf.arches.size() >= 2 and bf.overhangs.size() >= 1 and flyable and jutting and stand and drop_ok, "flyable %s jutting %s stand %s %s" % [flyable, jutting, stand, drop_info])
+	_check("No art shapes (v13.279 owner: \"deleted permanently\"): no arches or Pride Rock slabs (%d, %d), and the ground stands on its own" % [bf.arches.size(), bf.overhangs.size()],
+		bf.arches.is_empty() and bf.overhangs.is_empty() and stand, "stand %s %s %s %s %s" % [stand, flyable, jutting, drop_ok, drop_info])
 	# 18. the deep world (v1.6h): root halls over the obsidian cap, obsidian trunks and branches holding the rock up,
 	#     lava glowing between them, standing on their own, sealed under a roof
 	var halls_ok: bool = bf.halls.size() >= 2
