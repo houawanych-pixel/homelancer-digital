@@ -2398,6 +2398,9 @@ func _draw() -> void:
 	if buttons.has("guard_talk"): _prompt_btn(buttons["guard_talk"], "TALK", GREEN, held.has("guard_talk"))   # v13.144
 	if buttons.has("enter"): _prompt_btn(buttons["enter"], "ENTER", GREEN, held.has("enter"))
 	if buttons.has("steal"): _prompt_btn(buttons["steal"], "STEAL", Color(1.0, 0.35, 0.3), held.has("steal"))   # v13.283
+	if buttons.has("rest"): _prompt_btn(buttons["rest"], "REST", GREEN, held.has("rest"))   # v13.285: the safehouse
+	if buttons.has("store_car"): _prompt_btn(buttons["store_car"], "STORE CAR", GOLD, held.has("store_car"))
+	if buttons.has("take_car"): _prompt_btn(buttons["take_car"], "TAKE CAR (%d)" % GS.garage.size(), GOLD, held.has("take_car"))
 	if buttons.has("form_break"): _prompt_btn(buttons["form_break"], "BREAK OFF", CYAN, held.has("form_break"))   # v13.164: out of formation
 	if buttons.has("spot"): _prompt_btn(buttons["spot"], str(space.spot_near().get("label", "ENTER")), GREEN, held.has("spot"))   # v13.165: a station service
 	for lid in ["lift_up", "lift_down"]:   # v13.175: a station's main lift

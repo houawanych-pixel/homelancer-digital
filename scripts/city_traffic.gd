@@ -240,6 +240,11 @@ func take(q: Dictionary) -> Node3D:
 			break
 	return nd
 
+## v13.285: a vehicle of a kind (out of the garage).
+func make_vehicle(kind: String) -> Node3D:
+	_fresh += 1
+	return _vehicle(kind, _fresh)
+
 ## A vehicle you got out of: it stays where you left it, hovering, and you can take it again.
 func leave(nd: Node3D) -> void:
 	if nd.get_parent() != null: nd.get_parent().remove_child(nd)

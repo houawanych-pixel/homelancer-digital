@@ -135,6 +135,25 @@ static func dome_mesh(pid: String, tile: int) -> ArrayMesh:
 	fr.commit(mesh)
 	return mesh
 
+## v13.285 (owner: "safehouses, garages"): the city's safehouse: a street door of the first block's main building
+## {region, door (tile-local x, z: on the pavement in front of it), out (the way it faces), garage (the garage gate)}.
+static func safehouse(pid: String, tile: int) -> Dictionary:
+	var cr := rect(pid, tile)
+	if cr.size == Vector2i.ZERO: return {}
+	var r := cr.position
+	for b in block(pid, tile, r)["buildings"]:
+		var doors: Array = b["door"]
+		var outs: Array = b.get("door_out", [])
+		for i in doors.size():
+			if i >= outs.size() or outs[i] == Vector2i.ZERO: continue
+			var dc: Vector2i = doors[i]
+			var od: Vector2i = outs[i]
+			var front := cell_pos(r, Vector2(dc + od))
+			var out := Vector2(od)
+			var along := Vector2(-out.y, out.x)
+			return {"region": r, "door": front, "out": out, "garage": front + along * Data.GARAGE_SIDE + out * Data.BLOCK_MIN * 1.5}
+	return {}
+
 ## Is there a city on this tile?
 static func is_city_tile(pid: String, tile: int) -> bool:
 	return rect(pid, tile).size.x > 0

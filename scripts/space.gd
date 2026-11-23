@@ -13951,7 +13951,10 @@ func prompt() -> String:
 		if not lc.is_empty() and player.global_position.distance_to(lc["pos"]) < dock_distance(dc): return "lane"
 		return "dock"
 	if gate_in_range(): return "jump"
+	if driving and at_garage(): return "store_car"   # v13.285
 	if driving: return "eject"   # v13.283: get out of the car you took
+	if at_safehouse(): return "rest"   # v13.285
+	if on_foot and at_garage() and not GS.garage.is_empty(): return "take_car"
 	if on_foot and not car_candidate().is_empty() and not near_parked(): return "steal"
 	if on_foot or (fleet_mech() and escape_pilot and is_instance_valid(parked)): return "enter" if near_parked() else ""   # v12.39
 	if not board_candidate().is_empty() or not facility_candidate().is_empty(): return "board"   # v11.60 (owner); v11.96: ENTER a facility
@@ -16304,6 +16307,17 @@ func steal_car() -> bool:
 	var q := car_candidate()
 	if q.is_empty(): return false
 	var nd: Node3D = city_traffic.take(q)
+	_drive(nd)
+	cars_stolen += 1
+	last_crime = "car_theft"
+	last_crime_at = player.global_position
+	crime("car_theft", Data.HEAT_CAR_THEFT)   # v13.284
+	Sfx.play("button", -2.0, 0.6)
+	message.emit("You took the %s. Drive it low through the streets. EJECT to get out." % str(nd.get_meta("kind", "car")))
+	return true
+
+## Get in a vehicle and drive it (it hangs on you).
+func _drive(nd: Node3D) -> void:
 	var at := nd.global_transform
 	if nd.get_parent() != null: nd.get_parent().remove_child(nd)
 	nd.visible = true
@@ -16319,13 +16333,6 @@ func steal_car() -> bool:
 	speed_k = 0.0
 	vel = Vector3.ZERO
 	if is_instance_valid(model): model.visible = false
-	cars_stolen += 1
-	last_crime = "car_theft"
-	last_crime_at = player.global_position
-	crime("car_theft", Data.HEAT_CAR_THEFT)   # v13.284
-	Sfx.play("button", -2.0, 0.6)
-	message.emit("You took the %s. Drive it low through the streets. EJECT to get out." % str(nd.get_meta("kind", "car")))
-	return true
 
 # ---------------------------------------------------------------- v13.284: the police chase
 ## Owner: "a police chase with a heat bar in the faction's colour (not GTA stars). It follows you into space and onto
@@ -16428,6 +16435,69 @@ func _update_heat(dt: float) -> void:
 			cops = police_ships()
 	GS.heat_follow = cops.size()
 
+# ---------------------------------------------------------------- v13.285: the safehouse and its garage
+var safehouse: CitySafehouse
+
+func _feet() -> Vector3: return player.global_position - Vector3(0, Data.PILOT_FEET_BELOW, 0)
+
+func at_safehouse() -> bool:
+	return on_foot and not driving and safehouse != null and is_instance_valid(safehouse) and safehouse.near_door(_feet())
+
+func at_garage() -> bool:
+	return on_foot and safehouse != null and is_instance_valid(safehouse) and safehouse.near_garage(_feet())
+
+## REST at the safehouse: if no police can see you go in, the heat is gone, you're patched up, the game is saved.
+func rest() -> String:
+	if not at_safehouse(): return ""
+	for e in police_ships():
+		if (e["node"] as Node3D).global_position.distance_to(player.global_position) < Data.HEAT_SIGHT:
+			message.emit("They saw you go in. Lose them first.")
+			return "seen"
+	for e in police_ships():
+		enemies.erase(e)
+		(e["node"] as Node3D).queue_free()
+	GS.heat = 0.0
+	GS.heat_fac = ""
+	GS.heat_follow = 0
+	GS.hull = GS.max_hull()
+	GS.rests += 1
+	GS.save_game()
+	message.emit("Safehouse: you lie low. The heat's off, you're patched up, and the game is saved.")
+	return "rested"
+
+## Drive the car you're in into the garage (kept for later).
+func store_car() -> String:
+	if not driving or not is_instance_valid(car) or not at_garage(): return ""
+	if GS.garage.size() >= Data.GARAGE_MAX:
+		message.emit("The garage is full (%d)." % Data.GARAGE_MAX)
+		return "full"
+	GS.garage.append(str(car.get_meta("kind", "car")))
+	car.queue_free()
+	car = null
+	driving = false
+	vel = Vector3.ZERO
+	if is_instance_valid(model): model.visible = true
+	var ex: Array = safehouse.exit_point()
+	player.global_position = Vector3((ex[0] as Vector2).x, player.global_position.y, (ex[0] as Vector2).y) + Vector3((ex[1] as Vector2).y, 0, -(ex[1] as Vector2).x) * 10.0
+	_update_camera(1.0, true)
+	message.emit("Stored in the garage (%d of %d)." % [GS.garage.size(), Data.GARAGE_MAX])
+	return "stored"
+
+## Take a car out of the garage and drive it (it's yours: no crime).
+func take_car() -> String:
+	if driving or GS.garage.is_empty() or not at_garage() or city_traffic == null or not is_instance_valid(city_traffic): return ""
+	var kind := str(GS.garage.pop_front())
+	var nd := city_traffic.make_vehicle(kind)
+	var ex: Array = safehouse.exit_point()
+	var at2: Vector2 = ex[0]
+	var dir: Vector2 = ex[1]
+	add_child(nd)
+	nd.global_position = Vector3(at2.x, CityPlan.ground(planet_id, tile) + Data.TRAFFIC_HOVER, at2.y)
+	nd.global_rotation = Vector3(0, atan2(-dir.x, -dir.y), 0)
+	_drive(nd)
+	message.emit("Out of the garage in your %s." % kind)
+	return "out"
+
 func exit_car() -> String:
 	if not driving or not is_instance_valid(car): return ""
 	var at := car.global_transform
@@ -16455,6 +16525,10 @@ func _update_city_life(dt: float) -> void:
 		city_traffic.setup(self, planet_id, tile)
 		tile_root.add_child(city_traffic)
 	city_traffic.tick(dt)
+	if safehouse == null or not is_instance_valid(safehouse) or safehouse.get_parent() != tile_root:   # v13.285
+		safehouse = CitySafehouse.new()
+		safehouse.setup(self, planet_id, tile)
+		tile_root.add_child(safehouse)
 
 func _update_wildlife(dt: float) -> void:
 	if not is_instance_valid(tile_root) or not BlockField.regions_on() or sun_surface: return

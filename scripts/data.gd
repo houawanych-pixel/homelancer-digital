@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.284"
+const VERSION := "v13.285"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -569,6 +569,12 @@ const HEAT_FOLLOW_MAX := 6          # ships that can follow you into the next pl
 ## who stands with whom (the police of a faction get backup in its allies' space). A first guess: one line each to change.
 const FACTION_ALLIES := {"Liberator": ["Unity", "Elyza", "Solarion"], "Unity": ["Liberator", "Elyza", "Solarion"], "Elyza": ["Liberator", "Unity", "Solarion"], "Solarion": ["Liberator", "Unity", "Elyza"],
 	"Savagers": ["Imperium", "Covenant", "Orion"], "Imperium": ["Savagers", "Covenant", "Orion"], "Covenant": ["Savagers", "Imperium", "Orion"], "Orion": ["Savagers", "Imperium", "Covenant"]}
+const SAFEHOUSE_REACH := 9.0        # v13.285 (owner: "safehouses"): m from the safehouse door to REST
+const GARAGE_REACH := 16.0          # m from the garage bay to STORE / TAKE CAR
+const GARAGE_MAX := 3               # cars kept in the garage
+const GARAGE_GATE_W := 12.0         # m: the gate's opening
+const GARAGE_GATE_H := 9.0
+const GARAGE_SIDE := 26.0           # m along the street from the safehouse door
 const CITY_FLOOR_LAYERS := 2        # layers (5 m) a floor: 1 of room (5 m: people, not mechs), 1 of slab (v13.273: was 3)
 const MODULE := 10                  # v13.273: cells a building module is across: a 3 x 3 grid of 2 x 2-cell rooms (10 m) in 1-cell walls, the middle room the lift
 const CITY_BRIDGE_CHANCE := 0.6     # the chance of a walkway across the alley between two facing buildings

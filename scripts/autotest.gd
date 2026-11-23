@@ -7915,6 +7915,83 @@ func _run() -> void:
 			ej == "out" and prompt_steal and got and driving and hidden and capped and out and left_ok and again and s.last_crime == "car_theft" and s.cars_stolen == 1, "")
 		_finish_group()
 		return
+	if _flag("HL_SAFE"):   # v13.285 (owner: "safehouses, garages")
+		var pid := "new_terra"
+		var tile := 4
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main._load_surface(pid, tile)
+		await _until(func(): return is_instance_valid(main.space) and main.space.surface_mode and main.space.planet_id == pid, 40.0)
+		var s: Node = _sp()
+		var sh: Dictionary = CityPlan.safehouse(pid, tile)
+		var g: float = CityPlan.ground(pid, tile)
+		var door: Vector2 = sh["door"]
+		var spot := Vector3(door.x, g + Data.PILOT_FEET_BELOW + 0.5, door.y) + Vector3((sh["out"] as Vector2).x, 0, (sh["out"] as Vector2).y) * 30.0
+		await _until(func(): s.player.global_position = spot; s.vel = Vector3.ZERO; return s._regions.size() >= 4 and s._building == null and s.safehouse != null and is_instance_valid(s.safehouse) and s.city_traffic != null and s.city_traffic.active() >= 4, 150.0)
+		var marked: bool = s.safehouse.get_node_or_null("SignSafehouse") != null and s.safehouse.get_node_or_null("Garage") != null and s.safehouse.get_node_or_null("Beam") != null
+		GS.form = "mech"
+		s.set_player_model()
+		s.ground_mode = true
+		s.player.global_position = spot
+		await _wait(0.5)
+		s.eject()
+		await _wait(0.5)
+		# REST with heat on you and nobody watching: it's gone
+		GS.heat = 2.0
+		GS.heat_fac = s.police_here()
+		for e in s.police_ships():
+			s.enemies.erase(e)
+			(e["node"] as Node3D).queue_free()
+		await _frames(2)
+		s.player.global_position = Vector3(door.x, g + Data.PILOT_FEET_BELOW + 0.3, door.y)
+		await _frames(3)
+		var pr_rest: String = s.prompt()
+		main._on_hud("rest")
+		var rested: bool = GS.heat == 0.0 and GS.rests == 1
+		# the shot
+		main.hud.visible = false
+		var o3 := Vector3((sh["out"] as Vector2).x, 0, (sh["out"] as Vector2).y)
+		var al3 := Vector3(-o3.z, 0, o3.x)
+		var cam := Camera3D.new()
+		s.add_child(cam)
+		cam.global_position = Vector3(door.x, g, door.y) + o3 * 32.0 + al3 * (Data.GARAGE_SIDE * 0.5) + Vector3(0, 40.0, 0)
+		cam.look_at(Vector3(door.x, g + 6.0, door.y) + al3 * (Data.GARAGE_SIDE * 0.5), Vector3.UP)
+		cam.make_current()
+		await _wait(0.5)
+		await _capture("safehouse")
+		cam.queue_free()
+		main.hud.visible = true
+		# take a car, drive it to the garage, store it; take it out again
+		var q: Dictionary = {}
+		for p in s.city_traffic.pool:
+			if p["state"] != "off": q = p; break
+		q["parked"] = true
+		var cn: Node3D = q["node"]
+		var kind: String = q["kind"]
+		s.player.global_position = cn.global_position + cn.global_basis.x * 6.0 + Vector3(0, Data.PILOT_FEET_BELOW - Data.TRAFFIC_HOVER, 0)
+		await _frames(3)
+		main._on_hud("steal")
+		GS.heat = 0.0
+		GS.heat_fac = ""
+		var bay: Vector2 = (sh["garage"] as Vector2) + (sh["out"] as Vector2) * 8.0
+		s.player.global_position = Vector3(bay.x, g + Data.PILOT_FEET_BELOW - Data.TRAFFIC_HOVER + 0.5, bay.y)
+		await _frames(3)
+		var pr_store: String = s.prompt()
+		main._on_hud("store_car")
+		var stored: bool = not s.driving and GS.garage == [kind]
+		s.player.global_position = Vector3(bay.x, g + Data.PILOT_FEET_BELOW + 0.3, bay.y)
+		await _frames(3)
+		var pr_take: String = s.prompt()
+		var thefts: int = s.cars_stolen
+		main._on_hud("take_car")
+		await _wait(0.5)
+		var out_ok: bool = s.driving and is_instance_valid(s.car) and str(s.car.get_meta("kind", "")) == kind and GS.garage.is_empty() and s.cars_stolen == thefts and GS.heat == 0.0
+		_check("Safehouse and garage (v13.285): the city's safehouse is marked (sign, beam, garage gate: %s); at its door REST (%s) clears the heat when nobody sees you (%s); drive a car to the garage, STORE CAR (%s, kept: %s), on foot TAKE CAR (%s) and drive it out, no crime (%s)" % [marked, pr_rest, rested, pr_store, stored, pr_take, out_ok],
+			marked and pr_rest == "rest" and rested and pr_store == "store_car" and stored and pr_take == "take_car" and out_ok, "")
+		GS.garage.clear()
+		_finish_group()
+		return
 	if _flag("HL_HEAT"):   # v13.284 (owner: "police chase: heat bar in the faction's colour; follows you; backup at home, none in enemy space; nebulae and neutral space let you escape")
 		var pid := "new_terra"
 		var tile := 4
