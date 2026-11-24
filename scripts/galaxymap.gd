@@ -110,6 +110,7 @@ func _pinch(e: InputEvent) -> bool:
 		var d := a.distance_to(b)
 		if _pinch_d > 1.0 and d > 1.0: _zoom(d / _pinch_d, (a + b) * 0.5)
 		_pinch_d = d
+		fpan = _clamp_pan(fpan + (e.relative as Vector2) * 0.5)   # v13.288 (owner): two fingers move the chart too
 		return true
 	return false
 

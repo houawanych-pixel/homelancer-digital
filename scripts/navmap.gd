@@ -188,6 +188,7 @@ func toggle_tilt() -> void:
 	NavGrid.toggle_tilt()
 	_layout()
 
+var user_rot := 0.0   # v13.288: how far you've turned the map with one finger
 func zoom_by(f: float) -> void:
 	zoom = clampf(zoom * f, Data.NAV_ZOOM[0], Data.NAV_ZOOM[1])
 	_layout()
@@ -195,6 +196,7 @@ func zoom_by(f: float) -> void:
 func fit() -> void:
 	zoom = 1.0
 	pan = Vector3.ZERO
+	user_rot = 0.0
 	_layout()
 
 # ---------------------------------------------------------------- input (mouse and touch share one path)
@@ -237,18 +239,30 @@ func _gui_input(e: InputEvent) -> void:
 		if _press.size() == 2: _pinch = _spread()
 	elif motion and _press.has(idx):
 		var pr: Array = _press[idx]
-		if _press.size() >= 2:   # pinch to zoom
+		if _press.size() >= 2:   # v13.288 (owner: "universal: pinch zooms, two fingers move, one finger rotates")
+			var before := pr[1] as Vector2
 			pr[1] = pos
 			pr[2] = true
 			var sp := _spread()
 			if _pinch > 10.0 and sp > 10.0: zoom_by(sp / _pinch)
 			_pinch = sp
+			if not heading_up():   # the two fingers' middle moved half as far as this finger: the map follows it
+				var w0 := view.to_world(before - map_rect.position)
+				var w1 := view.to_world(before + (pos - before) * 0.5 - map_rect.position)
+				pan += w0 - w1
+				_layout()
 		else:
 			if (pr[0] as Vector2).distance_to(pos) > Data.NAV_TAP_SLOP: pr[2] = true
-			if pr[2] and map_rect.has_point(pr[0]) and not heading_up():   # drag the map
-				var w0 := view.to_world((pr[1] as Vector2) - map_rect.position)
-				var w1 := view.to_world(pos - map_rect.position)
-				pan += w0 - w1
+			if pr[2] and map_rect.has_point(pr[0]) and not heading_up() and idx != 99:   # one finger turns the map round its middle
+				var c := map_rect.position + view.anchor
+				var a0 := ((pr[1] as Vector2) - c).angle()
+				var a1 := (pos - c).angle()
+				user_rot = wrapf(user_rot + (a1 - a0), -PI, PI)
+				_layout()
+			elif pr[2] and map_rect.has_point(pr[0]) and not heading_up():   # the mouse drags the map (PC)
+				var w0m := view.to_world((pr[1] as Vector2) - map_rect.position)
+				var w1m := view.to_world(pos - map_rect.position)
+				pan += w0m - w1m
 				_layout()
 			pr[1] = pos
 	elif up and _press.has(idx):
@@ -786,6 +800,7 @@ func _layout() -> void:
 	else:
 		scale_k = fit_k * zoom * (0.9 if angled else 1.0)
 		view.setup(Vector2(lw0 + free_w * 0.5, map_rect.size.y * 0.5 - 10.0), center + pan, scale_k, Vector3.ZERO, angled, depth)
+		view.rot += user_rot
 	clip.position = map_rect.position
 	clip.size = map_rect.size
 	canvas.position = Vector2.ZERO

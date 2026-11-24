@@ -7915,6 +7915,43 @@ func _run() -> void:
 			ej == "out" and prompt_steal and got and driving and hidden and capped and out and left_ok and again and s.last_crime == "car_theft" and s.cars_stolen == 1, "")
 		_finish_group()
 		return
+	if _flag("HL_MAPGEST"):   # v13.288 (owner: "on every map: one finger rotates, two fingers move, pinch zooms")
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main.open_map()
+		await _wait(1.0)
+		var nm: Control = main.navmap
+		NavGrid.orient = "north"
+		nm.fit()
+		var c: Vector2 = nm.map_rect.position + nm.view.anchor
+		var send := func(ev: InputEvent): nm._gui_input(ev)
+		var t0 := InputEventScreenTouch.new(); t0.index = 0; t0.position = c + Vector2(150, 0); t0.pressed = true
+		send.call(t0)
+		var d0 := InputEventScreenDrag.new(); d0.index = 0; d0.position = c + Vector2(0, 150); d0.relative = Vector2(-150, 150)
+		send.call(d0)
+		var rot_ok: bool = absf(nm.user_rot) > 1.0
+		var z0: float = nm.zoom
+		var p0: Vector3 = nm.pan
+		var t1 := InputEventScreenTouch.new(); t1.index = 1; t1.position = c + Vector2(0, -60); t1.pressed = true
+		send.call(t1)
+		var d1 := InputEventScreenDrag.new(); d1.index = 1; d1.position = c + Vector2(0, -200); d1.relative = Vector2(0, -140)
+		send.call(d1)
+		var zoom_ok: bool = nm.zoom > z0 * 1.2
+		var p1: Vector3 = nm.pan
+		var d2 := InputEventScreenDrag.new(); d2.index = 0; d2.position = c + Vector2(80, 150); d2.relative = Vector2(80, 0)
+		send.call(d2)
+		var d3 := InputEventScreenDrag.new(); d3.index = 1; d3.position = c + Vector2(80, -200); d3.relative = Vector2(80, 0)
+		send.call(d3)
+		var pan_ok: bool = nm.pan.distance_to(p1) > 1.0
+		for i in [0, 1]:
+			var u := InputEventScreenTouch.new(); u.index = i; u.position = c; u.pressed = false
+			send.call(u)
+		await _wait(0.4)
+		await _capture("map_gestures")
+		_check("Map gestures (v13.288): on the system map one finger turns it (%.2f rad: %s), a pinch zooms (%.2f -> %.2f: %s), two fingers move it (%s)" % [nm.user_rot, rot_ok, z0, nm.zoom, zoom_ok, pan_ok], rot_ok and zoom_ok and pan_ok, "")
+		_finish_group()
+		return
 	if _flag("HL_ROOMLIGHT"):   # v13.288 (owner: "why is this screen so dark; it should be like the EQUIPMENT page, the ship with the weapons on; pinch, pan, rotate")
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
