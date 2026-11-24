@@ -764,6 +764,8 @@ func _refresh_sell_all(s: String) -> void:
 	if sell_all_btn == null: return
 	var w: int = GS.sell_all_worth(str(base.get("name", "")), str(base.get("kind", "station")), GS.system_id) if not base.is_empty() else 0
 	sell_all_btn.visible = w > 0 and s in ["hub", "equipment"] and not lockdown
+	sell_all_btn.anchor_left = 0.3 if s == "equipment" else 0.5   # (in the hangar: over the bay, not the shop)
+	sell_all_btn.anchor_right = sell_all_btn.anchor_left
 	sell_all_btn.text = "SELL ALL CARGO  +%s cr" % _thousands(w)
 	move_child(sell_all_btn, get_child_count() - 1)
 
@@ -779,6 +781,7 @@ func show_screen(s: String) -> void:
 	screen = s
 	_refresh_credits()
 	_refresh_sell_all(s)
+	status.offset_right = -(get_viewport_rect().size.x * 0.4 + 10.0) if s == "equipment" and not panels_hidden else -24.0   # v13.297: in the hangar, clear of the shop's buttons
 	var sysname: String = Data.SYSTEMS[GS.system_id]["name"]
 	header.text = base["name"].to_upper() if s == "hub" else {"equipment": "WEAPONS & EQUIPMENT DEALER", "ships": "SHIP DEALER", "mechs": "MECH DEALER", "repair": "MEDICAL BAY", "supplies": "SUPPLIES", "command": "COMMAND", "bounty": "MISSION BOARD", "missions": "MISSION BOARD", "boarding": "MISSION BOARD", "board": "MISSION BOARD", "ship": "YOUR SHIP", "faction": "FACTION", "surface": "PLANET DESTINATIONS", "lounge": "PILOTS' LOUNGE", "loadout": "LOADOUT", "market": "MARKET"}[s]
 	subheader.text = "%s  ·  %s  ·  %s SYSTEM" % [str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id])).to_upper(), "ORBITAL STATION" if kind == "station" else "PLANET SURFACE", sysname.to_upper()]   # v8.2 (owner): faction and station
@@ -3097,6 +3100,7 @@ func _mech_bay(bay: Control) -> bool:
 	var hgt: float = maxf(bb.size.y, 0.5)
 	var c0: Vector3 = bb.get_center()
 	m.position = Vector3(-c0.x, 0.0, -c0.z)   # (centred on the turntable)
+	if eq_tab == "weapon": _dress_mech(m)   # v13.297
 	var c := Vector3(0.0, c0.y, 0.0)
 	var cam := Camera3D.new()
 	cam.name = "BayCam"
@@ -3508,6 +3512,9 @@ func _draw_slots(c: Control, pts: Dictionary) -> void:
 		var empty: bool = it == "empty" or (k == -2 and GS.missiles <= 0) or (k == -3 and GS.heavy_missiles <= 0) or (k == -4 and GS.mines <= 0)
 		var sq := Rect2(p - Vector2(half, half), Vector2(half, half) * 2.0)
 		var sel: bool = k == eq_sel
+		if mech_gun_slots.has(k) and _eq_mech() and preview_key == "mech":   # v13.297: the gun itself shows there: only a thin frame
+			c.draw_rect(sq, GOLD if sel else Color(0.45, 0.9, 1.0, 0.55), false, 2.5 if sel else 1.0)
+			continue
 		c.draw_rect(sq.grow(3.0), Color(0.3, 0.85, 1.0, 0.22) if not sel else Color(GOLD, 0.35))   # glow
 		c.draw_rect(sq, Color(0.02, 0.07, 0.13, 0.94))
 		var tex := _wicon(it) if not empty else null
@@ -3772,7 +3779,7 @@ func _weapon_row(id: String, kind: String) -> Control:
 	var owned := _card_owned(id, kind)
 	var b := Button.new()
 	b.name = "Card_" + id
-	b.custom_minimum_size = Vector2(0, 58)
+	b.custom_minimum_size = Vector2(0, 66)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.clip_contents = true
 	if eq_card == id:
@@ -3789,9 +3796,10 @@ func _weapon_row(id: String, kind: String) -> Control:
 	b.add_child(row)
 	var pic := TextureRect.new()
 	pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pic.custom_minimum_size = Vector2(84, 0)
+	pic.custom_minimum_size = Vector2(118, 0)   # v13.297: a bigger side view
 	pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	pic.name = "Pic"
 	_weapon_pic(id, pic)
 	row.add_child(pic)
 	var col := VBoxContainer.new()
@@ -3877,8 +3885,9 @@ func _shop_panel(shop: VBoxContainer) -> void:
 		if not (id in Data.NEXUS_BLASTERS): cards.append([id, "gun"])
 	for pid in Data.MOUNT_PODS: cards.append([pid, "pod"])
 	for mid2 in Data.MODULE_ORDER: cards.append([mid2, "module"])
+	if eq_tab == "weapon": grid.columns = 1   # v13.297 (owner: "thumbnails; scroll up and down all the weapons"): one row each, picture first
 	for cd in cards:
-		var c := _card(cd[0], cd[1])
+		var c: Control = _weapon_row(cd[0], cd[1]) if eq_tab == "weapon" and cd[1] != "module" else _card(cd[0], cd[1])
 		c.visible = (cd[1] == "module") if eq_tab == "module" else (cd[1] != "module" and (eq_filter == "all" or eq_filter == cd[1]))
 		grid.add_child(c)
 	# v13.97 (owner: Armored Core): NOW vs PICKED, green where the pick is better, red where worse
@@ -3886,23 +3895,25 @@ func _shop_panel(shop: VBoxContainer) -> void:
 		var cur_id: String = GS.core_item(eq_sel) if eq_sel < 0 else str(GS.mount_items()[eq_sel]) if eq_sel < (GS.mount_items() as Array).size() else ""
 		var cw: Dictionary = Data.WEAPONS.get(cur_id, {})
 		var nw: Dictionary = Data.WEAPONS[eq_card]
-		var cmp := GridContainer.new()
+		var cmp := GridContainer.new()   # v13.297: compact (NOW -> PICKED in one cell each) so the list gets the room
 		cmp.name = "ShopCompare"
 		cmp.columns = 4
-		cmp.add_theme_constant_override("h_separation", 14)
+		cmp.add_theme_constant_override("h_separation", 10)
+		cmp.add_theme_constant_override("v_separation", 0)
 		shop.add_child(cmp)
-		for hd in ["", "NOW", "PICKED", ""]:
-			var hl := _label(11, CYAN)
-			hl.text = hd
+		var stats := [["DAMAGE", "damage"], ["RATE", "rate"], ["RANGE", "range"], ["DPS", "dps"]]
+		for sx in stats:
+			var hl := _label(11, Color(0.75, 0.85, 1.0))
+			hl.text = sx[0]
+			hl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			cmp.add_child(hl)
-		for sx in [["DAMAGE", "damage"], ["FIRE RATE", "rate"], ["RANGE", "range"], ["DPS", "dps"]]:
+		for sx in stats:
 			var a0: float = float(cw.get("damage", 0.0)) * float(cw.get("rate", 0.0)) if sx[1] == "dps" else float(cw.get(sx[1], 0.0))
 			var b0: float = float(nw.get("damage", 0.0)) * float(nw.get("rate", 0.0)) if sx[1] == "dps" else float(nw.get(sx[1], 0.0))
 			var col := Color(0.55, 1.0, 0.6) if b0 > a0 + 0.01 else (Color(1.0, 0.45, 0.4) if b0 < a0 - 0.01 else Color(0.85, 0.9, 1.0))
-			for v in [[sx[0], Color(0.75, 0.85, 1.0)], ["%.1f" % a0 if cw.size() > 0 else "-", Color(0.75, 0.8, 0.9)], ["%.1f" % b0, col], ["▲" if b0 > a0 + 0.01 else ("▼" if b0 < a0 - 0.01 else "="), col]]:
-				var cl := _label(13, v[1])
-				cl.text = v[0]
-				cmp.add_child(cl)
+			var cl := _label(13, col)
+			cl.text = "%s→%s %s" % [("%.0f" % a0) if cw.size() > 0 else "-", "%.0f" % b0, "▲" if b0 > a0 + 0.01 else ("▼" if b0 < a0 - 0.01 else "=")]
+			cmp.add_child(cl)
 	# BUY / INSTALL
 	var act := HBoxContainer.new()
 	act.name = "ShopActions"
@@ -4539,20 +4550,14 @@ var eq_view := ""         # v1.9x: "ship" | "mech" blueprint ("" = the form you 
 func _eq_mech() -> bool: return eq_view == "mech" or (eq_view == "" and GS.form == "mech")
 
 func _on_eq_pack(pk: String) -> void:
-	if pk == "wing_guns" and visible and is_instance_valid(preview_pivot) and preview_pivot.get_child_count() > 0: _dress_mounts(preview_pivot.get_child(0))
+	if pk == "wing_guns" and visible and is_instance_valid(preview_pivot) and preview_pivot.get_child_count() > 0:
+		var pm: Node3D = preview_pivot.get_child(0)
+		if pm.name == "BayMech": _dress_mech(pm)
+		else: _dress_mounts(pm)
 
 ## The guns and pods on the showroom ship, placed as in flight (shoulders on top, tips hung under, the core gun under the nose).
-func _dress_mounts(model: Node3D) -> void:
-	var old := model.get_node_or_null("ShowMounts")
-	if old != null: old.free()
-	if not Packs.is_ready("wing_guns"): return
-	var holder := Node3D.new()
-	holder.name = "ShowMounts"
-	model.add_child(holder)
-	var bb: AABB = ShipFactory._aabb(model, Transform3D.IDENTITY)
-	var sc: float = maxf(model.scale.x, 0.001)
-	var hw: float = maxf(bb.size.x * 0.5 * model.scale.x, 1.0)
-	var ln: float = maxf(bb.size.z * model.scale.z, 2.0)
+## What each slot shows in the showroom: [[slot, item], ...] and the slot that is only being tried on (-99 = none).
+func _show_slots() -> Array:
 	var items: Array = GS.mount_items()
 	var slots: Array = []
 	for k in GS.core_slots(): slots.append([k, GS.core_item(k)])
@@ -4567,6 +4572,67 @@ func _dress_mounts(model: Node3D) -> void:
 				hit = true
 		if not hit: trying = eq_sel
 		if not hit and eq_sel > -9 and eq_sel < 100 and not (eq_sel in [-2, -3, -4]): slots.append([eq_sel, eq_card])
+	return [slots, trying]
+
+## v13.297 (owner: "fix the mech preview in the hangar: make it show the weapons"): each fitted gun and pod on the
+## showroom mech, at its slot (the same spots as the slot squares), angled forward, down and out so you see it from
+## the front. A weapon you're only trying on is the cyan hologram, as on the ship.
+var mech_gun_slots := {}   # (slots with a 3D gun on the showroom mech: their squares are just an outline)
+func _dress_mech(m: Node3D) -> void:
+	mech_gun_slots = {}
+	var old := preview_pivot.get_node_or_null("MechGuns")
+	if old != null: old.free()
+	if not Packs.is_ready("wing_guns"):
+		Packs.request("wing_guns")
+		return
+	var holder := Node3D.new()
+	holder.name = "MechGuns"
+	preview_pivot.add_child(holder)
+	var bb: AABB = ShipFactory._aabb(m, Transform3D.IDENTITY)
+	var hgt: float = maxf(bb.size.y, 0.5)
+	var uv: Dictionary = GS.level_def()["mech_uv"]
+	var sl := _show_slots()
+	for pr in sl[0]:
+		var g: int = pr[0]
+		var it: String = pr[1]
+		if not uv.has(g): continue
+		var info: Dictionary = Data.WEAPONS.get(it, Data.MOUNT_PODS.get(it, {}))
+		var key: String = str(info.get("model", ""))
+		if key == "" or not ShipFactory.has_real_model(key): continue
+		var gun := ShipFactory.build(key)
+		gun.name = "MechGun%d" % g
+		var u: Vector2 = uv[g]
+		var pos := Vector3(lerpf(bb.end.x, bb.position.x, u.x), lerpf(bb.end.y, bb.position.y, u.y), bb.position.z + bb.size.z * Data.MECH_GUN_FRONT)
+		var share: float = Data.MECH_POD_SHARE if Data.MOUNT_PODS.has(it) else Data.MECH_GUN_SHARE
+		var out: float = signf(pos.x - bb.get_center().x)
+		var gb: AABB = ShipFactory._aabb(gun, Transform3D.IDENTITY)   # (sized by its own length)
+		var glen: float = maxf(maxf(gb.size.x, gb.size.y), maxf(gb.size.z, 0.01))
+		gun.transform = Transform3D(Basis.from_euler(Vector3(deg_to_rad(Data.MECH_GUN_PITCH), deg_to_rad(-Data.MECH_GUN_YAW_OUT * out), 0.0)).scaled(Vector3.ONE * hgt * share / glen), pos)
+		mech_gun_slots[g] = true
+		holder.add_child(gun)
+		if g == int(sl[1]): _hologram(gun)
+		var gl := OmniLight3D.new()
+		gl.name = "PickGlow" if g == eq_sel else "GunGlow%d" % g
+		gl.light_color = Color(0.4, 0.9, 1.0) if g == eq_sel else Color(1.0, 0.85, 0.6)
+		gl.light_energy = 2.5 if g == eq_sel else 1.2
+		gl.omni_range = hgt * 0.25
+		gl.position = pos + Vector3(0, 0, -hgt * 0.1)
+		holder.add_child(gl)
+
+func _dress_mounts(model: Node3D) -> void:
+	var old := model.get_node_or_null("ShowMounts")
+	if old != null: old.free()
+	if not Packs.is_ready("wing_guns"): return
+	var holder := Node3D.new()
+	holder.name = "ShowMounts"
+	model.add_child(holder)
+	var bb: AABB = ShipFactory._aabb(model, Transform3D.IDENTITY)
+	var sc: float = maxf(model.scale.x, 0.001)
+	var hw: float = maxf(bb.size.x * 0.5 * model.scale.x, 1.0)
+	var ln: float = maxf(bb.size.z * model.scale.z, 2.0)
+	var sl := _show_slots()
+	var slots: Array = sl[0]
+	var trying: int = sl[1]
 	for pr in slots:
 		var g: int = pr[0]
 		var it: String = pr[1]

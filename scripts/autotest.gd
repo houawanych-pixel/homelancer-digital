@@ -7974,6 +7974,45 @@ func _run() -> void:
 			tr[1] > 0 and tr[0] == tr[1] and previewed, "")
 		_finish_group()
 		return
+	if _flag("HL_SHOPMECH"):   # v13.297 (owner: "the hangar preview shows the weapons; every weapon a thumbnail; scroll all of them")
+		get_window().size = Vector2i(1600, 720)
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var s: Node = _sp()
+		main.dock(s.station)
+		await _until(func(): return main.state == "hub", 15.0)
+		await _wait(1.0)
+		Packs.request("wing_guns")
+		await Packs.wait("wing_guns", 60.0)
+		var hb: Node = main.hub
+		for vw in ["mech", "ship"]:
+			hb.eq_view = vw
+			hb.eq_tab = "weapon"
+			hb.eq_sel = 0
+			hb.eq_card = "twin_cannon"
+			hb.show_screen("equipment")
+			await _until(func(): return is_instance_valid(hb.preview_pivot) and hb.preview_pivot.get_child_count() > 0, 30.0)
+			await _wait(3.0)
+			if vw == "mech":
+				var mg: Node = hb.preview_pivot.get_node_or_null("MechGuns")
+				var guns: int = mg.get_children().filter(func(c): return str(c.name).begins_with("MechGun")).size() if mg != null else 0
+				var tried: Node = mg.get_node_or_null("MechGun0") if mg != null else null
+				var holo := false
+				if tried != null:
+					var ms := tried.find_children("*", "MeshInstance3D", true, false)
+					holo = not ms.is_empty() and (ms[0] as MeshInstance3D).material_override == hb._holo_mat
+				_check("v13.297: the showroom mech shows its weapons (%d on it), the one you're trying on as a hologram (%s)" % [guns, holo], guns >= 2 and holo, "")
+				var grid: Node = hb.find_child("ShopGrid", true, false)
+				var rows: Array = grid.get_children() if grid != null else []
+				var with_pic := rows.filter(func(r): return r.find_child("Pic", true, false) != null).size()
+				var sc: ScrollContainer = hb.find_child("EqBuy", true, false)
+				var want: int = Data.WEAPON_ORDER.size() + Data.MOUNT_PODS.size()
+				_check("v13.297: the weapon shop is one scrolling list, every weapon a row with its picture (%d rows, %d with pictures, %d weapons and pods, scroll height %d of %d)" % [rows.size(), with_pic, want, int(sc.size.y) if sc else 0, int(grid.size.y) if grid else 0], rows.size() >= want and with_pic == rows.size() and sc != null and sc.size.y >= 150.0, "")
+			await _shot("shop_" + vw, 0.5)
+		for r2 in results: print("[route] ", r2)
+		get_tree().quit()
+		return
 	if _flag("HL_TRYON"):   # v13.291 (owner: "picking a weapon previews it on the ship; only buying and equipping locks it in, with a sound")
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)

@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.296"
+const VERSION := "v13.297"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -1879,6 +1879,11 @@ const WEAPON_ORDER := ["pulse1", "nx_blue", "nx_green", "nx_yellow", "nx_red", "
 const WING_GUN_LEN := 2.6        # v1.9g: m, the length the gun models are built at ...
 const WING_GUN_SHARE := 0.3      # ... then sized on the wing to this share of the ship's length ...
 const WING_POD_SHARE := 0.12     # ... and a missile pod to this
+const MECH_GUN_SHARE := 0.3      # v13.297: a gun on the showroom mech is this share of the mech's height ...
+const MECH_POD_SHARE := 0.14     # ... a missile pod this
+const MECH_GUN_FRONT := -0.15    # how far in front of the mech's front face (share of its depth; - = in front)
+const MECH_GUN_PITCH := -28.0    # degrees down, so its length shows from the front
+const MECH_GUN_YAW_OUT := 28.0   # degrees turned outward
 # v1.9e (owner: "equip a weapon on the wing, like a blaster, as well as missiles"): each hardpoint carries a gun or a
 # missile pod. A pod on a mount carries more light missiles and adds locks (so a bigger volley). PROVISIONAL numbers.
 const MOUNT_SHOULDER_AT := 0.3   # v1.9e (owner): the shoulder mount sits this far out along the wing (share of half the span), on top ...
