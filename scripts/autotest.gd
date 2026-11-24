@@ -7967,6 +7967,25 @@ func _run() -> void:
 		await _until(func(): return is_instance_valid(hb.preview_pivot) and is_instance_valid(hb._bay_node), 30.0)
 		await _wait(3.0)
 		var bay_ok: bool = not hb.room_view.visible and is_instance_valid(hb.preview_pivot) and hb.preview_pivot.get_child_count() > 0
+		await Packs.wait("wing_guns", 60.0)
+		await _wait(1.5)
+		var shipm: Node3D = hb.preview_pivot.get_child(0)
+		var sm: Node = shipm.get_node_or_null("ShowMounts")
+		var gun_n := 0
+		var gun_len := 0.0
+		if sm:
+			for g in sm.get_children():
+				if g is OmniLight3D: continue
+				gun_n += 1
+				gun_len = maxf(gun_len, ShipFactory._aabb(g, Transform3D.IDENTITY).size.z * shipm.scale.z)
+		var ship_len: float = ShipFactory._aabb(shipm, Transform3D.IDENTITY).size.z
+		var guns_ok: bool = gun_n >= 3 and gun_len > ship_len * 0.4
+		(hb._bay_node.get_node("MountMap") as Control).visible = false
+		hb.bay_hold = 99.0
+		hb.bay_yaw = Data.BAY_WEAPON_YAW
+		await _wait(0.5)
+		await _capture("guns_fitted")
+		(hb._bay_node.get_node("MountMap") as Control).visible = true
 		var img := get_viewport().get_texture().get_image()
 		var sz := img.get_size()
 		var tot := 0.0
@@ -8019,7 +8038,7 @@ func _run() -> void:
 		await _wait(0.4)
 		await _capture("hangar_weapons_zoomed")
 		_check("Hangar WEAPONS (v13.288): the bay and your ship like EQUIPMENT (%s), bright (mean %.2f, was 0.30 under a dark panel); one finger turns it (%s), a pinch zooms (%s, x%.2f), two fingers move it (%s)" % [bay_ok, lum, turned, zoomed, hb.bay_view_zoom, panned],
-			bay_ok and lum > 0.4 and turned and zoomed and panned, "")
+			bay_ok and guns_ok and lum > 0.4 and turned and zoomed and panned, "guns %d, longest %.1f m on a %.1f m ship" % [gun_n, gun_len, ship_len])
 		_finish_group()
 		return
 	if _flag("HL_GANGS"):   # v13.287 (owner: "gangs, phone missions")

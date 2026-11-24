@@ -4481,7 +4481,7 @@ func _dress_mounts(model: Node3D) -> void:
 		var gun := ShipFactory.build(key)
 		gun.name = "Show%d" % g
 		var share: float = float(info.get("share", Data.WING_POD_SHARE if Data.MOUNT_PODS.has(it) else Data.WING_GUN_SHARE))
-		gun.scale = Vector3.ONE * (ln * share / Data.WING_GUN_LEN) / sc
+		gun.scale = Vector3.ONE * (ln * share / Data.WING_GUN_LEN) / sc * Data.BAY_GUN_K   # v13.290: bigger in the showroom, so you can see what's fitted
 		if g < 0:
 			var ox := 0.0
 			if GS.core_slots().size() > 1 and g in [-1, -5]: ox = hw * (0.14 if g == -5 else -0.14)
@@ -4496,6 +4496,14 @@ func _dress_mounts(model: Node3D) -> void:
 		var smn := ShipFactory.mount_node(model, g)   # v8.8: the model's own mount, when it has one
 		if smn != null and model.is_inside_tree(): gun.position = model.global_transform.affine_inverse() * smn.global_position
 		holder.add_child(gun)
+		if eq_tab == "weapon":   # v13.290 (owner: "I don't see the weapons equipped"): each fitted gun lit, the picked slot's brightest
+			var gl := OmniLight3D.new()
+			gl.name = "PickGlow" if g == eq_sel else "GunGlow%d" % g
+			gl.light_color = Color(0.4, 0.9, 1.0) if g == eq_sel else Color(1.0, 0.85, 0.6)
+			gl.light_energy = 3.0 if g == eq_sel else 1.4
+			gl.omni_range = maxf(ln * share * 1.2, 2.0) / sc
+			gl.position = gun.position + Vector3(0, 1.0 / sc, 0)
+			holder.add_child(gl)
 
 ## v1.9w (owner's three-level sheet): the ship's level blueprint with a dot on each of its slots.
 ## Ids: -1 front gun, -5 second front gun, -6 belly gun, -2 light bay, -3 super bay, -4 mine bay, 0-5 wing slots.
@@ -6905,7 +6913,7 @@ func _process(dt: float) -> void:
 	_poll_speech(dt)
 	if preview_pivot and is_instance_valid(preview_pivot) and screen != "equipment": preview_pivot.rotation.y = t * 0.4 + eq_yaw
 	elif preview_pivot and is_instance_valid(preview_pivot) and screen == "equipment":   # v2.6 (owner): it turns on the platform
-		if bay_zoom_on and eq_tab != "hangar": bay_yaw = lerp_angle(bay_yaw, 0.0, clampf(dt * 5.0, 0.0, 1.0))   # v13.97: zoomed: face it
+		if bay_zoom_on and eq_tab != "hangar" and bay_hold <= 0.0: bay_yaw = lerp_angle(bay_yaw, Data.BAY_WEAPON_YAW if eq_tab == "weapon" else 0.0, clampf(dt * 5.0, 0.0, 1.0))   # v13.97: zoomed: face it (v13.290: weapons: a three-quarter view, so the guns show side on)
 		elif bay_hold > 0.0: bay_hold -= dt
 		else: bay_yaw = fmod(bay_yaw + dt * Data.BAY_SPIN, TAU)
 		preview_pivot.rotation.y = bay_yaw
