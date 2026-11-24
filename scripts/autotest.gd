@@ -23,6 +23,15 @@ func _publish(step: String, done := false) -> void:
 		var js := "window.__hl = {step: %s, done: %s, results: %s};" % [JSON.stringify(step), "true" if done else "false", JSON.stringify(results)]
 		JavaScriptBridge.eval(js, true)
 
+## Frames per second over a few seconds (wall clock).
+func _fps(secs: float) -> float:
+	var t0 := Time.get_ticks_usec()
+	var n := 0
+	while Time.get_ticks_usec() - t0 < int(secs * 1000000.0):
+		await get_tree().process_frame
+		n += 1
+	return n / secs
+
 func _shot(name: String, hold := 0.8) -> void:
 	await _wait(hold)
 	await _capture(name)
@@ -7938,6 +7947,39 @@ func _run() -> void:
 		var again: bool = s.prompt() == "steal" or s.car_candidate().size() > 0
 		_check("Stealing cars (v13.283): out of the mech (%s), by a car STEAL shows (%s); it's yours (%s), you drive it (%s, pilot hidden %s) up to %.0f m/s (%s); EJECT and it stays parked (%s, you can take it again %s); crime noted (%s, %d taken)" % [ej, prompt_steal, got, driving, hidden, top, capped, left_ok, again, s.last_crime, s.cars_stolen],
 			ej == "out" and prompt_steal and got and driving and hidden and capped and out and left_ok and again and s.last_crime == "car_theft" and s.cars_stolen == 1, "")
+		_finish_group()
+		return
+	if _flag("HL_ALARMPERF"):   # v13.298 (owner: "the alarm room was super laggy"): the alarm decks run no slower than flying in space
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(3.0)
+		var fly_fps: float = await _fps(3.0)
+		var s: Node = _sp()
+		main.dock(s.station)
+		await _until(func(): return main.state == "hub", 15.0)
+		await _wait(1.0)
+		main._escape_in_space()
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding, 120.0)
+		await _wait(6.0)
+		var s2: Node = _sp()
+		var alarm_fps: float = await _fps(5.0)
+		var guards: int = s2.enemies.size()
+		var awake: int = s2.guards_awake
+		var asleep: int = s2.enemies.filter(func(e): return is_instance_valid(e.get("node")) and (e["node"] as Node).process_mode == Node.PROCESS_MODE_DISABLED).size()
+		_check("v13.298: the alarm decks run at least as fast as flying in space (alarm %.1f fps, flying %.1f fps here); only guards near you on your deck are awake (%d awake, %d asleep of %d)" % [alarm_fps, fly_fps, awake, asleep, guards], alarm_fps >= fly_fps * 0.9 and awake < guards / 4 and asleep > guards / 2, "")
+		# a guard that's asleep wakes when you come near
+		var far_e: Dictionary = {}
+		for e in s2.enemies:
+			if is_instance_valid(e.get("node")) and (e["node"] as Node).process_mode == Node.PROCESS_MODE_DISABLED and absf((e["node"] as Node3D).global_position.y - s2.player.global_position.y) < Data.GUARD_DECK_DY:
+				far_e = e
+				break
+		var woke := false
+		if not far_e.is_empty():
+			var fp: Vector3 = (far_e["node"] as Node3D).global_position
+			s2.player.global_position = fp + Vector3(20, 0, 0)
+			await _wait(1.0)
+			woke = is_instance_valid(far_e.get("node")) and (far_e["node"] as Node).process_mode != Node.PROCESS_MODE_DISABLED and (far_e["node"] as Node3D).visible
+		_check("v13.298: a sleeping guard on your deck wakes up when you come near", woke, "")
 		_finish_group()
 		return
 	if _flag("HL_SHIPTHUMB"):   # v13.293 (owner: "thumbnails next to the purchase, and a preview when you select the name")

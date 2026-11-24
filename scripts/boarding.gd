@@ -827,12 +827,34 @@ static func deck_of_piece(y: float) -> String:
 
 static func rect(k: String) -> Array: return ROOMS[k]["r"]
 
+## v13.295 (owner: "the alarm was super laggy"): a grid of which rooms touch each 40 m square, so asking "which room is
+## this point in" looks at a handful of rooms, not all of them (a five-deck station has hundreds, asked thousands of
+## times a frame by the camera, the guards and the floor checks). Rebuilt whenever ROOMS changes.
+const GRID := 40.0
+const GRID_PAD := 16.0
+static var _grid := {}
+static var _grid_src = null
+static var _grid_n := -1
+static func _grid_cells(p: Vector3) -> Array:
+	if not is_same(_grid_src, ROOMS) or _grid_n != ROOMS.size():
+		_grid.clear()
+		_grid_src = ROOMS
+		_grid_n = ROOMS.size()
+		for k in ROOMS:
+			var r: Array = ROOMS[k]["r"]
+			for gx in range(floori((float(r[0]) - GRID_PAD) / GRID), floori((float(r[1]) + GRID_PAD) / GRID) + 1):
+				for gz in range(floori((float(r[2]) - GRID_PAD) / GRID), floori((float(r[3]) + GRID_PAD) / GRID) + 1):
+					var c := Vector2i(gx, gz)
+					if not _grid.has(c): _grid[c] = []
+					(_grid[c] as Array).append(k)
+	return _grid.get(Vector2i(floori(p.x / GRID), floori(p.z / GRID)), [])
+
 static func room_at(p: Vector3, pad := 0.0) -> String:
 	var hit := ""
 	var best := -INF
 	var low := ""
 	var lowy := INF
-	for k in ROOMS:
+	for k in (_grid_cells(p) if pad > -GRID_PAD else ROOMS.keys()):
 		var r: Array = ROOMS[k]["r"]
 		if p.x > float(r[0]) + pad and p.x < float(r[1]) - pad and p.z > float(r[2]) + pad and p.z < float(r[3]) - pad:
 			if not STACKED: return k

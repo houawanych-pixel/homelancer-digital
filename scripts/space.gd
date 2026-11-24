@@ -2107,7 +2107,7 @@ func _board_update(dt: float) -> void:
 	if not board.has("fleet") and player.global_position.x > Boarding.EXIT_X - 2.0 and not str(board.get("phase", "")) in ["escape", "out", "sneak"]:
 		player.global_position.x = Boarding.EXIT_X - 2.0
 	for e in enemies:
-		if e.get("walker", false):
+		if e.get("walker", false) and not e.get("dormant", false):
 			var n: Node3D = e["node"]
 			if Boarding.STACKED and e.has("home") and absf(n.global_position.y - float((e["home"] as Vector3).y)) > 60.0:   # v13.186: a guard stays on his own deck
 				n.global_position.y = float((e["home"] as Vector3).y)
@@ -10980,6 +10980,41 @@ func _player_hit(dmg: float, hit := Vector3.INF) -> void:
 		controls = false
 		_die()
 
+## v13.295 (owner: "when you pushed the alarm it was super laggy"): a station on alert holds dozens of guards on five
+## decks. Only the ones near you (on your deck, within GUARD_WAKE_R) think, walk, animate and draw; the rest wait frozen
+## and hidden where they stand (behind the walls you can't see them anyway), and wake as you come near. Checked a few
+## times a second.
+var _lod_t := 0.0
+var guards_awake := 0   # (tests)
+func _guard_lod(dt: float) -> void:
+	_lod_t -= dt
+	if _lod_t > 0.0: return
+	_lod_t = Data.GUARD_LOD_EVERY
+	if not boarding or not is_instance_valid(player):
+		for e in enemies:
+			if e.get("dormant", false): _set_dormant(e, false)
+		return
+	var p := player.global_position
+	var awake := 0
+	for e in enemies:
+		if not e.get("walker", false) or e.get("fleet_target", false) or e.get("boss_mech", false):
+			continue
+		var n: Node3D = e.get("node")
+		if not is_instance_valid(n): continue
+		var dp := n.global_position - p
+		var far: bool = Vector2(dp.x, dp.z).length() > Data.GUARD_WAKE_R * (1.25 if not e.get("dormant", false) else 1.0) or absf(dp.y) > Data.GUARD_DECK_DY
+		if far != bool(e.get("dormant", false)): _set_dormant(e, far)
+		if not far: awake += 1
+	guards_awake = awake
+
+func _set_dormant(e: Dictionary, on: bool) -> void:
+	e["dormant"] = on
+	var n: Node3D = e.get("node")
+	if not is_instance_valid(n): return
+	n.visible = not on
+	n.process_mode = Node.PROCESS_MODE_DISABLED if on else Node.PROCESS_MODE_INHERIT
+	if on: e["vel"] = Vector3.ZERO
+
 func _update_enemies(dt: float) -> void:
 	var ppos := player.global_position
 	if warp_state != "charging": _warp_spotted = false
@@ -10988,7 +11023,9 @@ func _update_enemies(dt: float) -> void:
 		pu["life"] -= dt
 		pu["pos"] += Vector3(0, 9.0 * dt, 0)
 	popups = popups.filter(func(pu): return pu["life"] > 0.0)
+	_guard_lod(dt)   # v13.295
 	for e in enemies:
+		if e.get("dormant", false): continue   # v13.295 (owner: "the alarm room was super laggy"): a guard far away (or on another deck) waits, frozen
 		var n: Node3D = e["node"]
 		var d: Dictionary = e["def"]
 		e["sh_cd"] = float(e["sh_cd"]) - dt
