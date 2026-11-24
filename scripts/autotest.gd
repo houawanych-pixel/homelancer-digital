@@ -8102,6 +8102,12 @@ func _run() -> void:
 				var want: int = Data.WEAPON_ORDER.size() + Data.MOUNT_PODS.size()
 				_check("v13.297: the weapon shop is one scrolling list, every weapon a row with its picture (%d rows, %d with pictures, %d weapons and pods, scroll height %d of %d)" % [rows.size(), with_pic, want, int(sc.size.y) if sc else 0, int(grid.size.y) if grid else 0], rows.size() >= want and with_pic == rows.size() and sc != null and sc.size.y >= 150.0, "")
 			await _shot("shop_" + vw, 0.5)
+			if vw == "mech":
+				hb.bay_yaw = 0.7
+				hb.bay_hold = 99.0
+				await _wait(1.0)
+				await _shot("shop_mech_turned", 0.3)
+				hb.bay_hold = 0.0
 		for r2 in results: print("[route] ", r2)
 		get_tree().quit()
 		return
@@ -8355,6 +8361,51 @@ func _run() -> void:
 			split_ok and phone_btn and k1 == "boost" and marked and boost_ok and courier_ok and hit_ok and hostile_ok, "")
 		GS.gang_rep.clear()
 		_finish_group()
+		return
+	if _flag("HL_DOORWALK"):   # v13.301 (owner: "I can't fit into the door of the building"): on foot you walk in through a street door
+		var pid := "new_terra"
+		var tile := 4
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main._load_surface(pid, tile)
+		await _until(func(): return is_instance_valid(main.space) and main.space.surface_mode and main.space.planet_id == pid, 40.0)
+		var s: Node = _sp()
+		var sh: Dictionary = CityPlan.safehouse(pid, tile)
+		var g: float = CityPlan.ground(pid, tile)
+		var door: Vector2 = sh["door"]
+		var out := Vector3((sh["out"] as Vector2).x, 0, (sh["out"] as Vector2).y)
+		var spot := Vector3(door.x, g + Data.PILOT_FEET_BELOW + 0.5, door.y) + out * 30.0
+		await _until(func(): s.player.global_position = spot; s.vel = Vector3.ZERO; return s._regions.size() >= 4 and s._building == null, 150.0)
+		GS.form = "mech"
+		s.set_player_model()
+		s.ground_mode = true
+		s.player.global_position = spot
+		await _wait(0.5)
+		s.eject()
+		await _wait(0.5)
+		s.player.global_position = Vector3(door.x, g + Data.PILOT_FEET_BELOW, door.y) + out * 12.0
+		var walked := 0.0
+		var d0: float = (s.player.global_position - Vector3(door.x, 0, door.y)).dot(out)
+		for k in 400:   # walk straight in
+			s.vel = Vector3(-out.x * Data.FOOT_SPEED, s.vel.y, -out.z * Data.FOOT_SPEED)
+			await get_tree().process_frame
+			if (s.player.global_position - Vector3(door.x, 0, door.y)).dot(out) < -6.0: break
+		var d1: float = (s.player.global_position - Vector3(door.x, 0, door.y)).dot(out)
+		await _shot("door_walk", 0.3)
+		_check("v13.301: on foot you walk in through a building's street door (from %.1f m out to %.1f m: inside is below 0)" % [d0, d1], s.on_foot and d1 < -2.0, "")
+		# and a plain wall still stops you: walk along the face, off the door, into the wall
+		var al := Vector3(-out.z, 0, out.x)
+		s.player.global_position = Vector3(door.x, g + Data.PILOT_FEET_BELOW, door.y) + out * 6.0 + al * 12.0
+		await _frames(2)
+		var w0: float = (s.player.global_position - Vector3(door.x, 0, door.y)).dot(out)
+		for k in 150:
+			s.vel = Vector3(-out.x * Data.FOOT_SPEED, s.vel.y, -out.z * Data.FOOT_SPEED)
+			await get_tree().process_frame
+		var w1: float = (s.player.global_position - Vector3(door.x, 0, door.y)).dot(out)
+		_check("v13.301: a wall still stops a person, and doesn't lift you onto the roof (from %.1f m out stopped at %.1f m, feet %.0f m over the street)" % [w0, w1, s.player.global_position.y - 6.0 - g], w1 > -9.0 and s.player.global_position.y - 6.0 - g < 3.0, "")
+		for r2 in results: print("[route] ", r2)
+		get_tree().quit()
 		return
 	if _flag("HL_SAFE"):   # v13.285 (owner: "safehouses, garages")
 		var pid := "new_terra"

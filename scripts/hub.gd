@@ -3239,9 +3239,15 @@ func _mech_slot_points(cam: Camera3D, m: Node3D, sz: Vector2) -> Dictionary:
 	if vs.x <= 0.0: return out
 	if cos(bay_yaw) < 0.15: return out   # (its back to you: the slots are on its front)
 	var uv: Dictionary = GS.level_def()["mech_uv"]
+	var sk2: Skeleton3D = Sections._find_skeleton(m)
 	for kk in uv:   # (the camera looks along +Z, so screen-left is +X)
 		var u: Vector2 = uv[kk]
 		var lp := Vector3(lerpf(bb.end.x, bb.position.x, u.x), lerpf(bb.end.y, bb.position.y, u.y), bb.get_center().z)
+		if int(kk) > -2 or int(kk) in [-5, -6] or int(kk) == -1:   # v13.301: a gun slot sits where its gun goes (shoulders, arms)
+			if mech_gun_pos.has(int(kk)): lp = mech_gun_pos[int(kk)]
+			elif int(kk) >= 0 or int(kk) in [-1, -5, -6]:
+				var at := _mech_mount_at(int(kk), m, sk2, bb)
+				if not at.is_empty(): lp = at["pos"]
 		out[kk] = cam.unproject_position(preview_pivot.global_transform * lp) * (sz / vs)
 	return _spread(out, 34.0) if _facing() else out
 
@@ -4579,8 +4585,10 @@ func _show_slots() -> Array:
 ## showroom mech, at its slot (the same spots as the slot squares), angled forward, down and out so you see it from
 ## the front. A weapon you're only trying on is the cyan hologram, as on the ship.
 var mech_gun_slots := {}   # (slots with a 3D gun on the showroom mech: their squares are just an outline)
+var mech_gun_pos := {}     # v13.301: where each slot's gun sits (turntable space): the slot squares go there
 func _dress_mech(m: Node3D) -> void:
 	mech_gun_slots = {}
+	mech_gun_pos = {}
 	var old := preview_pivot.get_node_or_null("MechGuns")
 	if old != null: old.free()
 	if not Packs.is_ready("wing_guns"):
@@ -4591,26 +4599,29 @@ func _dress_mech(m: Node3D) -> void:
 	preview_pivot.add_child(holder)
 	var bb: AABB = ShipFactory._aabb(m, Transform3D.IDENTITY)
 	var hgt: float = maxf(bb.size.y, 0.5)
-	var uv: Dictionary = GS.level_def()["mech_uv"]
+	var sk: Skeleton3D = Sections._find_skeleton(m)
 	var sl := _show_slots()
 	for pr in sl[0]:
 		var g: int = pr[0]
 		var it: String = pr[1]
-		if not uv.has(g): continue
 		var info: Dictionary = Data.WEAPONS.get(it, Data.MOUNT_PODS.get(it, {}))
 		var key: String = str(info.get("model", ""))
 		if key == "" or not ShipFactory.has_real_model(key): continue
+		var at := _mech_mount_at(g, m, sk, bb)
+		if at.is_empty(): continue
 		var gun := ShipFactory.build(key)
 		gun.name = "MechGun%d" % g
-		var u: Vector2 = uv[g]
-		var pos := Vector3(lerpf(bb.end.x, bb.position.x, u.x), lerpf(bb.end.y, bb.position.y, u.y), bb.position.z + bb.size.z * Data.MECH_GUN_FRONT)
 		var share: float = Data.MECH_POD_SHARE if Data.MOUNT_PODS.has(it) else Data.MECH_GUN_SHARE
-		var out: float = signf(pos.x - bb.get_center().x)
 		var gb: AABB = ShipFactory._aabb(gun, Transform3D.IDENTITY)   # (sized by its own length)
 		var glen: float = maxf(maxf(gb.size.x, gb.size.y), maxf(gb.size.z, 0.01))
-		gun.transform = Transform3D(Basis.from_euler(Vector3(deg_to_rad(Data.MECH_GUN_PITCH), deg_to_rad(-Data.MECH_GUN_YAW_OUT * out), 0.0)).scaled(Vector3.ONE * hgt * share / glen), pos)
-		mech_gun_slots[g] = true
+		var k: float = hgt * share / glen
+		var pos: Vector3 = at["pos"]
+		var out: Vector3 = at["out"]   # the way out from the body: the gun's side rests on the mech there
+		pos += out * (gb.size.y if out == Vector3.UP else gb.size.x) * k * 0.5   # (its own half width / height out, so it sits on the armour, not in it)
+		gun.transform = Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * k), pos - (Basis.IDENTITY.scaled(Vector3.ONE * k) * gb.get_center()))   # pointing forward like the mech
 		holder.add_child(gun)
+		mech_gun_slots[g] = true
+		mech_gun_pos[g] = pos
 		if g == int(sl[1]): _hologram(gun)
 		var gl := OmniLight3D.new()
 		gl.name = "PickGlow" if g == eq_sel else "GunGlow%d" % g
@@ -4619,6 +4630,46 @@ func _dress_mech(m: Node3D) -> void:
 		gl.omni_range = hgt * 0.25
 		gl.position = pos + Vector3(0, 0, -hgt * 0.1)
 		holder.add_child(gl)
+
+## v13.301 (owner: "the weapon should equip on his shoulders on the top, either on the side or the top of his shoulder,
+## or on his arms"): where each slot's weapon sits on the mech, from its own bones (turntable space):
+##   front guns (-1, -5, -6): on top of the shoulders (right, left) and the third on top between them, over the back;
+##   shoulder slots (0, 2): on the outer side of the shoulder; elbow slots (4, 5): the outer side of the upper arm;
+##   lower slots (1, 3): the outer side of the forearm.
+## Returns {pos, out} ({} when the mech has no such bone).
+func _mech_mount_at(g: int, m: Node3D, sk: Skeleton3D, bb: AABB) -> Dictionary:
+	var hgt: float = maxf(bb.size.y, 0.5)
+	var bone := func(nm: String) -> Vector3:
+		if sk == null: return Vector3.INF
+		var bi := sk.find_bone(nm)
+		if bi < 0: return Vector3.INF
+		return preview_pivot.global_transform.affine_inverse() * (sk.global_transform * sk.get_bone_global_pose(bi).origin)
+	var side: float = GS.mount_side(g) if g >= 0 else (1.0 if g == -1 else (-1.0 if g == -5 else 0.0))
+	var lr := "Left" if side < 0.0 else "Right"
+	var outv := Vector3(side, 0.0, 0.0)   # (the mech faces -Z: its right is +X)
+	var front := bb.position.z + bb.size.z * 0.35
+	if g < 0:   # on top of the shoulders
+		var a: Vector3 = bone.call("LeftShoulder")
+		var b: Vector3 = bone.call("RightShoulder")
+		if a == Vector3.INF or b == Vector3.INF: return {}
+		if side == 0.0:   # the third: on top, between the shoulders, over the back
+			return {"pos": Vector3(0.0, (a.y + b.y) * 0.5 + hgt * Data.MECH_TOP_LIFT * 1.6, maxf(a.z, b.z) + hgt * Data.MECH_BACK), "out": Vector3.UP}
+		var at: Vector3 = b if side > 0.0 else a
+		return {"pos": Vector3(at.x * Data.MECH_TOP_OUT, at.y + hgt * Data.MECH_TOP_LIFT, at.z - hgt * 0.03), "out": Vector3.UP}
+	var p: Vector3
+	match g:
+		0, 2: p = bone.call(lr + "UpperArm")
+		4, 5:
+			var u0: Vector3 = bone.call(lr + "UpperArm")
+			var u1: Vector3 = bone.call(lr + "LowerArm")
+			p = (u0 + u1) * 0.5 if u0 != Vector3.INF and u1 != Vector3.INF else Vector3.INF
+		_:
+			var l0: Vector3 = bone.call(lr + "LowerArm")
+			var l1: Vector3 = bone.call(lr + "Hand")
+			p = (l0 * 0.4 + l1 * 0.6) if l0 != Vector3.INF and l1 != Vector3.INF else Vector3.INF
+	if p == Vector3.INF: return {}
+	# out from the arm bone onto its outer armour
+	return {"pos": Vector3(p.x + side * hgt * (Data.MECH_ARM_OUT if g in [0, 2] else Data.MECH_ARM_OUT * 0.8), p.y, minf(p.z, front)), "out": outv}
 
 func _dress_mounts(model: Node3D) -> void:
 	var old := model.get_node_or_null("ShowMounts")

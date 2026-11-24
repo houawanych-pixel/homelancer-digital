@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.300"
+const VERSION := "v13.301"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -976,6 +976,8 @@ const HALL_LAVA := 0.04             # share of the floor that is a lava pool
 # bounces the mech off. Never any damage to the mech.
 const MECH_DIG_REACH := 4.5          # m ahead of the mech's middle where it meets a wall
 const MECH_DIG_STEP := 5.0           # a rise up to this is just a step it walks up, not a wall
+const FOOT_WALL_REACH := 1.0        # v13.301: m ahead of a person on foot where they meet a wall (a door is one 5 m cell)
+const FOOT_MID := 1.0               # m over a person's feet: a wall solid here (and over a step) stops them
 const MECH_DIG_SOFT_TICK := 0.12     # s between digs into sand / dirt (one 5 m dirt layer each)
 const MECH_DIG_STONE_TICK := 0.35    # s between pushes into stone (one hit each, then the bounce)
 const MECH_DIG_BOUNCE := 14.0        # m/s the stone / obsidian shoves the mech back
@@ -1884,9 +1886,10 @@ const WING_GUN_SHARE := 0.3      # ... then sized on the wing to this share of t
 const WING_POD_SHARE := 0.12     # ... and a missile pod to this
 const MECH_GUN_SHARE := 0.3      # v13.297: a gun on the showroom mech is this share of the mech's height ...
 const MECH_POD_SHARE := 0.14     # ... a missile pod this
-const MECH_GUN_FRONT := -0.15    # how far in front of the mech's front face (share of its depth; - = in front)
-const MECH_GUN_PITCH := -28.0    # degrees down, so its length shows from the front
-const MECH_GUN_YAW_OUT := 28.0   # degrees turned outward
+const MECH_TOP_LIFT := 0.06     # v13.301: a front gun sits this share of the mech's height over its shoulder joint ...
+const MECH_TOP_OUT := 1.7       # ... at this times the shoulder joint's distance out from the middle (over the shoulder armour)
+const MECH_BACK := 0.08         # the third front gun: this share of the height behind the shoulders
+const MECH_ARM_OUT := 0.02      # an arm gun: this share of the mech's height out from the arm bone (on its outer armour)
 # v1.9e (owner: "equip a weapon on the wing, like a blaster, as well as missiles"): each hardpoint carries a gun or a
 # missile pod. A pod on a mount carries more light missiles and adds locks (so a bigger volley). PROVISIONAL numbers.
 const MOUNT_SHOULDER_AT := 0.3   # v1.9e (owner): the shoulder mount sits this far out along the wing (share of half the span), on top ...

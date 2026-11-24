@@ -16184,6 +16184,7 @@ var corner_haze := 0.0   # 0..1 inside the wrap-corner cloud bank
 var _lava_t := 0.0
 var _dig_cd := 0.0
 var dig_log := {"soft": 0, "stone": 0, "bounce": 0, "blocked": 0}   # (tests)
+var _foot_free := Vector3.INF   # v13.301: the last spot a person on foot stood in the open
 func _mech_dig(dt: float) -> void:
 	_dig_cd = maxf(0.0, _dig_cd - dt)
 	if not is_instance_valid(player): return
@@ -16191,16 +16192,24 @@ func _mech_dig(dt: float) -> void:
 	if hv.length() < 2.0: return
 	var dir := hv.normalized()
 	var p := player.global_position
-	var q := p + dir * Data.MECH_DIG_REACH
+	var person := on_foot or escape_pilot   # v13.301 (owner: "I can't fit into the door of the building"): on foot you're people-sized, not mech-sized
+	var q := p + dir * (maxf(Data.FOOT_WALL_REACH, hv.length() * dt * 1.5 + 0.5) if person else Data.MECH_DIG_REACH)   # (a person: at least this frame's step ahead, so a quick step never jumps a wall)
 	var bf := _block_field_at(q.x, q.z)   # (v1.7a: the region ahead)
 	if bf == null: return
 	var feet := p.y - 6.0   # (the ground keeps the player 6 m up)
+	if person:
+		var here := _block_field_at(p.x, p.z)
+		if here != null and not (here.is_solid(p.x, feet + Data.FOOT_MID, p.z) and here.is_solid(p.x, feet + Data.MECH_DIG_STEP + 0.5, p.z)): _foot_free = p
 	var body := feet + Data.MECH_DIG_STEP + 0.5
-	if not (bf.is_solid(q.x, body, q.z) or bf.is_solid(q.x, p.y + 1.0, q.z)): return   # open ahead, or a step it walks up
+	if person:   # a wall stops you only where it's solid at your middle AND over a step's height: a door (open at your middle, the
+		# floor slab over it) lets you through; a block step (solid low, open above) you walk up as before
+		if not (bf.is_solid(q.x, feet + Data.FOOT_MID, q.z) and bf.is_solid(q.x, body, q.z)): return
+	elif not (bf.is_solid(q.x, body, q.z) or bf.is_solid(q.x, p.y + 1.0, q.z)): return   # open ahead, or a step it walks up
 	var into := hv.dot(dir)
 	vel -= dir * into   # it can't walk into the wall
-	if bf.is_solid(p.x, body, p.z):
-		player.global_position -= dir * (into * dt + 0.5)   # already in it this frame: step back out
+	if bf.is_solid(p.x, body, p.z) and (not person or bf.is_solid(p.x, feet + Data.FOOT_MID, p.z)):
+		if person and _foot_free != Vector3.INF and _foot_free.distance_to(p) < 30.0: player.global_position = Vector3(_foot_free.x, p.y, _foot_free.z)   # (a person: back to the last open spot)
+		else: player.global_position -= dir * (into * dt + 0.5)   # already in it this frame: step back out
 	# v1.9b (owner: "I'm just walking and breaking through the floor"): walking never breaks blocks any more. The wall
 	# just stops you; the only way to break blocks is shooting them.
 	if _dig_cd <= 0.0:
@@ -16883,6 +16892,11 @@ func _surface_update(_dt: float) -> void:
 		p = player.global_position
 		vel.y = 0.0
 	grounded = ground_mode and p.y <= floor_y + 0.6 and vel.y <= 0.5   # v1.8r
+	if p.y < floor_y - Data.MECH_DIG_STEP - 1.0 and on_foot and ground_mode and _foot_free != Vector3.INF and _foot_free.distance_to(p) < 30.0:   # v13.301: a person never pops up onto a roof: that's a wall
+		player.global_position = Vector3(_foot_free.x, p.y, _foot_free.z)
+		vel = Vector3(0.0, vel.y, 0.0)
+		p = player.global_position
+		floor_y = (bfp.ground_for(p.x, p.y - 6.0, p.z) if bfp != null else _ground(p.x, p.z)) + 6.0
 	if p.y < floor_y:
 		var impact := -vel.y
 		player.global_position.y = floor_y
