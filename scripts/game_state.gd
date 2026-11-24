@@ -719,7 +719,40 @@ func hold_used() -> int:
 	var n := 0
 	for c in cargo: n += hold_slots(c)
 	return n
-func hold_free() -> int: return hold_size() - hold_used()
+func hold_free() -> int: return Data.HOLD_ROOM_NO_LIMIT if hold_no_limit else hold_size() - hold_used()
+## v13.296 (owner: "no limit inventory"): the hold never fills (tests can switch the old ship-level limit back on).
+var hold_no_limit := Data.HOLD_NO_LIMIT
+## What the HUD and pages say about the hold: "12 things" with no limit, else "used / size".
+func hold_text() -> String:
+	if hold_no_limit: return "%d" % hold_used()
+	return "%d / %d" % [hold_used(), hold_size()]
+## v13.296 (owner: "at any station, a SELL ALL inventory option"): what this base pays for everything it will buy
+## (ore, goods, spare parts, salvaged weapons). Prisoners and job crates stay; contraband only sells at a smugglers' base.
+func sell_all_worth(base_name: String, kind: String, here: String) -> int:
+	var t := 0
+	for c in cargo: t += _sell_all_one(c, base_name, kind, here)
+	return t
+func _sell_all_one(c: Dictionary, base_name: String, kind: String, here: String) -> int:
+	match str(c.get("kind", "")):
+		"ore": return int(c.get("n", 0)) * ore_price(str(c.get("id", "")), base_name)
+		"goods": return goods_sell_price(str(c["id"]), str(c.get("from", here)), kind, here) * int(c.get("n", 0))
+		"part", "weapon": return cargo_sell_price(c)
+	return 0
+func sell_all(base_name: String, kind: String, here: String) -> String:
+	var t := 0
+	var n := 0
+	var keep: Array = []
+	for c in cargo:
+		var p := _sell_all_one(c, base_name, kind, here)
+		if p > 0:
+			t += p
+			n += 1
+		else: keep.append(c)
+	if n == 0: return "Nothing here this base will buy."
+	cargo = keep
+	add_credits(t)
+	save_game()
+	return "Sold %d thing%s from your hold for %d cr.%s" % [n, "" if n == 1 else "s", t, ("  Kept: %d (prisoners, job crates or goods nobody here buys)." % keep.size()) if not keep.is_empty() else ""]
 func hold_has(key: String) -> bool:
 	for c in cargo:
 		if c.get("kind", "") == "part" and str(c.get("key", "")) == key: return true
@@ -826,7 +859,7 @@ func buy_goods(id: String, kind: String, here: String, n := Data.TRADE_BUY_LOT) 
 	if is_contraband(id) and not shady(here): return "Nobody here sells that."
 	var cost := goods_buy_price(id, kind) * n
 	if credits < cost: return "Not enough credits (%d cr)." % cost
-	if not add_goods(id, here, n): return "Hold full (%d / %d)." % [hold_used(), hold_size()]
+	if not add_goods(id, here, n): return "Hold full (%s)." % hold_text()
 	credits -= cost
 	changed.emit()
 	return "Bought %d %s for %d cr. Stations farther away pay more." % [n, str(goods_def(id)["name"]), cost]

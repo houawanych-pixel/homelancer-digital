@@ -520,7 +520,7 @@ func _fl_panels() -> void:
 		if side == "r":   # v7.3: WEAPONS · COMMS · VIEW
 			var hold_full: bool = GS.hold_free() <= 0
 			var lit := [weapons_shown(), hold_full, console_open or comms_open, space.autopilot != null]
-			var names := ["WEAPONS", "HOLD %d/%d" % [GS.hold_used(), GS.hold_size()], "COMMS", "AUTO ON" if space.autopilot != null else "GO TO"]
+			var names := ["WEAPONS", "HOLD %s" % GS.hold_text().replace(" ", ""), "COMMS", "AUTO ON" if space.autopilot != null else "GO TO"]
 			var cols := [Color(0.25, 0.6, 1.0), RED if hold_full else GOLD, Color(0.7, 0.45, 1.0), GREEN]   # v7.7 (owner): WEAPONS blue, COMMS purple; GO TO green; v13.295: HOLD gold (red when full)
 			for i in names.size():
 				var tr: Rect2 = fl_tab_rect(i)

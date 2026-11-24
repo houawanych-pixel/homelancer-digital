@@ -13618,14 +13618,14 @@ func _update_loot(dt: float) -> void:
 		elif d < 14.0:
 			if l.has("goods"):   # v13.268: a contraband crate into the hold
 				if not GS.add_goods(str(l["goods"]), sys_id, 1):
-					if l.get("full_said", false) == false: message.emit("Cargo hold full (%d / %d). Tap HOLD to drop something, or sell at a base." % [GS.hold_used(), GS.hold_size()])
+					if l.get("full_said", false) == false: message.emit("Cargo hold full (%s). Tap HOLD to drop something, or sell at a base." % GS.hold_text())
 					l["full_said"] = true
 					continue
 				_popup(n.global_position, "%s IN HOLD" % str(GS.goods_def(str(l["goods"]))["name"]).to_upper(), Color(1.0, 0.4, 0.35))
 				message.emit("CONTRABAND: %s is in your hold. Only a smugglers' base (Shroud) buys it, and patrols scan you as you dock elsewhere." % GS.goods_def(str(l["goods"]))["name"])
 			elif l.has("weapon"):   # v13.267: a dropped weapon goes into the hold
 				if GS.hold_free() < 1:
-					if l.get("full_said", false) == false: message.emit("Cargo hold full (%d / %d). Tap HOLD to drop something, or sell at a base." % [GS.hold_used(), GS.hold_size()])
+					if l.get("full_said", false) == false: message.emit("Cargo hold full (%s). Tap HOLD to drop something, or sell at a base." % GS.hold_text())
 					l["full_said"] = true
 					continue
 				var wd: Dictionary = Data.WEAPONS[str(l["weapon"])]
@@ -13636,7 +13636,7 @@ func _update_loot(dt: float) -> void:
 			elif l.has("gem"):   # v1.8l: ore goes into the hold; a base buys it
 				var have := GS.add_ore(str(l["gem"]))
 				if have == 0:   # v13.266: the hold is full: it stays out there
-					if l.get("full_said", false) == false: message.emit("Cargo hold full (%d / %d). Tap HOLD to drop something, or sell at a base." % [GS.hold_used(), GS.hold_size()])
+					if l.get("full_said", false) == false: message.emit("Cargo hold full (%s). Tap HOLD to drop something, or sell at a base." % GS.hold_text())
 					l["full_said"] = true
 					continue
 				_popup(n.global_position, "%s x%d IN HOLD" % [str(l["gem"]).to_upper(), have], Color(1.0, 0.85, 0.35))

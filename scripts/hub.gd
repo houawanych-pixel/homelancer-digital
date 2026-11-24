@@ -45,6 +45,7 @@ var t := 0.0
 var asst_hit: Control
 var crew: StationCrew   # v11.14
 var alarm_btn: Button   # v11.18
+var sell_all_btn: Button   # v13.296 (owner: "at any station, a SELL ALL inventory option")
 var walk_btn: Button    # v13.02
 var supplies_btn: Button   # v13.187: SUPPLIES in the docking bay
 var dock_bay: bool = Data.DOCK_TO_BAY   # v13.187 (the older route tests dock onto the station page: HL_DOCKBAY tests the bay)
@@ -407,6 +408,31 @@ func _ready() -> void:
 		alarm_btn.add_theme_stylebox_override(st, rb)
 	alarm_btn.pressed.connect(test_alarm)
 	add_child(alarm_btn)
+	sell_all_btn = Button.new()   # v13.296: a gold SELL ALL CARGO button over the station while you carry something it buys
+	sell_all_btn.name = "SellAllCargo"
+	sell_all_btn.anchor_left = 0.5
+	sell_all_btn.anchor_right = 0.5
+	sell_all_btn.anchor_top = 1.0
+	sell_all_btn.anchor_bottom = 1.0
+	sell_all_btn.offset_left = -180
+	sell_all_btn.offset_right = 180
+	sell_all_btn.offset_top = -176
+	sell_all_btn.offset_bottom = -118
+	sell_all_btn.add_theme_font_size_override("font_size", Data.ts(20))
+	sell_all_btn.add_theme_color_override("font_color", Color(0.1, 0.07, 0.0))
+	for st in ["normal", "hover", "pressed", "focus"]:
+		var gb := StyleBoxFlat.new()
+		gb.bg_color = Color(1.0, 0.8, 0.25, 0.95) if st != "pressed" else Color(1.0, 0.92, 0.5)
+		gb.border_color = Color(1, 0.95, 0.7)
+		gb.set_border_width_all(2)
+		gb.set_corner_radius_all(8)
+		sell_all_btn.add_theme_stylebox_override(st, gb)
+	sell_all_btn.visible = false
+	sell_all_btn.pressed.connect(func():
+		status.text = GS.sell_all(str(base["name"]), str(base.get("kind", "station")), GS.system_id)
+		Sfx.play("pickup", -6.0)
+		show_screen(screen))
+	add_child(sell_all_btn)
 	show_btn = Button.new()
 	show_btn.name = "ShowPanels"
 	show_btn.text = "HIDE PANELS"
@@ -602,7 +628,8 @@ func open(station_or_planet: Dictionary) -> void:
 			("%s. Welcome to %s." % [str(p["name"]), base["name"]]) if folk[0]["role"] == "leader" else ("%s here. Welcome to %s. I have work for you on the Mission Board." % [p["name"], base["name"]]), str(p["portrait_clean"]), Data.CALL_FOLD_AFTER,
 			{"id": str(p["id"]), "voice_id": str(p.get("voice_id", p["id"])), "voice": float(p.get("voice", 1.0)), "female": str(p.get("sex", "")) == "female"})
 	status.text = "Docked at %s. Shields and energy restored. REPAIR and RESTOCK are in SUPPLIES." % base["name"]   # v13.98 (owner: "we will need repairs and ammo restock"): in the supplies room
-	if GS.ore_worth(str(base["name"])) > 0: status.text = "Docked at %s. You carry gold / diamond worth %d cr here: sell it under YOUR SHIP." % [base["name"], GS.ore_worth(str(base["name"]))]
+	var sa_worth: int = GS.sell_all_worth(str(base["name"]), str(base.get("kind", "station")), GS.system_id)
+	if sa_worth > 0: status.text = "Docked at %s. Your cargo is worth %d cr here: tap SELL ALL CARGO." % [base["name"], sa_worth]   # v13.296
 
 ## v9.2 (owner): the lockdown. A station whose people are HOSTILE to you (or worse) sounds the alarm when you dock:
 ## security comes for you, you can't launch, and you have to fight through the hub to the hangar (Breakout).
@@ -732,6 +759,14 @@ func _end_lockdown() -> void:
 	show_screen("equipment")
 	status.text = "You fought your way to the hangar. Get in and LAUNCH before more of them come."
 
+## v13.296: the SELL ALL CARGO button shows on the station and hangar screens while the hold has something this base buys.
+func _refresh_sell_all(s: String) -> void:
+	if sell_all_btn == null: return
+	var w: int = GS.sell_all_worth(str(base.get("name", "")), str(base.get("kind", "station")), GS.system_id) if not base.is_empty() else 0
+	sell_all_btn.visible = w > 0 and s in ["hub", "equipment"] and not lockdown
+	sell_all_btn.text = "SELL ALL CARGO  +%s cr" % _thousands(w)
+	move_child(sell_all_btn, get_child_count() - 1)
+
 func _refresh_credits() -> void:
 	credits_label.text = "CREDITS  %d cr" % GS.credits
 
@@ -743,6 +778,7 @@ func show_screen(s: String) -> void:
 	if s == "equipment" and screen != "equipment": holo_on = false   # v4.7: fresh into the hangar, no box until you tap
 	screen = s
 	_refresh_credits()
+	_refresh_sell_all(s)
 	var sysname: String = Data.SYSTEMS[GS.system_id]["name"]
 	header.text = base["name"].to_upper() if s == "hub" else {"equipment": "WEAPONS & EQUIPMENT DEALER", "ships": "SHIP DEALER", "mechs": "MECH DEALER", "repair": "MEDICAL BAY", "supplies": "SUPPLIES", "command": "COMMAND", "bounty": "MISSION BOARD", "missions": "MISSION BOARD", "boarding": "MISSION BOARD", "board": "MISSION BOARD", "ship": "YOUR SHIP", "faction": "FACTION", "surface": "PLANET DESTINATIONS", "lounge": "PILOTS' LOUNGE", "loadout": "LOADOUT", "market": "MARKET"}[s]
 	subheader.text = "%s  ·  %s  ·  %s SYSTEM" % [str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id])).to_upper(), "ORBITAL STATION" if kind == "station" else "PLANET SURFACE", sysname.to_upper()]   # v8.2 (owner): faction and station
@@ -2277,6 +2313,22 @@ func _part_card(kind: String, id: String, part: String, back: String) -> Control
 
 ## v13.268 (owner: "light trade: planets sell cheap, stations pay more the farther away; contraband only at shady
 ## places; keep it simple"): BUY goods here (a lot at a time), SELL what's in your hold at this base's price.
+## v13.296 (owner: "when I get to any station, a SELL ALL inventory option"): one big button that sells everything
+## in the hold this base buys (on HOME, MY SHIP and the market).
+func _sell_all_button(v: Control, back: String) -> void:
+	var here := GS.system_id
+	var bk := str(base.get("kind", "station"))
+	var worth: int = GS.sell_all_worth(str(base["name"]), bk, here)
+	if worth <= 0: return
+	var b := Button.new()
+	b.name = "SellAll"
+	b.text = "SELL ALL CARGO  +%s cr" % _thousands(worth)
+	b.custom_minimum_size = Vector2(0, 58)
+	b.add_theme_font_size_override("font_size", 20)
+	b.add_theme_color_override("font_color", GOLD)
+	b.pressed.connect(func(): status.text = GS.sell_all(str(base["name"]), bk, here); Sfx.play("pickup", -6.0); show_screen(back))
+	v.add_child(b)
+
 func _market_page() -> void:
 	var v := _page_box()
 	var here := GS.system_id
@@ -2285,9 +2337,10 @@ func _market_page() -> void:
 	var head := _label(16, CYAN)
 	head.name = "MarketHead"
 	head.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	head.text = "%s  ·  hold %d / %d\n%s" % ["SMUGGLERS' MARKET" if sh else ("PLANET MARKET: goods are cheap here" if bk == "planet" else "STATION MARKET"), GS.hold_used(), GS.hold_size(),
+	head.text = "%s  ·  hold %s\n%s" % ["SMUGGLERS' MARKET" if sh else ("PLANET MARKET: goods are cheap here" if bk == "planet" else "STATION MARKET"), GS.hold_text(),
 		"Buy low at planets, sell at stations: the farther (more jumps) from where you bought, the more they pay." + (" Contraband changes hands here, no questions." if sh else "")]
 	v.add_child(head)
+	_sell_all_button(v, "market")   # v13.296
 	var bl := _label(17, GOLD)
 	bl.text = "BUY (%d at a time)" % Data.TRADE_BUY_LOT
 	v.add_child(bl)
@@ -2516,6 +2569,7 @@ func _hub_panel() -> void:
 	v.add_theme_constant_override("separation", 6)
 	sc.add_child(v)
 	_fix_button(v)   # v11.25 (owner): repair and restock right from the station page
+	_sell_all_button(v, "hub")   # v13.296
 	if str(base.get("role", "")) == "ally": _rep_buttons(v)   # v11.55 (owner): an ally station mends your standing, for credits
 	v.add_child(_caption(str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id])).to_upper() + "  ·  " + str(base["name"]).to_upper()))
 	var l := _label(15, Color(1, 1, 1))
@@ -6734,8 +6788,9 @@ func _ship_page() -> void:
 			lines.append("%s x%d (%d cr each here = %d cr)" % [Data.ORE_NAME.get(item["id"], "Ore"), int(item["n"]), op, op * int(item["n"])])
 		elif item.get("kind", "") == "goods": lines.append("%s x%d (%s, from %s)" % [item.get("name", "?"), int(item["n"]), item.get("note", ""), Data.SYSTEMS.get(str(item.get("from", "")), {}).get("name", "?")])
 		else: lines.append("%s (%s)" % [item.get("name", item.get("kind", "?")), item.get("note", item.get("kind", ""))])
-	c.text = "CARGO HOLD  %d / %d\n%s" % [GS.hold_used(), GS.hold_size(), "\n".join(lines) if not lines.is_empty() else "Empty."]
+	c.text = "CARGO HOLD  %s\n%s" % [GS.hold_text(), "\n".join(lines) if not lines.is_empty() else "Empty."]
 	v.add_child(c)
+	_sell_all_button(v, "ship")   # v13.296
 	for ci in GS.cargo.size():   # v13.266 (owner: "keep it or sell it"): a SELL button for each spare part in the hold
 		var it: Dictionary = GS.cargo[ci]
 		if not (it.get("kind", "") in ["part", "weapon"]): continue

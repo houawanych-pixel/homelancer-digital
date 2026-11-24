@@ -8696,6 +8696,7 @@ func _run() -> void:
 		get_tree().quit()
 		return
 	if _flag("HL_TRADE"):   # v13.268 (owner: "light trade: goods, valuables, contraband, delivery; keep it simple")
+		GS.hold_no_limit = false   # (v13.296: these check the old ship-level hold)
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
 		await _wait(1.0)
@@ -8769,7 +8770,43 @@ func _run() -> void:
 		for r2 in results: print("[route] ", r2)
 		get_tree().quit()
 		return
+	if _flag("HL_SELLALL"):   # v13.296 (owner: "no limit inventory; at any station a SELL ALL option")
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var s: Node = main.space
+		GS.cargo = [{"kind": "pilot", "id": "x", "name": "Vex Morrow", "note": "bounty prisoner"}, {"kind": "weapon", "id": "ion", "name": "Ion Repeater", "note": "salvaged weapon"}]
+		var got := 0
+		for k in 300: got += 1 if GS.add_ore("gold") > 0 else 0
+		var goods_ok: bool = GS.add_goods("rations", "shroud", 200)
+		var hud_txt: String = GS.hold_text()
+		_check("v13.296: the hold has no limit (300 gold and 200 rations in, hold %s, free %d)" % [hud_txt, GS.hold_free()], got == 300 and goods_ok and GS.hold_free() > 1000, "")
+		main._on_hud("hold")
+		await _wait(0.6)
+		var titled: String = main.hold_window._title.text if main.hold_window != null else ""
+		main.hold_window.close()
+		await _wait(0.3)
+		GS.credits = 1000
+		main.dock(s.station)
+		await _until(func(): return main.state == "hub", 15.0)
+		main.hub.show_screen("hub")
+		await _wait(0.6)
+		var sb: Button = main.hub.sell_all_btn if main.hub.sell_all_btn.visible else null
+		var label: String = sb.text if sb != null else "none"
+		var had_sb := sb != null
+		await _shot("sell_all", 0.3)
+		if sb != null: sb.pressed.emit()
+		await _wait(0.5)
+		var left: Array = GS.cargo.map(func(c): return str(c.get("kind", "")))
+		_check("v13.296: docked, HOME has SELL ALL CARGO (%s; window said '%s'): it sells the gold, goods and the spare gun and keeps the prisoner (credits %d, left %s)" % [label, titled, GS.credits, str(left)], had_sb and GS.credits > 1000 and left.size() == 1 and str(left[0]) == "pilot" and titled.find("FULL") < 0, "")
+		main.hub.show_screen("ship")
+		await _wait(0.4)
+		_check("v13.296: nothing left to sell: the SELL ALL buttons are gone", main.hub.content.find_child("SellAll", true, false) == null and not main.hub.sell_all_btn.visible, "")
+		for r2 in results: print("[route] ", r2)
+		get_tree().quit()
+		return
 	if _flag("HL_INVENTORY"):   # v13.295 (owner: "a window to check my inventory, discard what I don't want (the tractor mustn't pull it back), equip what I just got")
+		GS.hold_no_limit = false   # (v13.296: these check the old ship-level hold)
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
 		await _wait(1.0)
@@ -8824,6 +8861,7 @@ func _run() -> void:
 		get_tree().quit()
 		return
 	if _flag("HL_WDROP"):   # v13.267 (owner: "enemies drop weapons you tractor in; better enemies drop more")
+		GS.hold_no_limit = false   # (v13.296: these check the old ship-level hold)
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
 		await _wait(1.0)
@@ -8868,6 +8906,7 @@ func _run() -> void:
 		get_tree().quit()
 		return
 	if _flag("HL_HOLD"):   # v13.266 (owner: "old parts go to the cargo hold, keep or sell; hold by ship level; lost if destroyed")
+		GS.hold_no_limit = false   # (v13.296: these check the old ship-level hold)
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
 		await _wait(1.0)

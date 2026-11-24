@@ -95,8 +95,9 @@ func _unhandled_input(e: InputEvent) -> void:
 
 func refresh() -> void:
 	var full := GS.hold_free() <= 0
-	_title.text = "CARGO HOLD   %d / %d%s" % [GS.hold_used(), GS.hold_size(), "   FULL" if full else ""]
+	_title.text = "CARGO HOLD   %s%s" % [GS.hold_text(), "   FULL" if full else ""]
 	_title.add_theme_color_override("font_color", RED if full else CYAN)
+	_bar.visible = not GS.hold_no_limit
 	_bar.max_value = maxi(1, GS.hold_size())
 	_bar.value = GS.hold_used()
 	for c in _list.get_children():
