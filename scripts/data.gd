@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.298"
+const VERSION := "v13.299"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -3064,6 +3064,14 @@ const EJECT_MAX_SPEED := 6.0   # slow enough to get out
 const EJECT_MAX_ALT := 14.0    # m over the ground at most
 const EJECT_STEP := 9.0        # m to the side you step out
 const ENTER_REACH := 16.0      # m from your mech / ship to ENTER      # s to reach the launch bay
+const RECALL_ALT := 60.0        # v13.299 (owner: "call your ship and it flies to you"): m over the ground it flies at
+const RECALL_SPEED := 140.0     # m/s across
+const RECALL_CLIMB := 30.0      # m/s up and down
+const PARK_LAND_SIDE := 12.0    # m beside you it lands (inside ENTER_REACH)
+const PARK_BEAM_H := 400.0      # m: the beam over your parked ship / mech while you're on foot
+const PARK_BEAM_COLOR := Color(0.35, 0.85, 1.0)
+const PARK_TELL_AT := [150.0, 400.0, 1000.0, 2500.0]   # m: Evee says how far your ship is as you pass each
+const PARK_TELL_RESET := 60.0   # m: back by it, she starts over
 const ESCAPE_CAM := [0.5, 0.84, 0.5, 6.0]   # v13.69 (owner): the breakout camera, in pilot heights: right of him, eye height, behind; it looks at the point this many heights ahead (the guns' aim)
 const ESCAPE_PILOT_H := PILOT_H # m: the breakout pilot (was 13, drawn at the mech's size; v13.279 owner: people-sized, a little smaller in the stations too)
 const ESCAPE_CHASERS := 20

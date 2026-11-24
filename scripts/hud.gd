@@ -775,6 +775,7 @@ func _layout() -> void:
 				db.position.x = S.x * 0.5 + 6.0
 		if pr != "": buttons[pr] = Rect2(S.x * 0.5 - 80.0, TOP_BAR_Y + TOP_BAR_H * 2.0 + 12.0, 160.0, 46.0)
 		if space.driving: buttons["radio"] = Rect2(S.x * 0.5 - 330.0, TOP_BAR_Y + TOP_BAR_H * 2.0 + 12.0, 230.0, 46.0)   # v13.286: the car radio
+		if space.call_ok(): buttons["call_ship"] = Rect2(S.x * 0.5 + 100.0, TOP_BAR_Y + TOP_BAR_H * 2.0 + 12.0, 230.0, 46.0)   # v13.299: CALL SHIP / CALL MECH
 		if space.phone_ok(): buttons["phone"] = Rect2(S.x * 0.5 - 330.0, TOP_BAR_Y + TOP_BAR_H * 2.0 + (64.0 if space.driving else 12.0), 230.0, 46.0)   # v13.287: the phone   # v11.58 (owner): DOCK is the top-centre box (v11.60: under the second row)
 		if pr == "lift_up" and not (space.lift_choice().get("down", []) as Array).is_empty():   # v13.175: a station lift: UP and DOWN side by side
 			buttons["lift_up"] = Rect2(S.x * 0.5 - 166.0, TOP_BAR_Y + TOP_BAR_H * 2.0 + 12.0, 160.0, 46.0)
@@ -2225,6 +2226,16 @@ func _draw() -> void:
 			_text(msp + Vector2(18, -8), "MISSION  " + _dist(space.distance_to(mnode)), 14, GOLD)
 		else:
 			_edge_arrow(mnode.global_position, GOLD, view, true)
+	if space.on_foot and is_instance_valid(space.parked) and not dock_down:   # v13.299 (owner: "a marker to show where my ship is"): YOUR SHIP / MECH, and how far
+		var pview := Rect2(Vector2(col_w + 30, 40), Vector2(S.x - col_w * 2 - 60, S.y - 80))
+		var ptxt := "YOUR %s  %s" % [space.parked_name().to_upper(), _dist(space.parked_distance())]
+		var psp = _screen(space.parked.global_position)
+		if psp != null and pview.has_point(psp):
+			draw_colored_polygon(PackedVector2Array([psp + Vector2(0, -14), psp + Vector2(12, 0), psp + Vector2(0, 14), psp + Vector2(-12, 0)]), Color(CYAN, 0.25))
+			draw_polyline(PackedVector2Array([psp + Vector2(0, -14), psp + Vector2(12, 0), psp + Vector2(0, 14), psp + Vector2(-12, 0), psp + Vector2(0, -14)]), CYAN, 2.5)
+			_text(psp + Vector2(18, -8), ptxt, 14, CYAN)
+		else:
+			_edge_arrow(space.parked.global_position, CYAN, pview, true)
 	if not dock_down and is_instance_valid(space.waypoint):
 		var wsp = _screen(space.waypoint.global_position)
 		if wsp != null:
@@ -2419,6 +2430,18 @@ func _draw() -> void:
 	if buttons.has("guard_talk"): _prompt_btn(buttons["guard_talk"], "TALK", GREEN, held.has("guard_talk"))   # v13.144
 	if buttons.has("enter"): _prompt_btn(buttons["enter"], "ENTER", GREEN, held.has("enter"))
 	if buttons.has("steal"): _prompt_btn(buttons["steal"], "STEAL", Color(1.0, 0.35, 0.3), held.has("steal"))   # v13.283
+	if buttons.has("call_ship"): _prompt_btn(buttons["call_ship"], ("%s COMING  %s" % [space.parked_name().to_upper(), _dist(space.parked_distance())]) if space.recall != "" else "CALL %s  %s" % [space.parked_name().to_upper(), _dist(space.parked_distance())], CYAN, held.has("call_ship") or space.recall != "")   # v13.299
+	if space.on_foot and is_instance_valid(space.parked) and is_instance_valid(space.cam) and buttons.has("call_ship"):   # v13.299: a compass arrow: which way your ship is
+		var cb: Rect2 = buttons["call_ship"]
+		var cc := Vector2(cb.end.x + 30.0, cb.get_center().y)
+		var to3: Vector3 = space.parked.global_position - space.cam.global_position
+		var fw: Vector3 = -space.cam.global_basis.z
+		var rt: Vector3 = space.cam.global_basis.x
+		var a2 := Vector2(to3.dot(rt), -(to3.x * fw.x + to3.z * fw.z)).normalized()
+		draw_circle(cc, 22.0, Color(0.02, 0.07, 0.13, 0.85))
+		draw_arc(cc, 22.0, 0.0, TAU, 32, CYAN, 2.0)
+		var pr2 := Vector2(-a2.y, a2.x)
+		draw_colored_polygon(PackedVector2Array([cc + a2 * 16.0, cc - a2 * 9.0 + pr2 * 9.0, cc - a2 * 4.0, cc - a2 * 9.0 - pr2 * 9.0]), CYAN)
 	if buttons.has("radio"): _radio_btn(buttons["radio"])   # v13.286
 	if buttons.has("phone"): _phone_btn(buttons["phone"])   # v13.287
 	if buttons.has("rest"): _prompt_btn(buttons["rest"], "REST", GREEN, held.has("rest"))   # v13.285: the safehouse

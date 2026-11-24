@@ -7139,6 +7139,110 @@ func _update_ghosts(dt: float) -> void:
 
 var parked: Node3D
 var parked_form := ""
+# ---------------------------------------------------------------- v13.299 (owner: "on foot outside, a marker to show
+# where my ship is so I can find it, and a way to call your ship so it flies to you, like an autopilot; same with the
+# mech. And Evee tells me how far I've left it"): CALL SHIP / CALL MECH flies the parked ship or mech to you (up to a
+# safe height, across, then down beside you), a beam stands over it while you're on foot (the HUD marks it too), and
+# Evee says how far away it is as you walk off.
+var recall := ""          # "" | "up" | "fly" | "down"
+var parked_dy := 0.0      # its origin over the ground origin, as it was parked
+var recalls_done := 0     # (tests)
+var _park_beam: Node3D = null
+var _park_told := 0       # how many of Data.PARK_TELL_AT Evee has said
+var evee_park_lines: Array = []   # (tests)
+func call_ok() -> bool:
+	return on_foot and not driving and is_instance_valid(parked) and not fleet_mech() and not near_parked()
+func parked_name() -> String: return "mech" if parked_form == "mech" else "ship"
+func parked_distance() -> float:
+	if not is_instance_valid(parked) or not is_instance_valid(player): return INF
+	return player.global_position.distance_to(parked.global_position)
+func call_vehicle() -> String:
+	if not is_instance_valid(parked) or not on_foot: return ""
+	if near_parked(): return "Your %s is right here. ENTER." % parked_name()
+	if recall != "": return "Your %s is on its way (%s)." % [parked_name(), _dist_words(parked_distance())]
+	recall = "up"
+	Sfx.play("warp_spool", -10.0, 1.6)
+	return "Calling your %s: it's flying to you on autopilot (%s away)." % [parked_name(), _dist_words(parked_distance())]
+static func _dist_words(d: float) -> String:
+	return ("%.1f km" % (d / 1000.0)) if d >= 1000.0 else ("%d m" % int(d))
+func _ground_origin(x: float, z: float, y_hint: float) -> float:
+	var bf := _block_field_at(x, z)
+	return (bf.ground_for(x, y_hint, z) if bf != null else _ground(x, z)) + 6.0
+## Each frame on foot: the beam over the parked ship / mech, Evee's distance calls, and the recall flight.
+func _update_parked(dt: float) -> void:
+	var show := on_foot and is_instance_valid(parked) and not fleet_mech()
+	if not show:
+		if is_instance_valid(_park_beam): _park_beam.queue_free()
+		_park_beam = null
+		recall = ""
+		_park_told = 0
+		return
+	if not is_instance_valid(_park_beam):
+		_park_beam = Node3D.new()
+		_park_beam.name = "ParkedBeam"
+		var bm := MeshInstance3D.new()
+		var cm := CylinderMesh.new()
+		cm.top_radius = 0.6
+		cm.bottom_radius = 1.6
+		cm.height = Data.PARK_BEAM_H
+		bm.mesh = cm
+		var bmat := StandardMaterial3D.new()
+		bmat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		bmat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		bmat.albedo_color = Color(Data.PARK_BEAM_COLOR, 0.35)
+		bmat.cull_mode = BaseMaterial3D.CULL_DISABLED
+		bm.material_override = bmat
+		bm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		bm.position.y = Data.PARK_BEAM_H * 0.5
+		_park_beam.add_child(bm)
+		_park_beam.top_level = true   # (its own size, whatever the tile is scaled by)
+		parked.get_parent().add_child(_park_beam)
+	_park_beam.global_position = parked.global_position
+	_park_beam.visible = recall == "" and parked_distance() > Data.ENTER_REACH * 2.0
+	# Evee: how far you've left it (each step further once; back by it and she starts over)
+	var d := parked_distance()
+	if d < Data.PARK_TELL_RESET: _park_told = 0
+	elif _park_told < Data.PARK_TELL_AT.size() and d > float(Data.PARK_TELL_AT[_park_told]) and recall == "":
+		var line := "Your %s is %s away now. Tap CALL %s and I'll fly it to you." % [parked_name(), _dist_words(float(Data.PARK_TELL_AT[_park_told])), parked_name().to_upper()]
+		_park_told += 1
+		evee_park_lines.append(line)
+		hail.emit("Evee", line, false)
+	if recall == "": return
+	var pp := parked.global_position
+	var me := player.global_position
+	var side := player.global_basis.x
+	side.y = 0.0
+	side = side.normalized() if side.length() > 0.01 else Vector3.RIGHT
+	var goal := me + side * Data.PARK_LAND_SIDE
+	var to := Vector3(goal.x - pp.x, 0.0, goal.z - pp.z)
+	var ground := _ground_origin(pp.x, pp.z, pp.y)
+	var cruise := maxf(ground, _ground_origin(goal.x, goal.z, me.y)) + Data.RECALL_ALT
+	if to.length() > 1.0:   # it turns to face the way it flies (models face -Z)
+		var want := atan2(-to.x, -to.z)
+		var r := parked.global_rotation
+		parked.global_rotation = Vector3(r.x, lerp_angle(r.y, want, minf(1.0, dt * 3.0)), r.z)
+	match recall:
+		"up":
+			pp.y = move_toward(pp.y, cruise, Data.RECALL_CLIMB * dt)
+			if absf(pp.y - cruise) < 1.0 or to.length() < Data.PARK_LAND_SIDE: recall = "fly"
+		"fly":
+			var step := minf(to.length(), Data.RECALL_SPEED * dt)
+			pp += to.normalized() * step
+			pp.y = move_toward(pp.y, maxf(cruise, _ground_origin(pp.x, pp.z, pp.y) + Data.RECALL_ALT), Data.RECALL_CLIMB * dt)
+			if to.length() < 3.0: recall = "down"
+		"down":
+			pp += to.limit_length(Data.RECALL_SPEED * dt)
+			var land := _ground_origin(pp.x, pp.z, pp.y) + parked_dy
+			pp.y = move_toward(pp.y, land, Data.RECALL_CLIMB * dt)
+			if absf(pp.y - land) < 0.5:
+				recall = ""
+				recalls_done += 1
+				_park_told = 0
+				Sfx.play("pickup", -6.0, 0.7)
+				hail.emit("Evee", "Your %s is here, pilot. Hop in: ENTER." % parked_name(), false)
+	parked.global_position = pp
+	if int(time * 20.0) % 3 == 0: _spark_v(pp - Vector3(0, 2.0, 0), Vector3(0, -12.0, 0), Color(0.5, 0.85, 1.0), 2.5, 0.3)   # (thrusters)
+
 func can_eject() -> bool:
 	if fleet_mech():
 		return controls and not escape_pilot and GS.form == "mech" and transform_t <= 0.0 and is_instance_valid(model) and not is_instance_valid(parked)
@@ -7169,6 +7273,7 @@ func eject() -> String:
 	model.global_transform = keep_at
 	model.visible = true
 	parked = model
+	parked_dy = keep_at.origin.y - _ground_origin(keep_at.origin.x, keep_at.origin.z, keep_at.origin.y)   # v13.299: how it stood on the ground
 	model = null
 	on_foot = true
 	GS.form = "mech"   # (walks the ground like the mech does)
@@ -16761,6 +16866,7 @@ func _surface_update(_dt: float) -> void:
 	_update_regions()
 	_update_wildlife(_dt)
 	_update_city_life(_dt)   # v13.276
+	_update_parked(_dt)   # v13.299: the parked ship / mech: its beam, Evee, CALL
 	var bfp := _block_field_at(p.x, p.z)
 	var on_blocks := bfp != null
 	var floor_y := (bfp.ground_for(p.x, p.y - 6.0, p.z) if on_blocks else _ground(p.x, p.z)) + 6.0   # v1.5y: tunnel floors

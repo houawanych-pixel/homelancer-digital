@@ -6698,6 +6698,56 @@ func _run() -> void:
 			mech_right and mech_left_of_mid and foot and fpv and back)
 		_finish_group()
 		return
+	if _flag("HL_CALLSHIP"):   # v13.299 (owner: "on foot, a marker to my ship, CALL it and it flies to me; same with the mech; Evee says how far")
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main._load_surface("eden_prime", 0)
+		await _wait(0.5)
+		var s := _sp()
+		var hold := s.player.global_position
+		await _until(func(): s.player.global_position = hold; return s._regions.size() >= 4 and s._building == null, 150.0)
+		for form in ["ship", "mech"]:
+			GS.form = form
+			s.set_player_model()
+			s.ground_mode = true
+			var gp := s.player.global_position
+			s.player.global_position = Vector3(gp.x, s._ground(gp.x, gp.z) + 6.0, gp.z)
+			s.vel = Vector3.ZERO
+			s.altitude = 0.0
+			await _wait(1.0)
+			main._on_hud("eject")
+			await _wait(1.0)
+			var out_ok: bool = s.on_foot and is_instance_valid(s.parked) and s.parked_form == form
+			var park0: Vector3 = s.parked.global_position if out_ok else Vector3.ZERO
+			# walk off ~500 m (moved by hand, a few steps, so the regions keep up)
+			var dir := Vector3(1, 0, 0.3).normalized()
+			for k in 10:
+				var np: Vector3 = s.player.global_position + dir * 50.0
+				s.player.global_position = Vector3(np.x, s._ground(np.x, np.z) + 6.0, np.z)
+				await _wait(0.25)
+			var told: Array = s.evee_park_lines.duplicate()
+			var call_shown: bool = main.hud.buttons.has("call_ship")
+			var beam: bool = is_instance_valid(s._park_beam) and s._park_beam.visible
+			var far: float = s.parked_distance()
+			if form == "ship": await _shot("call_ship_far", 0.3)
+			main._on_hud("call_ship")
+			var t0 := Time.get_ticks_msec()
+			var up_y: Array = [-1e9]   # (an array: a lambda can't change a plain local)
+			await _until(func():
+				if is_instance_valid(s.parked): up_y[0] = maxf(float(up_y[0]), s.parked.global_position.y)
+				return s.recall == "" and s.near_parked(), 40.0)
+			var secs := (Time.get_ticks_msec() - t0) / 1000.0
+			if form == "ship": await _shot("call_ship_here", 0.3)
+			var here: bool = s.near_parked() and s.recall == ""
+			var flew: bool = float(up_y[0]) > park0.y + Data.RECALL_ALT * 0.5
+			_check("v13.299: on foot (%s): Evee says how far it is (%s), the marker beam and CALL %s show (%s, %s), it flies to you %.0f m in %.1f s, up over the ground, and lands beside you" % [form, str(told), form.to_upper(), beam, call_shown, far, secs, ], out_ok and told.size() >= 2 and beam and call_shown and far > 400.0 and here and flew, "")
+			main._on_hud("enter")
+			await _wait(1.0)
+			_check("v13.299: ENTER gets you back in the %s it brought" % form, not s.on_foot and GS.form == form, "")
+		for r2 in results: print("[route] ", r2)
+		get_tree().quit()
+		return
 	if _flag("HL_EJECT"):   # v12.39: EJECT on a world, walk at human size, ENTER again
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)

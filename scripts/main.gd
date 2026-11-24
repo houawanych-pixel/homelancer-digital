@@ -875,6 +875,8 @@ func _on_hud(id: String) -> void:
 			if space.eject() == "loading": hud.flash_message("Pilot still downloading — try again in a moment.")
 		"enter":
 			space.enter_vehicle()
+		"call_ship":   # v13.299 (owner: "call your ship and it flies to you")
+			hud.flash_message(space.call_vehicle())
 		"phone":   # v13.287 (owner: "phone missions")
 			space.phone()
 		"radio":   # v13.286 (owner: "radio")
