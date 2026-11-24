@@ -574,6 +574,7 @@ func _build_city() -> void:
 			else: holes[i] = hl
 		city_buildings += 1
 	_shell_dirty = true
+	_city_towers_due = Data.CITY_TOWERS
 	for br in plan["bridges"]:   # the walkways: a deck at the floor's level, open under it down to the street
 		var kd: int = kg + int(br["f"]) * L - 1
 		for c in br["cells"]:
@@ -747,6 +748,26 @@ func _clip_seg(a: Vector2, b: Vector2, clip: PackedVector2Array) -> Array:
 ## between, glowing corner fins, a glowing parapet, and its crown (a glass dome, a spire, a halo ring). Each 2.5 m
 ## piece of wall is there only while the wall block behind it stands, so doors, bridge doors and shot-out holes show.
 @warning_ignore("integer_division")
+## v13.302: the block's megatowers on their podiums and the sky bridges between them (CityTowers), drawn once (close-up
+## detail; the solid hull stands for the whole city from the start: Surface's TowerHull nodes).
+var _city_towers_due := false
+var tower_tris := 0   # (tests)
+func _draw_towers() -> void:
+	_city_towers_due = false
+	var old := get_node_or_null("Towers")
+	if old != null: old.free()
+	var specs := CityPlan.towers(planet_id, tile, region)
+	if specs.is_empty(): return
+	var br := CityTowers.bridges_for(specs, absi(hash("%s|%d|%s|bridges" % [planet_id, tile, str(region)])))
+	var built2: Array = CityTowers.build(specs, br, false)
+	var mi := MeshInstance3D.new()
+	mi.name = "Towers"
+	mi.mesh = built2[0]
+	mi.material_override = CityTowers.material()
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
+	tower_tris = (mi.mesh as ArrayMesh).surface_get_array_len(0) / 3 if (mi.mesh as ArrayMesh).get_surface_count() > 0 else 0
+
 func _draw_shells() -> void:
 	_shell_dirty = false
 	var mi: MeshInstance3D = get_node_or_null("CityShells")
@@ -4559,6 +4580,7 @@ func flush(limit := 0, budget_ms := 0.0) -> void:
 	perf["chunks"] += done
 	if done > 0 and not leaf_cards.is_empty() and built: _draw_leaf_cards()   # v12.53: the fluffy leaf cards over shot-away leaves go
 	if _shell_dirty and _dirty.is_empty(): _draw_shells()
+	if _city_towers_due and _dirty.is_empty(): _draw_towers()
 
 @warning_ignore("integer_division")
 func _draw_chunk(k: int) -> void:

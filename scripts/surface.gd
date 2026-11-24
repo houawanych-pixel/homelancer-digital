@@ -852,6 +852,15 @@ static func build_tile(planet_id: String, tile: int) -> Node3D:
 				ci.material_override = cm
 				ci.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				root.add_child(ci)
+				var tws := CityPlan.towers(planet_id, tile, r)   # v13.302: the megatowers, seen from far away
+				if not tws.is_empty():
+					var fb: Array = CityTowers.build(tws, CityTowers.bridges_for(tws, absi(hash("%s|%d|%s|bridges" % [planet_id, tile, str(r)]))), true)
+					var tm := MeshInstance3D.new()
+					tm.name = "FarTowers"
+					tm.mesh = fb[0]
+					tm.material_override = CityTowers.material()
+					tm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+					ci.add_child(tm)
 		if CityPlan.domed(planet_id):   # v13.280: an airless world's city under its oxygen dome
 			var dm := CityPlan.dome_mesh(planet_id, tile)
 			if dm != null:

@@ -1341,6 +1341,55 @@ func _on_bases_pack(pk: String) -> void:
 ## v13.240 (owner: "there was an invisible ceiling I was standing on"): a base model is solid by its own shape (made
 ## when you come near), not its box (the box roofed over its arches and dome); other buildings keep their box.
 var surf_hulls := 0   # (checks)
+## v13.302: the city's megatowers are solid: each is a few upright drums (CityTowers.solids); in one, you're pushed out
+## to its side (or onto its top / under it, whichever is nearest) and lose the speed going in. (A mesh hull let fast
+## ships through its thin walls.)
+var tower_solids: Array = []   # [[centre, y0, y1, r]] of every tower on this tile
+var _tower_tile := ""
+var tower_hits := 0            # (tests)
+func _tower_push(_dt: float) -> void:
+	var tk := "%s|%d" % [planet_id, tile]
+	if tk != _tower_tile:
+		_tower_tile = tk
+		tower_solids = []
+		if Data.CITY_TOWERS and CityPlan.is_city_tile(planet_id, tile):
+			var cr := CityPlan.rect(planet_id, tile)
+			for rz in cr.size.y:
+				for rx in cr.size.x:
+					for tw in CityPlan.towers(planet_id, tile, cr.position + Vector2i(rx, rz)): tower_solids.append_array(CityTowers.solids(tw))
+	if tower_solids.is_empty(): return
+	var pad: float = Data.TOWER_PAD_R_FOOT if (on_foot or escape_pilot) else Data.RETOPO_BOX_PAD
+	var p := player.global_position
+	for sd in tower_solids:
+		var y0: float = sd[1]
+		var y1: float = sd[2]
+		if p.y < y0 - pad or p.y > y1 + pad: continue
+		var c: Vector2 = sd[0]
+		var rr: float = float(sd[3]) + pad
+		var d := Vector2(p.x - c.x, p.z - c.y)
+		var dl := d.length()
+		if dl >= rr: continue
+		var out_side := rr - dl
+		var out_top := y1 + pad - p.y
+		var out_bot := p.y - (y0 - pad)
+		var nrm: Vector3
+		if out_side <= out_top and out_side <= out_bot:
+			var dn := d / dl if dl > 0.01 else Vector2(1, 0)
+			p = Vector3(c.x + dn.x * rr, p.y, c.y + dn.y * rr)
+			nrm = Vector3(dn.x, 0, dn.y)
+		elif out_top <= out_bot:
+			p.y = y1 + pad
+			nrm = Vector3.UP
+		else:
+			p.y = y0 - pad
+			nrm = Vector3.DOWN
+		var into := -vel.dot(nrm)
+		player.global_position = p
+		if into > 0.0:
+			vel += nrm * into
+			if not (on_foot or escape_pilot) and nrm != Vector3.UP: collision_damage("ground", into)
+		tower_hits += 1
+
 func _surf_push(bx: Array) -> void:
 	var h: Node3D = bx[0]
 	if Data.HULL_SHAPES and h.has_meta("real_shape"):
@@ -16904,6 +16953,7 @@ func _surface_update(_dt: float) -> void:
 		if not ground_mode: collision_damage("ground", impact)   # Job L (was: > 20 m/s, 0.25 x impact through the shields); v1.8r: GROUND mode lands without a scratch
 	for bx: Array in surf_boxes:   # v1.9q: the faction buildings are solid
 		if is_instance_valid(bx[0]): _surf_push(bx)
+	_tower_push(_dt)   # v13.302: the city's megatowers are solid
 	_hull_prev = player.global_position
 	for fl in _fields(): (fl as BlockField).fluid_update(_dt, player.global_position)   # v1.6b: water and lava move near you
 	_update_light(_dt, bfp, p)   # v1.7m

@@ -8582,6 +8582,75 @@ func _run() -> void:
 			wanted and cop_kill_ok and first >= 2 and backup >= 6 and followed >= mini(tail, Data.HEAT_FOLLOW_MAX) and followed > 0 and still and zone_e == "enemy" and no_backup and zone_n == "neutral" and escaped, "")
 		_finish_group()
 		return
+	if _flag("HL_MEGACITY"):   # v13.302 (owner's concept art: "look at the shapes, the colours, the size; build this city")
+		var pid := "new_terra"
+		var cts: Dictionary = CityPlan.city_tiles(pid)
+		var tile := -1
+		for t0 in cts:
+			if tile < 0 or int(cts[t0]) > int(cts[tile]): tile = int(t0)
+		print("MEGA city tiles %s -> tile %d rect %s locs %s" % [cts, tile, CityPlan.rect(pid, tile), Surface.locations_in(pid, tile).map(func(l): return l["pos"])])
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main._load_surface(pid, tile)
+		await _until(func(): return is_instance_valid(main.space) and main.space.surface_mode and main.space.planet_id == pid, 40.0)
+		var s: Node = _sp()
+		var cr: Rect2i = CityPlan.rect(pid, tile)
+		var g: float = CityPlan.ground(pid, tile)
+		var mid := Vector2(-Surface.EDGE, -Surface.EDGE) + (Vector2(cr.position) + Vector2(cr.size) * 0.5) * Data.BLOCK_REGION
+		var all_t: Array = []
+		for rz in cr.size.y:
+			for rx in cr.size.x: all_t.append_array(CityPlan.towers(pid, tile, cr.position + Vector2i(rx, rz)))
+		var tallest := 0.0
+		for tw in all_t: tallest = maxf(tallest, float(tw["h"]))
+		main.hud.visible = false
+		# far: the whole skyline from 3 km out
+		var fp := Vector3(clampf(mid.x - 1500.0, -2300.0, 2300.0), g + 450.0, clampf(mid.y + 1300.0, -2300.0, 2300.0))
+		_tp(fp, Vector3(mid.x, g + 350.0, mid.y))
+		await _wait(3.0)
+		var cn: Array = []
+		for ch in s.tile_root.get_children(): if str(ch.name).begins_with("City_"): cn.append("%s vis %s kids %d" % [ch.name, (ch as Node3D).visible, ch.get_child_count()])
+		print("MEGA mid %s g %.0f player %s tile %d city nodes %s" % [mid, g, s.player.global_position, s.tile, cn])
+		await _capture("megacity_far")
+		# into the city: wait for the blocks round the middle
+		var hold := Vector3(mid.x - 380.0, g + 220.0, mid.y + 520.0)
+		await _until(func(): s.player.global_position = hold; s.vel = Vector3.ZERO; return s._regions.size() >= 6 and s._building == null, 240.0)
+		await _wait(1.0)
+		var tw_nodes := 0
+		var tris := 0
+		for k in s._regions:
+			var bf = s._regions[k]
+			if is_instance_valid(bf) and (bf as Node).get_node_or_null("Towers") != null:
+				tw_nodes += 1
+				tris += int(bf.tower_tris)
+		_tp(hold, Vector3(mid.x, g + 450.0, mid.y))
+		await _wait(2.0)
+		await _capture("megacity_mid")
+		_tp(Vector3(mid.x - 60.0, g + 8.0, mid.y + 260.0), Vector3(mid.x + 40.0, g + 600.0, mid.y - 120.0))
+		await _wait(2.0)
+		await _capture("megacity_street")
+		_check("v13.302: the city is %d x %d blocks of megatowers (%d towers, the tallest %.0f m over its podium); %d blocks near you draw theirs (%d triangles)" % [cr.size.x, cr.size.y, all_t.size(), tallest, tw_nodes, tris], cr.size.x >= 3 and all_t.size() >= 30 and tallest > 600.0 and tw_nodes >= 3, "")
+		# solid: fly into the nearest tower
+		var near_t: Dictionary = all_t[0]
+		for tw in all_t:
+			if (tw["c"] as Vector2).distance_to(Vector2(hold.x, hold.z)) < (near_t["c"] as Vector2).distance_to(Vector2(hold.x, hold.z)): near_t = tw
+		var tc: Vector2 = near_t["c"]
+		var ty: float = float(near_t["base"]) + float(near_t["h"]) * 0.3
+		GS.form = "ship"
+		s.set_player_model()
+		s.ground_mode = false
+		s.player.global_position = Vector3(tc.x - float(near_t["r"]) - 150.0, ty, tc.y)
+		s._face(Vector3(1, 0, 0))
+		await _frames(3)
+		var inside_min := INF
+		for k in 120:
+			s.vel = Vector3(120.0, 0, 0)
+			await get_tree().process_frame
+			inside_min = minf(inside_min, Vector2(s.player.global_position.x, s.player.global_position.z).distance_to(tc))
+		print("MEGA solid: solids %d hits %d near c %s base %.0f" % [s.tower_solids.size(), s.tower_hits, tc, float(near_t["base"])])
+		_check("v13.302: the towers are solid (flying straight at one you stop at its wall: came within %.0f m of its middle, radius %.0f m)" % [inside_min, float(near_t["r"])], inside_min > float(near_t["r"]) * 0.6, "")
+		_finish_group()
+		return
 	if _flag("HL_DOME"):   # v13.280 (owner: "oxygen domes over the cities on airless, Mars-like worlds")
 		var dpid := ""
 		var dtile := -1

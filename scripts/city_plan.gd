@@ -66,6 +66,8 @@ static func dome_shape(pid: String, tile: int) -> Dictionary:
 			for b in block(pid, tile, cr.position + Vector2i(rx, rz))["buildings"]:
 				var crown := float(b.get("radius", 0.0)) * Data.BLOCK_MIN * 2.2 + 26.0 if str(b.get("crown", "")) == "spire" else 12.0
 				tallest = maxf(tallest, roof(g, int(b["floors"])) - g + crown)
+			for tw in towers(pid, tile, cr.position + Vector2i(rx, rz)):   # v13.302: over the megatowers and their spires
+				tallest = maxf(tallest, float(tw["base"]) + float(tw["h"]) * (1.0 + Data.TOWER_SPIRE.y) - g)
 	var r := size.length() * 0.5 * Data.CITY_DOME_SPREAD
 	return {"centre": org + size * 0.5, "g": g, "r": r, "h": maxf(tallest + Data.CITY_DOME_HEADROOM, r * 0.55)}
 
@@ -169,7 +171,9 @@ static func rect(pid: String, tile: int) -> Rect2i:
 		var avoid: Array = []
 		for l in Surface.locations_in(pid, tile): avoid.append([l["pos"] as Vector2, Data.PAD_ISLAND_RADIUS + Data.CITY_CLEAR])
 		var nr := int(round(Surface.TILE / Data.BLOCK_REGION))
-		for sz2 in [want, 1]:
+		var sizes: Array = []   # v13.302: the biggest square that fits beside the port (3, then 2, then 1)
+		for k in range(want, 0, -1): sizes.append(k)
+		for sz2 in sizes:
 			var bd := INF
 			for zz in range(1, nr - sz2):
 				for xx in range(1, nr - sz2):
@@ -183,7 +187,7 @@ static func rect(pid: String, tile: int) -> Rect2i:
 					if ok and d < bd - 0.01:
 						bd = d
 						out = Rect2i(xx, zz, sz2, sz2)
-			if out.size.x > 0 and bd <= Data.BLOCK_REGION * 1.5: break   # (else try a single block nearer the middle)
+			if out.size.x > 0 and bd <= Data.BLOCK_REGION * (1.5 + Data.CITY_OFFCENTRE * (sz2 - 1)): break   # (else a smaller city nearer the middle; v13.302: a big one may sit off to the side of the port)
 	_rects[key] = out
 	return out
 
@@ -257,6 +261,7 @@ static func block(pid: String, tile: int, r: Vector2i) -> Dictionary:
 		var b := _building(_pick_kind(rng, downtown), rng, downtown, mini(rmax, rng.randi_range(8, 12)))
 		var bs: Vector2i = b["size"]
 		var at := Vector2i(inner.end.x - bs.x if t.x > 0 else inner.position.x, inner.end.y - bs.y if t.y > 0 else inner.position.y)
+		b["main"] = true   # v13.302: the lot's big tower
 		_place(plan, b, at)
 		first.append(b)
 		var r2 := mini(6, (mini(inner.size.x, inner.size.y) - bs.x - 3) / 2)
@@ -270,8 +275,47 @@ static func block(pid: String, tile: int, r: Vector2i) -> Dictionary:
 		if rng.randf() > Data.CITY_BRIDGE_CHANCE: continue
 		var br := _bridge(first[pr[0]], first[pr[1]], pr[2], rng)
 		if not br.is_empty(): plan["bridges"].append(br)
+	if Data.CITY_TOWERS:   # v13.302: each building's rooms are its podium; the megatower above is drawn (CityTowers)
+		for b in plan["buildings"]:
+			if not b.has("poly"): continue
+			var pf: int = mini(int(b["floors"]), Data.CITY_PODIUM_FLOORS)
+			b["floors"] = pf
+			b["crown"] = ""
+			for c in b["cells"]:
+				b["cells"][c] = mini(int(b["cells"][c]), pf)
+				plan["cells"][c] = b["cells"][c]
+		plan["bridges"] = (plan["bridges"] as Array).filter(func(br): return int(br["f"]) < Data.CITY_PODIUM_FLOORS)
+	plan["downtown"] = downtown
 	_blocks[key] = plan
 	return plan
+
+## v13.302: the megatowers of one block (tile-local): [{c, r, sides, rot, base, h, main, style, seed}].
+## (owner: "take its basic 3D shape first"): one giant tower over the middle of the block, its foot resting on the four
+## main buildings round the alley crossing (their rooms are its podium; the alley runs under it), and a slimmer tower
+## on each slim building in the lots' far corners.
+static func towers(pid: String, tile: int, r: Vector2i) -> Array:
+	var plan := block(pid, tile, r)
+	if not Data.CITY_TOWERS or (plan["buildings"] as Array).is_empty(): return []
+	var org := BlockField.region_centre(r) - Vector2(Data.BLOCK_REGION, Data.BLOCK_REGION) * 0.5
+	var out: Array = []
+	var key := "%s|%d|%d|%d" % [pid, tile, r.x, r.y]
+	var rng := RandomNumberGenerator.new()
+	rng.seed = absi(hash(key + "|mega"))
+	var downtown := bool(plan.get("downtown", false))
+	var g: float = plan["g"]
+	var hr: Vector2 = Data.TOWER_H_DOWNTOWN if downtown else Data.TOWER_H_MAIN
+	var styles: Array = Data.TOWER_STYLES
+	out.append({"c": org + Vector2(Data.BLOCK_REGION, Data.BLOCK_REGION) * 0.5, "r": Data.TOWER_MEGA_R * rng.randf_range(0.88, 1.08), "sides": 8,
+		"rot": PI / 8.0 + (rng.randi() % 2) * PI / 8.0, "base": roof(g, Data.CITY_PODIUM_FLOORS), "ground": g, "h": rng.randf_range(hr.x, hr.y), "main": true,
+		"style": "cathedral" if downtown else str(styles[rng.randi() % styles.size()]), "seed": absi(hash(key + "|mega|t"))})
+	for b in plan["buildings"]:
+		if not b.has("poly") or bool(b.get("main", false)): continue
+		var t := CityTowers.spec(b, org, roof(g, int(b["floors"])), downtown, key)
+		t["r"] = float(t["r"]) * Data.TOWER_SLIM_GROW
+		t["style"] = "saucer" if int(t["sides"]) > 8 else "tiered"
+		t["ground"] = g
+		out.append(t)
+	return out
 
 ## v13.280 (owner: "futuristic buildings: hexagons, pentagons, round towers, domes, glowing trim, clean angled walls,
 ## not jagged voxel stairs"; references: Star Citizen's New Babbage and Area18, Cyberpunk's Night City): each building

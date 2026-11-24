@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.301"
+const VERSION := "v13.302"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -514,7 +514,8 @@ const BLOCK_SINK := 260.0      # the smooth ground under the patch is sunk this 
 # one terrain tile becomes a nine-block city streamed like the terrain"): scripts/city_plan.gd
 const CITIES := true
 const CITY_BIOMES := ["city"]       # (v13.272; v13.274: CITY_LAND decides)
-const CITY_LAND := {"city": 2, "coast": 2, "jungle": 2, "forest": 1, "industrial": 1}   # v13.274: green land gets a city at its tile's centre: 2 = a 2 x 2 of blocks, 1 = one block (snow, desert, rock: none)
+const CITY_LAND := {"city": 3, "coast": 3, "jungle": 2, "forest": 1, "industrial": 1}   # v13.274: green land gets a city at its tile's centre: 2 = a 2 x 2 of blocks, 1 = one block (snow, desert, rock: none)
+const CITY_OFFCENTRE := 1.2        # v13.302: a city this many regions per extra block across may sit off the tile's middle (beside its port)
 const CITY_TILES_BIG := 2           # a 3 x 3 world has cities on at most this many tiles (a smaller one: 1)
 const CITY_NO_OUTPOST := ["ocean", "sun", "clouds"]   # a world with no green land gets one block on its first tile that isn't one of these
 const CITY_SLOPE := 350.0           # v13.275: m over which the land round a city eases from its street level back to its own
@@ -534,7 +535,7 @@ const CITY_PAVEMENT := 2            # cells of pavement round each building
 const CITY_FLOORS := [3, 8]         # floors of a building ...
 const CITY_FLOORS_DOWNTOWN := [8, 16]   # ... and in the middle block
 const CITY_TRIM := Color(0.3, 0.95, 1.0)   # v13.280: the glowing trim lines, corner fins, parapets and crowns of the city
-const CITY_PANEL := Color(0.34, 0.37, 0.43)   # v13.280: the panel band of the clean outline (dark metal: the glowing trim stands out)
+const CITY_PANEL := Color(0.82, 0.84, 0.87)   # v13.302: white panels (was dark metal 0.34, 0.37, 0.43)   # v13.280: the panel band of the clean outline (dark metal: the glowing trim stands out)
 const CITY_GLASS := Color(0.1, 0.17, 0.26)    # its window band (dark glass)
 const CITY_WINDOW_LIT := Color(1.0, 0.85, 0.55)   # a lit room seen through the glass
 const CITY_LIT_SHARE := 0.35        # share of window pieces lit
@@ -603,13 +604,49 @@ const VEHICLE_ROOF_AT := 0.72         # the top-view picture sits at this share 
 const GUARD_WAKE_R := 320.0         # v13.295 (owner: "the alarm room was super laggy"): guards farther than this (m) wait frozen ...
 const GUARD_DECK_DY := 30.0         # ... and so do those on another deck
 const GUARD_LOD_EVERY := 0.3        # s between checks
+# v13.302 (owner's concept art: white sci-fi megatowers, "look at the shapes, the colours, the size"): every building is a
+# walkable podium (its first CITY_PODIUM_FLOORS floors of rooms) with a megatower on top (CityTowers)
+const CITY_TOWERS := true
+const CITY_PODIUM_FLOORS := 4           # floors of rooms under each tower
+const TOWER_H_DOWNTOWN := Vector2(950.0, 1150.0)  # m over the podium: the downtown block's giant
+const TOWER_H_MAIN := Vector2(450.0, 760.0)       # each other block's giant
+const TOWER_H_SLIM := Vector2(130.0, 280.0)       # the slim towers in the lots' far corners
+const TOWER_MEGA_R := 135.0             # m: a block giant's foot (corner to middle), over its four main buildings
+const TOWER_SLIM_GROW := 1.15           # a slim tower a little wider than its podium's outline
+const TOWER_STYLES := ["cathedral", "tiered", "saucer", "tiered"]   # the shapes from the owner's art
+const TOWER_INSET := 0.9                # the tower's footprint inside the podium's outline
+const TOWER_CHAMFER := 0.2              # each corner cut back this share of its edges
+const TOWER_LEDGE := 1.08               # a tier-top ledge this much wider than the tier
+const TOWER_LEDGE_T := 2.5              # m thick
+const TOWER_SAUCER := 1.35              # a round tower's saucer deck this much wider
+const TOWER_SAUCER_T := 4.0             # m thick at the rim
+const TOWER_SPINE_W := 0.22             # the dark spine: this share of a main face
+const TOWER_SPINE_DEPTH := 0.05         # recessed this share of the tower's radius
+const TOWER_RIB_EVERY := 14.0           # m between the glowing ribs across a spine
+const TOWER_LEG_OUT := 1.18             # a giant's legs: their feet this far out on the street (share of its radius)
+const TOWER_LEG_W := 8.0                # m thick
+const TOWER_TIERS_MAIN := [0.34, 0.26, 0.2, 0.12, 0.08]   # a giant's tiers: shares of its height (it steps in at each)
+const TOWER_TIERS_SLIM := [0.55, 0.3, 0.15]
+const TOWER_STEP := Vector2(0.74, 0.84) # each tier this much of the one under it
+const TOWER_SPIRE := Vector2(0.08, 0.2) # the main spire: this share of the tower's height
+const TOWER_PAD_CHANCE := 0.6           # a big tower has a landing pad off its second tier
+const TOWER_PAD_W := 40.0               # m wide
+const TOWER_PAD_OUT := 36.0             # m out from the face
+const TOWER_BRIDGE_MAX := 380.0         # m: big towers closer than this may have sky bridges
+const TOWER_BRIDGE_CHANCE := 0.7
+const TOWER_BRIDGE_W := 12.0            # m wide
+const TOWER_BRIDGE_H := 8.0             # m tall
+const TOWER_WHITE := Color(0.86, 0.88, 0.9)       # the armour panels
+const TOWER_SPINE := Color(0.13, 0.14, 0.17)      # the dark spine
+const TOWER_GOLD := Color(1.0, 0.72, 0.3)         # gold accents (pad edges)
+const TOWER_PAD_R_FOOT := 1.0           # m a person on foot keeps off a tower's wall (a ship: RETOPO_BOX_PAD)
 const CITY_FLOOR_LAYERS := 2        # layers (5 m) a floor: 1 of room (5 m: people, not mechs), 1 of slab (v13.273: was 3)
 const MODULE := 10                  # v13.273: cells a building module is across: a 3 x 3 grid of 2 x 2-cell rooms (10 m) in 1-cell walls, the middle room the lift
 const CITY_BRIDGE_CHANCE := 0.6     # the chance of a walkway across the alley between two facing buildings
 const CITY_SETBACK_FROM := 6        # floors from which a building steps in higher up ...
 const CITY_SETBACK_IN := 3          # ... by this many cells
-const CITY_COLORS := {"concrete": Color(0.62, 0.64, 0.68), "glass": Color(0.18, 0.3, 0.42), "street": Color(0.17, 0.18, 0.2),
-	"walk": Color(0.45, 0.46, 0.48), "lift": Color(0.95, 0.75, 0.2), "door": Color(0.25, 0.95, 1.0), "bridge": Color(0.5, 0.52, 0.56)}
+const CITY_COLORS := {"concrete": Color(0.8, 0.82, 0.85), "glass": Color(0.18, 0.3, 0.42), "street": Color(0.42, 0.44, 0.47),   # v13.302: the light grey plazas and white armour of the owner's art
+	"walk": Color(0.68, 0.7, 0.72), "lift": Color(0.95, 0.75, 0.2), "door": Color(0.25, 0.95, 1.0), "bridge": Color(0.5, 0.52, 0.56)}
 const BLOCK_MARGIN := 3.0      # column tops sit this much over the highest ground sampled under them
 # Step 9 (v1.7a): the whole planet as blocks. The ground near you is built from the seed in square regions as you fly
 # (the far ground stays the smooth sheet, cut out wherever a region stands). Behind ?blocks until the owner says go.
