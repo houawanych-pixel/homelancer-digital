@@ -13538,6 +13538,22 @@ func _on_mined(at: Vector3, mat: String, weapon: String) -> void:
 	if n > 0: _popup(at, "%s x%d" % [mat.to_upper(), n], col)
 	else: _popup(at, "%s lost in the blast" % mat.capitalize(), col)
 
+## v13.295: throw something out of the hold: a dull crate tumbles out behind you and drifts off. The tractor beam
+## and flying through it leave it alone, so it never comes back in by mistake.
+func jettison(c: Dictionary) -> void:
+	if c.is_empty() or not is_instance_valid(player): return
+	var pod := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(2.0, 1.4, 2.6)
+	pod.mesh = bm
+	pod.material_override = ShipFactory.mat(Data.JETTISON_COLOR, false, 0.6)
+	pod.name = "Jettisoned"
+	add_child(pod)
+	var back: Vector3 = player.global_basis.z
+	pod.global_position = player.global_position + back * Data.JETTISON_BACK
+	loot.append({"node": pod, "vel": vel * 0.5 + (back + Vector3(_rng.randfn(0, 0.3), 0.2, _rng.randfn(0, 0.3))).normalized() * Data.JETTISON_SPEED, "value": 0, "life": Data.JETTISON_LIFE, "dumped": true, "item": c})
+	Sfx.play("pickup", -10.0)
+
 ## Switch the tractor beam on for a few seconds: every pod in range flies to you.
 func tractor() -> String:
 	if Data.PILOT_PARKOUR and boarding and escape_pilot and not fleet_mech_driving() and loot.is_empty() and not (board.has("fleet") and (board["fleet"] as Dictionary).get("hostage") != null and bool((board["fleet"] as Dictionary).get("pod", false))):
@@ -13555,6 +13571,7 @@ func tractor() -> String:
 			return "Tractor beam: get closer to the hostage."
 	var inrange := 0
 	for l in loot:
+		if l.get("dumped", false): continue   # v13.295: what you threw out stays out
 		if (l["node"] as Node3D).global_position.distance_to(player.global_position) < Data.LOOT_RANGE: inrange += 1
 	if inrange == 0: return "Tractor beam: nothing in range."
 	tractor_t = Data.TRACTOR_TIME
@@ -13569,6 +13586,14 @@ func _update_loot(dt: float) -> void:
 		l["life"] -= dt
 		var to := pp - n.global_position
 		var d := to.length()
+		if l.get("dumped", false):   # v13.295 (owner: "when I discard it, the tractor beam shouldn't pull it back"): it drifts off
+			l["vel"] = (l["vel"] as Vector3) * (1.0 - minf(1.0, dt * 0.3))
+			n.global_position += l["vel"] * dt
+			n.rotate_y(dt * 0.9)
+			if l["life"] <= 0.0:
+				n.queue_free()
+				loot.remove_at(i)
+			continue
 		if tractor_t > 0.0 and d < Data.LOOT_RANGE:
 			l["vel"] = (l["vel"] as Vector3).lerp(to.normalized() * (60.0 + d * 0.6) + vel, minf(1.0, dt * 4.0))
 			if int(time * 30.0) % 2 == 0: _spark_v(n.global_position, Vector3.ZERO, Color(0.5, 0.9, 1.0), 2.0, 0.25)
@@ -13593,14 +13618,14 @@ func _update_loot(dt: float) -> void:
 		elif d < 14.0:
 			if l.has("goods"):   # v13.268: a contraband crate into the hold
 				if not GS.add_goods(str(l["goods"]), sys_id, 1):
-					if l.get("full_said", false) == false: message.emit("Cargo hold full (%d / %d). Sell at a station or planet base." % [GS.hold_used(), GS.hold_size()])
+					if l.get("full_said", false) == false: message.emit("Cargo hold full (%d / %d). Tap HOLD to drop something, or sell at a base." % [GS.hold_used(), GS.hold_size()])
 					l["full_said"] = true
 					continue
 				_popup(n.global_position, "%s IN HOLD" % str(GS.goods_def(str(l["goods"]))["name"]).to_upper(), Color(1.0, 0.4, 0.35))
 				message.emit("CONTRABAND: %s is in your hold. Only a smugglers' base (Shroud) buys it, and patrols scan you as you dock elsewhere." % GS.goods_def(str(l["goods"]))["name"])
 			elif l.has("weapon"):   # v13.267: a dropped weapon goes into the hold
 				if GS.hold_free() < 1:
-					if l.get("full_said", false) == false: message.emit("Cargo hold full (%d / %d). Sell at a station or planet base." % [GS.hold_used(), GS.hold_size()])
+					if l.get("full_said", false) == false: message.emit("Cargo hold full (%d / %d). Tap HOLD to drop something, or sell at a base." % [GS.hold_used(), GS.hold_size()])
 					l["full_said"] = true
 					continue
 				var wd: Dictionary = Data.WEAPONS[str(l["weapon"])]
@@ -13611,7 +13636,7 @@ func _update_loot(dt: float) -> void:
 			elif l.has("gem"):   # v1.8l: ore goes into the hold; a base buys it
 				var have := GS.add_ore(str(l["gem"]))
 				if have == 0:   # v13.266: the hold is full: it stays out there
-					if l.get("full_said", false) == false: message.emit("Cargo hold full (%d / %d). Sell at a station or planet base." % [GS.hold_used(), GS.hold_size()])
+					if l.get("full_said", false) == false: message.emit("Cargo hold full (%d / %d). Tap HOLD to drop something, or sell at a base." % [GS.hold_used(), GS.hold_size()])
 					l["full_said"] = true
 					continue
 				_popup(n.global_position, "%s x%d IN HOLD" % [str(l["gem"]).to_upper(), have], Color(1.0, 0.85, 0.35))

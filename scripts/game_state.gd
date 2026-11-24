@@ -753,6 +753,35 @@ func keep_weapon(i: int) -> String:
 	changed.emit()
 	save_game()
 	return "%s is in your armory. Fit it under LOADOUT." % Data.WEAPONS[id]["name"]
+## v13.295 (owner: "a place to check my inventory, discard what I don't want to keep, and equip what I just got"):
+## what can be thrown out of the hold in flight (not a prisoner, not a job's delivery crates).
+static func can_drop(c: Dictionary) -> bool: return not (str(c.get("kind", "")) in ["pilot", "delivery"])
+## DROP from the hold: n pieces of a stack (n < 1 = all of it) or the one thing. Returns what went out ({} = nothing).
+func drop_cargo(i: int, n := -1) -> Dictionary:
+	if i < 0 or i >= cargo.size() or not can_drop(cargo[i]): return {}
+	var c: Dictionary = cargo[i]
+	var out := c.duplicate()
+	if c.has("n") and n > 0 and n < int(c["n"]):
+		c["n"] = int(c["n"]) - n
+		out["n"] = n
+	else: cargo.remove_at(i)
+	changed.emit()
+	save_game()
+	return out
+## EQUIP a weapon from the hold straight onto your guns (it joins your armory; a spare of one you have stays in the hold).
+func equip_from_hold(i: int) -> String:
+	if i < 0 or i >= cargo.size() or cargo[i].get("kind", "") != "weapon": return "Only a weapon can be equipped from the hold."
+	var id := str(cargo[i]["id"])
+	if not Data.WEAPONS.has(id): return "Unknown weapon."
+	var spare := id in owned_weapons
+	if not spare:
+		cargo.remove_at(i)
+		owned_weapons.append(id)
+	weapon_id = id
+	mounts = _gun_everywhere(id)
+	changed.emit()
+	save_game()
+	return "%s equipped on your guns.%s" % [Data.WEAPONS[id]["name"], " You had one already: the spare stays in the hold." if spare else ""]
 ## SELL one thing from the hold (a part or a weapon; ore has its own SELL ORE).
 func sell_cargo(i: int) -> String:
 	if i < 0 or i >= cargo.size() or not (cargo[i].get("kind", "") in ["part", "weapon"]): return "Nothing to sell."

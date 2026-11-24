@@ -762,8 +762,11 @@ func _on_hud(id: String) -> void:
 	if id in ["start", "select", "pm_resume", "pm_tips"] or id.begins_with("pm_slot_"):   # v11.25 (owner): the pause menu
 		_pause_input(id)
 		return
-	if space.cloaked and not (id in ["cloak", "kill", "engine_kill", "view", "radar", "fullscreen", "scan", "scan_close", "hangup", "side_l", "side_r", "call_pick"]):   # v10.6 (owner): cloaked, every tool is locked: you only fly and look around
+	if space.cloaked and not (id in ["hold", "cloak", "kill", "engine_kill", "view", "radar", "fullscreen", "scan", "scan_close", "hangup", "side_l", "side_r", "call_pick"]):   # v10.6 (owner): cloaked, every tool is locked: you only fly and look around
 		hud.flash_message("Cloaked: everything is locked. You can only fly. Tap CLOAK to drop it.")
+		return
+	if id == "hold":   # v13.295 (owner): the cargo hold window
+		open_hold()
 		return
 	if id == "weapons":   # v7.0: open / fold the weapons and abilities
 		hud.weapons_open = not hud.weapons_open
@@ -2373,6 +2376,29 @@ func open_scan_view() -> StationViewer:
 		hud.visible = true
 		controls.blocked = false)
 	return sv
+
+## v13.295 (owner: "an interface window to check my inventory"): the CARGO HOLD window over the flight; the game waits.
+var hold_window: HoldWindow = null
+func open_hold() -> HoldWindow:
+	if state != "flight" or space == null: return null
+	if is_instance_valid(hold_window): return hold_window
+	var layer := CanvasLayer.new()
+	layer.layer = 50
+	add_child(layer)
+	var hw := HoldWindow.new()
+	hw.name = "HoldWindow"
+	hw.space = space
+	layer.add_child(hw)
+	hold_window = hw
+	space.process_mode = Node.PROCESS_MODE_DISABLED
+	hud.visible = false
+	controls.blocked = true
+	hw.tree_exited.connect(func():
+		layer.queue_free()
+		if is_instance_valid(space) and not hud.pause_menu: space.process_mode = Node.PROCESS_MODE_INHERIT
+		hud.visible = true
+		controls.blocked = false)
+	return hw
 
 func set_paused(on: bool) -> void:
 	hud.pause_menu = on

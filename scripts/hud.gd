@@ -354,10 +354,10 @@ func fl_rect(side: String) -> Rect2:
 	var r := Rect2(sr.position.x if side == "l" else sr.end.x - w, sr.position.y, w, sr.size.y)
 	return r
 
-const FL_TABS := ["weapons", "log", "goto"]   # v7.6 (owner): WEAPONS and COMMS in the right window; v11.60 (owner): + GO TO
+const FL_TABS := ["weapons", "hold", "log", "goto"]   # v13.295 (owner): + HOLD (the cargo window)
 func fl_tab_rect(i: int) -> Rect2:
 	var r := fl_rect("r")
-	var bw := (r.size.x - 16.0) / 3.0
+	var bw := (r.size.x - 8.0 - 4.0 * (FL_TABS.size() - 1)) / FL_TABS.size()
 	return Rect2(r.position + Vector2(4.0 + i * (bw + 4.0), 28.0), Vector2(bw, 26.0))
 
 func fl_shown(side: String) -> bool:
@@ -518,10 +518,11 @@ func _fl_panels() -> void:
 		pass   # (v7.8 owner: no YOUR SHIP card: the rings round the radar already show it)
 		if side == "l": _fl_target(Rect2())   # v8.3: TARGET · NEXT · GO TO, folded or open
 		if side == "r":   # v7.3: WEAPONS · COMMS · VIEW
-			var lit := [weapons_shown(), console_open or comms_open, space.autopilot != null]
-			var names := ["WEAPONS", "COMMS", "AUTO ON" if space.autopilot != null else "GO TO"]
-			var cols := [Color(0.25, 0.6, 1.0), Color(0.7, 0.45, 1.0), GREEN]   # v7.7 (owner): WEAPONS blue, COMMS purple; GO TO green
-			for i in 3:
+			var hold_full: bool = GS.hold_free() <= 0
+			var lit := [weapons_shown(), hold_full, console_open or comms_open, space.autopilot != null]
+			var names := ["WEAPONS", "HOLD %d/%d" % [GS.hold_used(), GS.hold_size()], "COMMS", "AUTO ON" if space.autopilot != null else "GO TO"]
+			var cols := [Color(0.25, 0.6, 1.0), RED if hold_full else GOLD, Color(0.7, 0.45, 1.0), GREEN]   # v7.7 (owner): WEAPONS blue, COMMS purple; GO TO green; v13.295: HOLD gold (red when full)
+			for i in names.size():
 				var tr: Rect2 = fl_tab_rect(i)
 				_box(tr, Color(cols[i], 0.3 if lit[i] else 0.12), Color(cols[i], 0.85), 6, 1)
 				_text(Vector2(tr.position.x, tr.position.y + 18), names[i], 12, WHITE, HORIZONTAL_ALIGNMENT_CENTER, tr.size.x)

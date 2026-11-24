@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.294"
+const VERSION := "v13.295"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -1137,6 +1137,10 @@ const HOLD_CARGO_SHIP := 24          # a cargo ship (the Hauler)
 const CARGO_STACK := 10              # ore and goods: pieces per hold slot
 const PART_SELL_K := 0.5             # a spare part sells for half its price
 const CARGO_LOST_ON_DEATH := true    # shot down: the hold goes with the ship (prisoners are kept in the brig pod)
+const JETTISON_COLOR := Color(0.45, 0.42, 0.4)   # v13.295: a crate you threw out (dull, no glow: the tractor leaves it)
+const JETTISON_BACK := 8.0           # m behind the ship it appears
+const JETTISON_SPEED := 10.0         # m/s it tumbles away
+const JETTISON_LIFE := 40.0          # s before it's gone
 # v13.267 (owner: "weapons only: enemies drop weapons you tractor in; better enemies drop more")
 const WEAPON_DROPS := true
 const WEAPON_DROP_REWARD := 2500.0      # a kill worth this much drops a weapon at WEAPON_DROP_MAX chance

@@ -8769,6 +8769,60 @@ func _run() -> void:
 		for r2 in results: print("[route] ", r2)
 		get_tree().quit()
 		return
+	if _flag("HL_INVENTORY"):   # v13.295 (owner: "a window to check my inventory, discard what I don't want (the tractor mustn't pull it back), equip what I just got")
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var s: Node = main.space
+		GS.owned_weapons.erase("ion")
+		GS.cargo = [{"kind": "weapon", "id": "ion", "name": "Ion Repeater", "note": "salvaged weapon"}, {"kind": "ore", "id": "gold", "n": 12}, {"kind": "pilot", "id": "x", "name": "Vex Morrow", "note": "bounty prisoner"}]
+		while GS.hold_free() > 0: GS.add_goods("rations", GS.system_id, 10)
+		var full0: bool = GS.hold_free() <= 0
+		var tabs_ok: bool = main.hud.FL_TABS.has("hold")
+		await _shot("inventory_hud", 0.3)
+		main._on_hud("hold")
+		await _wait(0.6)
+		var hw: HoldWindow = main.hold_window
+		var opened: bool = hw != null and is_instance_valid(hw) and s.process_mode == Node.PROCESS_MODE_DISABLED
+		_check("v13.295: HOLD opens the cargo window (the hold full %s, the game waits)" % full0, tabs_ok and opened and full0, "")
+		if not opened:
+			for r2 in results: print("[route] ", r2)
+			get_tree().quit()
+			return
+		await _wait(1.5)
+		await _shot("inventory_open", 0.3)
+		var rows: int = hw.find_child("Rows", true, false).get_child_count()
+		var no_drop_pilot: bool = hw.find_child("Drop_2", true, false) == null
+		var d1: Button = hw.find_child("Drop1_1", true, false)
+		var used0 := GS.hold_used()
+		if d1 != null: d1.pressed.emit()
+		await _wait(0.2)
+		var gold_n := GS.ore_count("gold")
+		var dgoods: Button = hw.find_child("Drop_3", true, false)
+		if dgoods != null: dgoods.pressed.emit()
+		await _wait(0.2)
+		var dumped: int = s.loot.filter(func(l): return l.get("dumped", false)).size()
+		_check("v13.295: every thing in the hold is a row; DROP 1 takes one off a stack, DROP throws it out behind the ship, a prisoner can't be dropped (rows %d, gold %d, hold %d -> %d, crates out %d)" % [rows, gold_n, used0, GS.hold_used(), dumped], rows == GS.cargo.size() + 1 and gold_n == 11 and GS.hold_used() < used0 and dumped == 2 and no_drop_pilot, "")
+		var eq: Button = hw.find_child("Equip_0", true, false)
+		if eq != null: eq.pressed.emit()
+		await _wait(0.3)
+		_check("v13.295: EQUIP puts a weapon from the hold straight on your guns (gun %s, armory %s)" % [GS.weapon_id, str(GS.owned_weapons)], GS.weapon_id == "ion" and "ion" in GS.owned_weapons and not GS.cargo.any(func(c): return c.get("kind", "") == "weapon"), "")
+		await _shot("inventory_after", 0.3)
+		var cb: Button = hw.find_child("Close", true, false)
+		cb.pressed.emit()
+		await _wait(0.4)
+		var resumed: bool = s.process_mode == Node.PROCESS_MODE_INHERIT and main.hud.visible
+		var cargo_before: int = GS.cargo.size()
+		for l in s.loot:
+			if l.get("dumped", false): (l["node"] as Node3D).global_position = s.player.global_position + Vector3(0, 0, 30)
+		var said: String = s.tractor()
+		s.tractor_t = 6.0
+		await _wait(3.0)
+		var still: int = s.loot.filter(func(l): return l.get("dumped", false)).size()
+		_check("v13.295: CLOSE goes back to flying, and the tractor beam leaves what you dropped alone (%s; crates still out %d, hold things %d -> %d)" % [said, still, cargo_before, GS.cargo.size()], resumed and still == 2 and GS.cargo.size() == cargo_before and said.find("nothing") >= 0, "")
+		for r2 in results: print("[route] ", r2)
+		get_tree().quit()
+		return
 	if _flag("HL_WDROP"):   # v13.267 (owner: "enemies drop weapons you tractor in; better enemies drop more")
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
