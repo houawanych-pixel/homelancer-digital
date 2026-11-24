@@ -7000,7 +7000,7 @@ func _process(dt: float) -> void:
 	_poll_speech(dt)
 	if preview_pivot and is_instance_valid(preview_pivot) and screen != "equipment": preview_pivot.rotation.y = t * 0.4 + eq_yaw
 	elif preview_pivot and is_instance_valid(preview_pivot) and screen == "equipment":   # v2.6 (owner): it turns on the platform
-		if bay_zoom_on and eq_tab != "hangar" and bay_hold <= 0.0: bay_yaw = lerp_angle(bay_yaw, Data.BAY_WEAPON_YAW if eq_tab == "weapon" else 0.0, clampf(dt * 5.0, 0.0, 1.0))   # v13.97: zoomed: face it (v13.290: weapons: a three-quarter view, so the guns show side on)
+		if bay_zoom_on and eq_tab != "hangar" and bay_hold <= 0.0: bay_yaw = lerp_angle(bay_yaw, Data.BAY_WEAPON_YAW if eq_tab == "weapon" and not _eq_mech() else 0.0, clampf(dt * 5.0, 0.0, 1.0))   # v13.97: zoomed: face it (v13.290: weapons: a three-quarter view, so the guns show side on)
 		elif bay_hold > 0.0: bay_hold -= dt
 		else: bay_yaw = fmod(bay_yaw + dt * Data.BAY_SPIN, TAU)
 		preview_pivot.rotation.y = bay_yaw
