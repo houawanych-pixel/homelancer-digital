@@ -7915,6 +7915,76 @@ func _run() -> void:
 			ej == "out" and prompt_steal and got and driving and hidden and capped and out and left_ok and again and s.last_crime == "car_theft" and s.cars_stolen == 1, "")
 		_finish_group()
 		return
+	if _flag("HL_ROOMLIGHT"):   # v13.288 (owner: "why is this screen so dark; it should be like the EQUIPMENT page, the ship with the weapons on; pinch, pan, rotate")
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var s: Node = _sp()
+		main.dock(s.station)
+		await _until(func(): return main.state == "hub", 15.0)
+		await _wait(1.0)
+		var hb: Node = main.hub
+		hb.loc_rooms = true
+		hb.eq_tab = "weapon"
+		hb.show_screen("equipment")
+		await _until(func(): return is_instance_valid(hb.preview_pivot) and is_instance_valid(hb._bay_node), 30.0)
+		await _wait(3.0)
+		var bay_ok: bool = not hb.room_view.visible and is_instance_valid(hb.preview_pivot) and hb.preview_pivot.get_child_count() > 0
+		var img := get_viewport().get_texture().get_image()
+		var sz := img.get_size()
+		var tot := 0.0
+		var n := 0
+		for y in range(int(sz.y * 0.3), int(sz.y * 0.8), 6):
+			for x in range(int(sz.x * 0.2), int(sz.x * 0.5), 6):
+				var c := img.get_pixel(x, y)
+				tot += (c.r + c.g + c.b) / 3.0
+				n += 1
+		var lum: float = tot / maxf(1.0, n)
+		await _capture("hangar_weapons")
+		# gestures on the ship: one finger turns, two fingers move it, a pinch zooms
+		var ov: Control = hb._bay_node.get_node("MountMap")
+		var mid := ov.size * 0.5
+		var y0: float = hb.bay_yaw
+		var ev := InputEventScreenTouch.new()
+		ev.index = 0
+		ev.position = mid
+		ev.pressed = true
+		hb._bay_tap(ev, {}, ov)
+		var dr := InputEventScreenDrag.new()
+		dr.index = 0
+		dr.position = mid + Vector2(80, 0)
+		dr.relative = Vector2(80, 0)
+		hb._bay_tap(dr, {}, ov)
+		var turned: bool = absf(hb.bay_yaw - y0) > 0.5
+		var ev2 := InputEventScreenTouch.new()
+		ev2.index = 1
+		ev2.position = mid + Vector2(0, 100)
+		ev2.pressed = true
+		hb._bay_tap(ev2, {}, ov)
+		var p0: Vector2 = hb.bay_view_pan
+		var dr2 := InputEventScreenDrag.new()   # spread the second finger: zoom in
+		dr2.index = 1
+		dr2.position = mid + Vector2(0, 200)
+		dr2.relative = Vector2(0, 100)
+		hb._bay_tap(dr2, {}, ov)
+		var zoomed: bool = hb.bay_view_zoom > 1.3 and absf((hb._bay_node.get_node("LoadoutPreview") as Control).scale.x - hb.bay_view_zoom) < 0.01
+		var dr3 := InputEventScreenDrag.new()   # both fingers move right together: pan
+		dr3.index = 0
+		dr3.position = mid + Vector2(140, 0)
+		dr3.relative = Vector2(60, 0)
+		hb._bay_tap(dr3, {}, ov)
+		var dr4 := InputEventScreenDrag.new()
+		dr4.index = 1
+		dr4.position = mid + Vector2(60, 200)
+		dr4.relative = Vector2(60, 0)
+		hb._bay_tap(dr4, {}, ov)
+		var panned: bool = hb.bay_view_pan.x > p0.x + 40.0
+		await _wait(0.4)
+		await _capture("hangar_weapons_zoomed")
+		_check("Hangar WEAPONS (v13.288): the bay and your ship like EQUIPMENT (%s), bright (mean %.2f, was 0.30 under a dark panel); one finger turns it (%s), a pinch zooms (%s, x%.2f), two fingers move it (%s)" % [bay_ok, lum, turned, zoomed, hb.bay_view_zoom, panned],
+			bay_ok and lum > 0.4 and turned and zoomed and panned, "")
+		_finish_group()
+		return
 	if _flag("HL_GANGS"):   # v13.287 (owner: "gangs, phone missions")
 		var pid := "new_terra"
 		var tile := 4

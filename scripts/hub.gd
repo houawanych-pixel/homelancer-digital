@@ -769,7 +769,9 @@ func show_screen(s: String) -> void:
 		_gar_close()
 		lo_quarters = false
 	# v3.1: HOME is open glass (the station picture shows through); the other pages keep their panel
-	if s == "hub": content.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	# v13.288 (owner: "why is this screen so dark"): the full pages (the hangar, the garage) draw their own panels; the
+	# default page panel left over the whole screen dimmed the room behind them by half
+	if s == "hub" or full_page(s): content.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	else: content.remove_theme_stylebox_override("panel")
 	# v8.2 (owner, hub panel spec): five categories instead of ten tabs; the active one shows its pages in a small
 	# row underneath (HANGAR -> SHIPS · MECHS · WEAPONS). A category with one page is that page's button.
@@ -1570,7 +1572,10 @@ static func loc_fuzzy(place: String) -> String:
 	return place
 
 func room_for(s: String) -> String:
-	var lrn := str(Data.ROOM_OF.get(s, "")) if s != "equipment" else str({"weapon": "weapons", "ammo": "supplies"}.get(eq_tab, ""))
+	# v13.288 (owner: "it should be like the EQUIPMENT page"): the hangar's tabs always show the bay and your ship (the
+	# place's own rooms were standing in for WEAPONS / REPAIR & AMMO, with no ship and no weapon pictures)
+	if s == "equipment": return ""
+	var lrn := str(Data.ROOM_OF.get(s, ""))
 	var lr := loc_room(lrn) if lrn != "" else ""
 	if lr != "": return lr
 	var f := _room_faction()
@@ -2672,6 +2677,9 @@ func _equipment_page() -> void:
 	# when there is one), YOUR ship on the pad seen from above with a square on every slot, the menu floating on the
 	# left (HANGAR / WEAPON / EQUIPMENT / REPAIR & AMMO), the panel for that section floating on the right.
 	bay_yaw = 0.0   # v2.6: each time the page is built it faces you first, then starts turning
+	bay_tilt = 0.0
+	bay_view_zoom = 1.0
+	bay_view_pan = Vector2.ZERO
 	bay_hold = Data.BAY_SPIN_WAIT
 	if not GS.level_def()["uv"].has(eq_sel) and eq_sel < 100: eq_sel = -1
 	if eq_sel >= 100 and eq_sel - 100 >= GS.module_slots(): eq_sel = -1
@@ -3208,22 +3216,37 @@ func _ship_select(col: Control) -> void:
 				status.text = "Level %d: %s. Buy one at the SHIP DEALER." % [lvv, ", ".join(nms)])
 		col.add_child(fb)
 
-func _bay_tap(e: InputEvent, pts: Dictionary, c: Control = null) -> void:
-	if (e is InputEventMouseButton and (e as InputEventMouseButton).pressed) or (e is InputEventScreenTouch and (e as InputEventScreenTouch).pressed): _dragged = false
-	var drag := Vector2.ZERO
-	if e is InputEventScreenDrag: drag = (e as InputEventScreenDrag).relative
-	elif e is InputEventMouseMotion and ((e as InputEventMouseMotion).button_mask & MOUSE_BUTTON_MASK_LEFT): drag = (e as InputEventMouseMotion).relative
-	if drag != Vector2.ZERO:   # v2.6: drag sideways to turn it on the platform
-		bay_yaw = fmod(bay_yaw + drag.x * 0.012, TAU)
+## v13.288 (owner: "one finger rotates, two fingers move, pinch zooms, on every map and viewer"): the bay's view
+var bay_gest := Gestures.new()
+var bay_view_zoom := 1.0
+var bay_view_pan := Vector2.ZERO
+var bay_tilt := 0.0
+func _bay_view(rot: Vector2, pan: Vector2, zoom: float) -> void:
+	if rot != Vector2.ZERO:   # one finger: turn it round, tip it up or down
+		bay_yaw = fmod(bay_yaw + rot.x * 0.012, TAU)
+		bay_tilt = clampf(bay_tilt + rot.y * 0.008, -Data.BAY_TILT_MAX, Data.BAY_TILT_MAX)
 		bay_hold = Data.BAY_SPIN_WAIT
-		_dragged = true
+	bay_view_zoom = clampf(bay_view_zoom * zoom, Data.VIEW_ZOOM_MIN, Data.VIEW_ZOOM_MAX)
+	bay_view_pan += pan
+	if not is_instance_valid(_bay_node): return
+	var lim := _bay_node.size * 0.5 * bay_view_zoom
+	bay_view_pan = bay_view_pan.clamp(-lim, lim)
+	for nm in ["LoadoutPreview", "MountMap"]:
+		var n: Control = _bay_node.get_node_or_null(nm)
+		if n == null: continue
+		n.pivot_offset = n.size * 0.5
+		n.scale = Vector2.ONE * bay_view_zoom
+		n.position = bay_view_pan
+	if is_instance_valid(preview_pivot): preview_pivot.rotation.x = bay_tilt
+
+func _bay_tap(e: InputEvent, pts: Dictionary, c: Control = null) -> void:
+	if bay_gest.feed(e):
+		_bay_view(bay_gest.rotate, bay_gest.pan, bay_gest.zoom)
+		var ov2: Control = _bay_node.get_node_or_null("MountMap") if is_instance_valid(_bay_node) else null
+		if ov2 != null: ov2.queue_redraw()
 		return
-	if _dragged and ((e is InputEventMouseButton and not (e as InputEventMouseButton).pressed) or (e is InputEventScreenTouch and not (e as InputEventScreenTouch).pressed)):
-		_dragged = false
-		return
-	var tap := (e is InputEventScreenTouch and not (e as InputEventScreenTouch).pressed) or (e is InputEventMouseButton and (e as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT and not (e as InputEventMouseButton).pressed)
-	if not tap: return
-	var at: Vector2 = (e as InputEventMouseButton).position if e is InputEventMouseButton else (e as InputEventScreenTouch).position
+	if not bay_gest.tap: return
+	var at: Vector2 = bay_gest.tap_at
 	if c != null and c.has_meta("pts"): pts = c.get_meta("pts")   # v3.5: tap what is drawn (the camera may have moved since)
 	var k := _slot_at(at, pts, c)
 	if k > -9:
