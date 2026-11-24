@@ -7940,6 +7940,40 @@ func _run() -> void:
 			ej == "out" and prompt_steal and got and driving and hidden and capped and out and left_ok and again and s.last_crime == "car_theft" and s.cars_stolen == 1, "")
 		_finish_group()
 		return
+	if _flag("HL_SHIPTHUMB"):   # v13.293 (owner: "thumbnails next to the purchase, and a preview when you select the name")
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var s: Node = _sp()
+		main.dock(s.station)
+		await _until(func(): return main.state == "hub", 15.0)
+		await _wait(1.0)
+		var hb: Node = main.hub
+		hb.show_screen("ships")
+		var thumbs := func() -> Array:
+			var got := 0
+			var want := 0
+			for id in Data.SHIP_ORDER:
+				if not ShipFactory.has_real_model(str(Data.SHIPS[id]["model"])): continue
+				want += 1
+				var b: Node = hb.find_child("Pick_" + id, true, false)
+				var t: TextureRect = b.find_child("Thumb", true, false) if b != null else null
+				if t != null and t.texture != null: got += 1
+			return [got, want]
+		await _until(func(): var r: Array = thumbs.call(); return r[0] == r[1] and r[1] > 0, 60.0)
+		hb.show_screen("ships")
+		await _wait(0.5)
+		var tr: Array = thumbs.call()
+		var pick: String = Data.SHIP_ORDER[2]
+		var pb: Button = hb.find_child("Pick_" + pick, true, false)
+		if pb != null: pb.pressed.emit()
+		await _wait(1.0)
+		var previewed: bool = hb.preview_key == pick and hb.ships_pick == pick
+		await _capture("shipyard_thumbs")
+		_check("Shipyard thumbnails (v13.293): every ship has its picture beside its name (%d of %d); tapping %s shows it in the showroom (%s)" % [tr[0], tr[1], pick, previewed],
+			tr[1] > 0 and tr[0] == tr[1] and previewed, "")
+		_finish_group()
+		return
 	if _flag("HL_TRYON"):   # v13.291 (owner: "picking a weapon previews it on the ship; only buying and equipping locks it in, with a sound")
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)

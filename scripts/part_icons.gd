@@ -162,6 +162,14 @@ static func mech_part(fid: String, part: String) -> Array:
 			elif hc[0] != null: mi.mesh = hc[0]
 	return [m, "front"]
 
+## v13.293 (owner: "thumbnails of the ships next to the purchase"): a whole ship from the top, nose up.
+static func ship(sid: String) -> Array:
+	var key := str(Data.SHIPS.get(sid, {}).get("model", ""))
+	if key == "" or not ShipFactory.has_real_model(key): return []
+	var root := Node3D.new()
+	root.add_child(ShipFactory.build(key))
+	return [root, "top"]
+
 ## One ship's cockpit / body / wings / tail on its own.
 static func ship_part(sid: String, part: String) -> Array:
 	var key := str(Data.SHIPS[sid]["model"])

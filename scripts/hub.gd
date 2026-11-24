@@ -4608,14 +4608,53 @@ func _ships_page() -> void:
 	for id in Data.SHIP_ORDER:
 		var s: Dictionary = Data.SHIPS[id]
 		var card := VBoxContainer.new()
-		var l := _label(19, GOLD if id == GS.ship_id else Color(1, 1, 1))
+		# v13.293 (owner: "thumbnails next to the purchase, and a preview when you select the name"): the ship's
+		# picture beside its name; tap either and it shows in the showroom on the left
+		var head := Button.new()
+		head.name = "Pick_" + id
+		head.flat = true
+		head.toggle_mode = false
+		head.custom_minimum_size = Vector2(0, 92)
+		head.mouse_filter = Control.MOUSE_FILTER_STOP
+		var hb := HBoxContainer.new()
+		hb.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		hb.add_theme_constant_override("separation", 12)
+		head.add_child(hb)
+		var pic := TextureRect.new()
+		pic.name = "Thumb"
+		pic.custom_minimum_size = Vector2(88, 88)
+		pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		hb.add_child(pic)
+		if ShipFactory.has_real_model(str(s["model"])): _icons().get_icon("ship_" + id, PartIcons.ship.bind(id), pic)
+		var words := VBoxContainer.new()
+		words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		words.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		words.alignment = BoxContainer.ALIGNMENT_CENTER
+		hb.add_child(words)
+		var l := _label(19, GOLD if id == GS.ship_id else (Color(0.6, 0.95, 1.0) if id == _ship_pick() else Color(1, 1, 1)))
 		l.text = "%s  —  %s%s" % [s["name"].to_upper(), s["class"], "   (CURRENT)" if id == GS.ship_id else ""]
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART   # v11.4: the tablet is narrow
-		card.add_child(l)
+		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		words.add_child(l)
 		var st := _label(15, CYAN)
 		st.text = "Hull %d · Shield %d · Speed %d · Turn %.2f · Guns %d · Missiles %d · Mines %d" % [s["hull"], s["shield"], s["speed"], s["turn"], s["guns"], s["missiles"], s["mines"]]
 		st.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART   # v4.6: wraps beside the assistant
-		card.add_child(st)
+		st.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		words.add_child(st)
+		var sel := StyleBoxFlat.new()
+		sel.bg_color = Color(0.2, 0.55, 0.8, 0.22) if id == _ship_pick() else Color(0, 0, 0, 0)
+		sel.border_color = Color(0.5, 0.9, 1.0, 0.8) if id == _ship_pick() else Color(0, 0, 0, 0)
+		sel.set_border_width_all(2)
+		sel.set_corner_radius_all(6)
+		for stn in ["normal", "hover", "pressed", "focus"]: head.add_theme_stylebox_override(stn, sel)
+		head.pressed.connect(func():
+			_set_preview(id)
+			Sfx.play("comm_open", -10.0, 1.3)
+			show_screen("ships"))
+		card.add_child(head)
 		var row := HBoxContainer.new()
 		var b := Button.new()
 		b.name = "Ship_" + id
@@ -4661,12 +4700,13 @@ func _ships_page() -> void:
 	preview_vp.add_child(we)
 	preview_pivot = Node3D.new()
 	preview_vp.add_child(preview_pivot)
-	_set_preview(GS.ship_id)
+	_set_preview(ships_pick if Data.SHIPS.has(ships_pick) else GS.ship_id)
 	svc.gui_input.connect(func(e: InputEvent):
 		if (e is InputEventScreenTouch and not e.pressed) or (e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and not e.pressed):
 			open_inspector(preview_key))
 	var hint := _label(14, CYAN)
-	hint.text = "TAP THE SHIP TO INSPECT"
+	var pk := _ship_pick()
+	hint.text = "TAP THE SHIP TO INSPECT" if pk == GS.ship_id else "%s  ·  %s  ·  TAP TO INSPECT" % [str(Data.SHIPS[pk]["name"]).to_upper(), "OWNED" if pk in GS.owned_ships else "%d cr" % int(Data.SHIPS[pk]["price"])]
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	hint.offset_top = -26
@@ -4796,8 +4836,13 @@ func _mech_preview() -> void:
 func _on_mech_pack_hub(pk: String) -> void:
 	if pk.begins_with("mf_") and is_instance_valid(preview_pivot) and preview_key == "mech": _mech_preview()
 
+var ships_pick := ""   # v13.293: the ship picked in the SHIPYARD list (shown in the showroom)
+func _ship_pick() -> String: return ships_pick if Data.SHIPS.has(ships_pick) else GS.ship_id
 func _set_preview(id: String) -> void:
-	if preview_pivot == null or not is_instance_valid(preview_pivot): return
+	if screen == "ships": ships_pick = id
+	if preview_pivot == null or not is_instance_valid(preview_pivot):
+		preview_key = id
+		return
 	for c in preview_pivot.get_children(): c.queue_free()
 	var m := ShipFactory.build(Data.SHIPS[id]["model"], id == GS.ship_id)
 	preview_pivot.add_child(m)
