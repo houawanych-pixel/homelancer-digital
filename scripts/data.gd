@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.291"
+const VERSION := "v13.292"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -548,7 +548,7 @@ const TRAFFIC_MIX := {"car": 6, "bus": 1, "truck": 2}   # share of each kind in 
 const TRAFFIC_SIZE := {"car": Vector3(4.6, 3.2, 10.0), "bus": Vector3(6.0, 7.0, 28.0), "truck": Vector3(6.0, 7.5, 22.0)}   # m: width, height, length (people are 3.8 m)
 const TRAFFIC_SPEED := {"car": Vector2(18.0, 30.0), "bus": Vector2(10.0, 14.0), "truck": Vector2(12.0, 18.0)}   # m/s
 const TRAFFIC_COLORS := [Color(0.85, 0.12, 0.15), Color(0.95, 0.75, 0.15), Color(0.15, 0.45, 0.9), Color(0.92, 0.93, 0.95), Color(0.12, 0.13, 0.15), Color(0.55, 0.2, 0.75), Color(0.1, 0.65, 0.55)]
-const TRAFFIC_HOVER := 2.0          # m over the street
+const TRAFFIC_HOVER := 1.2          # m over the street
 const TRAFFIC_LANE_W := 6.0         # m a lane
 const TRAFFIC_RANGE := 400.0        # m round you that has traffic
 const TRAFFIC_ALT := 250.0          # m over the street: higher than this, none
@@ -595,6 +595,11 @@ const VIEW_ZOOM_MAX := 4.0           # ... and in
 const BAY_TILT_MAX := 0.6            # rad the hangar model tips up or down with one finger
 const BAY_GUN_K := 2.0               # v13.290 (owner: "I don't see the weapons equipped"): fitted guns drawn this much bigger on the hangar ship
 const BAY_WEAPON_YAW := 0.65         # rad: in the WEAPONS tab the ship turns three-quarters on, so the guns show side on (front on they're just muzzles)
+## v13.292 (owner's vehicle sheets): which drawn vehicles play each kind of traffic (a list cycled through the pool)
+const TRAFFIC_MODELS := {"car": ["taxi_pod", "compact_pod", "arrow_coupe", "taxi_pod", "family_capsule", "street_racer", "air_yacht", "police_interceptor", "vip_stretch", "gang_bruiser", "unmarked_interceptor", "taxi_pod"],
+	"bus": ["city_skybus", "prisoner_transport"],
+	"truck": ["freight_hauler", "cargo_skiff", "medi_flight", "news_van", "tow_skiff", "security_carrier", "armored_police", "military_afv"]}
+const VEHICLE_ROOF_AT := 0.72         # the top-view picture sits at this share of the vehicle's height (its roof line)
 const CITY_FLOOR_LAYERS := 2        # layers (5 m) a floor: 1 of room (5 m: people, not mechs), 1 of slab (v13.273: was 3)
 const MODULE := 10                  # v13.273: cells a building module is across: a 3 x 3 grid of 2 x 2-cell rooms (10 m) in 1-cell walls, the middle room the lift
 const CITY_BRIDGE_CHANCE := 0.6     # the chance of a walkway across the alley between two facing buildings

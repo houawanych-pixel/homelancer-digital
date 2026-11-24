@@ -7848,7 +7848,32 @@ func _run() -> void:
 		cam.look_at(spot + Vector3(0.0, -25.0, 0.0), Vector3.UP)
 		await _wait(0.3)
 		await _capture("traffic_above")
+		# v13.292: every drawn vehicle in a row on the avenue, from the side and from above
+		var lineup := Node3D.new()
+		s.tile_root.add_child(lineup)
+		var ids: Array = CityTraffic.art().keys()
+		ids.sort()
+		var drawn := 0
+		for k in ids.size():
+			var kd := "car"
+			for kk in Data.TRAFFIC_MODELS:
+				if (Data.TRAFFIC_MODELS[kk] as Array).has(ids[k]): kd = kk
+			var vn: Node3D = tr.make_vehicle(kd, ids[k])
+			lineup.add_child(vn)
+			vn.position = Vector3(spot.x - 120.0 + (k % 10) * 26.0, g + Data.TRAFFIC_HOVER, spot.z - 40.0 + (k / 10) * 34.0)
+			vn.rotation.y = PI * 0.5
+			if vn.get_node_or_null("Sides") != null: drawn += 1
+		cam.global_position = Vector3(spot.x, g + 26.0, spot.z + 60.0)
+		cam.look_at(Vector3(spot.x, g + 2.0, spot.z - 23.0), Vector3.UP)
+		await _wait(0.4)
+		await _capture("vehicles_lineup")
+		cam.global_position = Vector3(spot.x - 60.0, g + 9.0, spot.z - 10.0)
+		cam.look_at(Vector3(spot.x - 95.0, g + 3.0, spot.z - 40.0), Vector3.UP)
+		await _wait(0.4)
+		await _capture("vehicles_close")
+		lineup.queue_free()
 		cam.queue_free()
+		_check("Drawn vehicles (v13.292): all %d vehicles from the owner's sheets are built from their pictures (%d)" % [ids.size(), drawn], ids.size() == 20 and drawn == 20, "")
 		_check("Hover traffic (v13.282): %d vehicles out round you (%s), %d moving, %d hovering low over the street, %d on the roads (not in a building)" % [n_on, str(kinds.keys()), moved, low, on_road],
 			n_on >= 10 and kinds.size() >= 2 and moved >= n_on - 1 and low == n_on and on_road == n_on, "")
 		_finish_group()
@@ -8230,7 +8255,7 @@ func _run() -> void:
 		await _frames(3)
 		var pr_store: String = s.prompt()
 		main._on_hud("store_car")
-		var stored: bool = not s.driving and GS.garage == [kind]
+		var stored: bool = not s.driving and GS.garage.size() == 1 and str(GS.garage[0]).begins_with(kind + ":")
 		s.player.global_position = Vector3(bay.x, g + Data.PILOT_FEET_BELOW + 0.3, bay.y)
 		await _frames(3)
 		var pr_take: String = s.prompt()

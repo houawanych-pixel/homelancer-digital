@@ -16609,7 +16609,7 @@ func store_car() -> String:
 	if GS.garage.size() >= Data.GARAGE_MAX:
 		message.emit("The garage is full (%d)." % Data.GARAGE_MAX)
 		return "full"
-	GS.garage.append(str(car.get_meta("kind", "car")))
+	GS.garage.append("%s:%s" % [str(car.get_meta("kind", "car")), str(car.get_meta("model", ""))])   # v13.292: the same drawn car comes back out
 	car.queue_free()
 	car = null
 	driving = false
@@ -16624,8 +16624,9 @@ func store_car() -> String:
 ## Take a car out of the garage and drive it (it's yours: no crime).
 func take_car() -> String:
 	if driving or GS.garage.is_empty() or not at_garage() or city_traffic == null or not is_instance_valid(city_traffic): return ""
-	var kind := str(GS.garage.pop_front())
-	var nd := city_traffic.make_vehicle(kind)
+	var entry := str(GS.garage.pop_front()).split(":")
+	var kind := entry[0]
+	var nd := city_traffic.make_vehicle(kind, entry[1] if entry.size() > 1 else "")
 	var ex: Array = safehouse.exit_point()
 	var at2: Vector2 = ex[0]
 	var dir: Vector2 = ex[1]

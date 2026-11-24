@@ -96,9 +96,101 @@ func _box(parent: Node3D, size: Vector3, at: Vector3, mat: Material, nm := "") -
 	return mi
 
 ## A vehicle of a kind, facing -Z, its underside at y = 0 (it hovers TRAFFIC_HOVER over the street).
-func _vehicle(kind: String, i: int) -> Node3D:
+## v13.292 (owner: "cut these shapes out and use the top view as placeholders"): the owner's vehicle sheets, cut out of
+## the green: each vehicle is its top-view outline pulled up into a body, the top view laid on its roof and the side
+## view on its sides (see-through where the picture is), so from above it is the drawing and from the street it has
+## the right shape and colours. assets/vehicles: <id>_top.webp, <id>_side.webp, vehicles.json (outline, sizes, kind).
+static var _art: Dictionary = {}
+static func art() -> Dictionary:
+	if _art.is_empty() and FileAccess.file_exists("res://assets/vehicles/vehicles.json"):
+		var j = JSON.parse_string(FileAccess.get_file_as_string("res://assets/vehicles/vehicles.json"))
+		if j is Dictionary: _art = j
+	return _art
+
+## Which drawn vehicle plays a kind of traffic (the i-th of its list).
+static func model_for(kind: String, i: int) -> String:
+	var opts: Array = (Data.TRAFFIC_MODELS.get(kind, []) as Array).filter(func(m): return art().has(m))
+	return str(opts[i % opts.size()]) if not opts.is_empty() else ""
+
+static var _art_mats := {}
+func _art_mat(path: String) -> StandardMaterial3D:
+	if _art_mats.has(path): return _art_mats[path]
+	var m := StandardMaterial3D.new()
+	m.albedo_texture = load(path)
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+	m.alpha_scissor_threshold = 0.5
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.roughness = 0.45
+	m.metallic = 0.25
+	m.emission_enabled = true   # (the drawings' neon and lights read in the shade)
+	m.emission_texture = m.albedo_texture
+	m.emission_energy_multiplier = 0.35
+	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	_art_mats[path] = m
+	return m
+
+## The drawn vehicle: length ln (m) along -Z (its nose), width and height from its pictures.
+func _art_vehicle(root: Node3D, id: String, ln: float) -> Vector3:
+	var d: Dictionary = art()[id]
+	var tw: Vector2 = Vector2(d["top"][0], d["top"][1])
+	var sw: Vector2 = Vector2(d["side"][0], d["side"][1])
+	var w := ln * tw.y / tw.x
+	var hgt := ln * sw.y / sw.x
+	var roof := hgt * Data.VEHICLE_ROOF_AT
+	var pts: Array = d["outline"]
+	var st := SurfaceTool.new()   # the sides: the side view wrapped round the outline
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var np := pts.size()
+	var p3 := func(q: Array, y: float) -> Vector3: return Vector3((0.5 - float(q[1])) * w, y, (float(q[0]) - 0.5) * ln)
+	for k in np:
+		var a: Array = pts[k]
+		var b: Array = pts[(k + 1) % np]
+		var A0: Vector3 = p3.call(a, 0.0)
+		var B0: Vector3 = p3.call(b, 0.0)
+		var A1: Vector3 = p3.call(a, hgt)
+		var B1: Vector3 = p3.call(b, hgt)
+		var nrm := (B0 - A0).cross(Vector3.UP).normalized()
+		for v in [[A0, Vector2(float(a[0]), 1.0)], [B0, Vector2(float(b[0]), 1.0)], [B1, Vector2(float(b[0]), 0.0)], [A0, Vector2(float(a[0]), 1.0)], [B1, Vector2(float(b[0]), 0.0)], [A1, Vector2(float(a[0]), 0.0)]]:
+			st.set_normal(nrm)
+			st.set_uv(v[1])
+			st.add_vertex(v[0])
+	var sides := MeshInstance3D.new()
+	sides.name = "Sides"
+	sides.mesh = st.commit()
+	sides.material_override = _art_mat("res://assets/vehicles/%s_side.webp" % id)
+	sides.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(sides)
+	var top := MeshInstance3D.new()   # the roof: the top view, at the roof line
+	top.name = "Roof"
+	var qm := QuadMesh.new()
+	qm.size = Vector2(w, ln)
+	qm.orientation = PlaneMesh.FACE_Y
+	top.mesh = qm
+	top.material_override = _art_mat("res://assets/vehicles/%s_top.webp" % id)
+	top.position = Vector3(0, roof, 0)
+	top.rotation.y = -PI * 0.5   # (the picture's nose is at its left: turn it to point down -Z)
+	top.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(top)
+	return Vector3(w, hgt, ln)
+
+func _vehicle(kind: String, i: int, model := "") -> Node3D:
 	var root := Node3D.new()
 	root.name = "%s%d" % [kind.capitalize(), i]
+	var mid := model if model != "" and art().has(model) else model_for(kind, i)
+	if mid != "":
+		var dims2 := _art_vehicle(root, mid, (Data.TRAFFIC_SIZE[kind] as Vector3).z)
+		var hov := _mat("hover", Data.CITY_TRIM, 2.2)
+		_box(root, Vector3(dims2.x * 0.7, 0.2, dims2.z * 0.75), Vector3(0, 0.05, 0), hov, "Hover")
+		var lamp2 := OmniLight3D.new()
+		lamp2.light_color = Data.CITY_TRIM
+		lamp2.light_energy = 0.8
+		lamp2.omni_range = dims2.x * 1.6
+		lamp2.position = Vector3(0, -0.6, 0)
+		lamp2.shadow_enabled = false
+		root.add_child(lamp2)
+		root.set_meta("kind", kind)
+		root.set_meta("model", mid)
+		return root
 	var dims: Vector3 = Data.TRAFFIC_SIZE[kind]   # width, height, length
 	var w := dims.x
 	var hgt := dims.y
@@ -241,9 +333,9 @@ func take(q: Dictionary) -> Node3D:
 	return nd
 
 ## v13.285: a vehicle of a kind (out of the garage).
-func make_vehicle(kind: String) -> Node3D:
+func make_vehicle(kind: String, model := "") -> Node3D:
 	_fresh += 1
-	return _vehicle(kind, _fresh)
+	return _vehicle(kind, _fresh, model)
 
 ## A vehicle you got out of: it stays where you left it, hovering, and you can take it again.
 func leave(nd: Node3D) -> void:
