@@ -3673,7 +3673,9 @@ func _weapons_room(v: VBoxContainer) -> void:
 		main_b.text = "EQUIP ON %s" % _slot_name(eq_sel)
 		main_b.add_theme_color_override("font_color", CYAN)
 	main_b.pressed.connect(func():
+		var mid := eq_card
 		shop_result = buy_and_equip(eq_card, kind) if not _card_owned(eq_card, kind) else _card_install(eq_card, kind)
+		if _card_fitted(mid): _lock_in_sound(mid)
 		show_screen("equipment"))
 	act.add_child(main_b)
 	if owned and eq_card in Data.NEXUS_BLASTERS:
@@ -3770,6 +3772,7 @@ func _weapon_row(id: String, kind: String) -> Control:
 	b.pressed.connect(func():
 		eq_card = id
 		shop_result = ""
+		Sfx.play("comm_open", -10.0, 1.3)   # v13.291: trying it on (a hologram on the slot)
 		show_screen("equipment"))
 	return b
 
@@ -3887,7 +3890,9 @@ func _shop_panel(shop: VBoxContainer) -> void:
 		be.disabled = GS.credits < _card_price(eq_card, kind)
 		be.add_theme_color_override("font_color", Color(0.55, 1.0, 0.65))
 		be.pressed.connect(func():
+			var bid := eq_card
 			status.text = buy_and_equip(eq_card, kind)
+			if _card_fitted(bid): _lock_in_sound(bid)
 			show_screen("equipment"))
 		act.add_child(be)
 	var inst := Button.new()
@@ -3899,7 +3904,9 @@ func _shop_panel(shop: VBoxContainer) -> void:
 	inst.add_theme_color_override("font_color", CYAN)
 	inst.clip_text = true
 	inst.pressed.connect(func():
+		var iid := eq_card
 		status.text = _card_install(eq_card, kind)
+		if _card_fitted(iid): _lock_in_sound(iid)
 		show_screen("equipment"))
 	act.add_child(inst)
 	var rem := Button.new()
@@ -3913,6 +3920,37 @@ func _shop_panel(shop: VBoxContainer) -> void:
 		status.text = GS.fit_module(eq_sel - 100, "") if eq_sel >= 100 else GS.fit_mount(eq_sel, "empty")
 		show_screen("equipment"))
 	act.add_child(rem)
+
+## v13.291: a weapon you're only trying on shows as a see-through cyan hologram.
+static var _holo_mat: StandardMaterial3D
+func _hologram(n: Node) -> void:
+	if _holo_mat == null:
+		_holo_mat = StandardMaterial3D.new()
+		_holo_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_holo_mat.albedo_color = Color(0.35, 0.9, 1.0, 0.45)
+		_holo_mat.emission_enabled = true
+		_holo_mat.emission = Color(0.3, 0.85, 1.0)
+		_holo_mat.emission_energy_multiplier = 1.6
+		_holo_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_holo_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	for mi in n.find_children("*", "MeshInstance3D", true, false): (mi as MeshInstance3D).material_override = _holo_mat
+	if n is MeshInstance3D: (n as MeshInstance3D).material_override = _holo_mat
+
+## Is this weapon on the picked slot now?
+func _card_fitted(id: String) -> bool:
+	if eq_sel < 0 and eq_sel > -9 and not (eq_sel in [-2, -3, -4]): return GS.core_item(eq_sel) == id
+	if eq_sel >= 0 and eq_sel < GS.mount_items().size(): return str(GS.mount_items()[eq_sel]) == id
+	return false
+
+## v13.291 (owner: "when you buy and equip it locks it in, and you hear a sound"): a lock-in clank, then the gun itself.
+var equip_sounds := 0   # (tests)
+func _lock_in_sound(id: String) -> void:
+	equip_sounds += 1
+	Sfx.play("transform", -3.0, 1.5)
+	var fire := "laser"
+	if id.begins_with("nx_") and Sfx.streams.has("blaster_" + id.substr(3)): fire = "blaster_" + id.substr(3)
+	elif Data.MOUNT_PODS.has(id): fire = "missile"
+	get_tree().create_timer(0.25).timeout.connect(func(): Sfx.play(fire, -4.0))
 
 ## v11.59: buy the picked card and put it straight on the picked slot (or the first slot it fits).
 func buy_and_equip(id: String, kind: String) -> String:
@@ -4465,12 +4503,15 @@ func _dress_mounts(model: Node3D) -> void:
 	var slots: Array = []
 	for k in GS.core_slots(): slots.append([k, GS.core_item(k)])
 	for g in items.size(): slots.append([g, items[g]])
+	var trying := -99   # v13.291: the slot showing a weapon you're only trying (not bought / fitted yet): a hologram
 	if eq_tab == "weapon" and eq_card != "" and (Data.WEAPONS.has(eq_card) or Data.MOUNT_PODS.has(eq_card)):   # v13.97: PREVIEW: the picked part on the slot
 		var hit := false
 		for pr0 in slots:
 			if int(pr0[0]) == eq_sel:
+				if str(pr0[1]) != eq_card: trying = eq_sel
 				pr0[1] = eq_card
 				hit = true
+		if not hit: trying = eq_sel
 		if not hit and eq_sel > -9 and eq_sel < 100 and not (eq_sel in [-2, -3, -4]): slots.append([eq_sel, eq_card])
 	for pr in slots:
 		var g: int = pr[0]
@@ -4496,6 +4537,7 @@ func _dress_mounts(model: Node3D) -> void:
 		var smn := ShipFactory.mount_node(model, g)   # v8.8: the model's own mount, when it has one
 		if smn != null and model.is_inside_tree(): gun.position = model.global_transform.affine_inverse() * smn.global_position
 		holder.add_child(gun)
+		if g == trying: _hologram(gun)   # v13.291 (owner: "preview it; only buying and equipping locks it in")
 		if eq_tab == "weapon":   # v13.290 (owner: "I don't see the weapons equipped"): each fitted gun lit, the picked slot's brightest
 			var gl := OmniLight3D.new()
 			gl.name = "PickGlow" if g == eq_sel else "GunGlow%d" % g

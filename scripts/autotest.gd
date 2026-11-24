@@ -7915,6 +7915,55 @@ func _run() -> void:
 			ej == "out" and prompt_steal and got and driving and hidden and capped and out and left_ok and again and s.last_crime == "car_theft" and s.cars_stolen == 1, "")
 		_finish_group()
 		return
+	if _flag("HL_TRYON"):   # v13.291 (owner: "picking a weapon previews it on the ship; only buying and equipping locks it in, with a sound")
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var s: Node = _sp()
+		main.dock(s.station)
+		await _until(func(): return main.state == "hub", 15.0)
+		await _wait(1.0)
+		Packs.request("wing_guns")
+		await Packs.wait("wing_guns", 60.0)
+		GS.credits = 5000
+		var hb: Node = main.hub
+		hb.eq_tab = "weapon"
+		hb.eq_sel = 0
+		hb.eq_card = ""
+		hb.show_screen("equipment")
+		await _until(func(): return is_instance_valid(hb.preview_pivot) and hb.preview_pivot.get_child_count() > 0, 30.0)
+		await _wait(1.0)
+		var before: String = str(GS.mount_items()[0])
+		hb.eq_card = "nx_yellow"
+		hb.show_screen("equipment")
+		await _wait(1.0)
+		var holo := func() -> bool:
+			var shipm: Node3D = hb.preview_pivot.get_child(0)
+			var g: Node = shipm.get_node_or_null("ShowMounts/Show0")
+			if g == null: return false
+			var ms := g.find_children("*", "MeshInstance3D", true, false)
+			return not ms.is_empty() and (ms[0] as MeshInstance3D).material_override == hb._holo_mat
+		var shown_holo: bool = holo.call()
+		var not_locked: bool = str(GS.mount_items()[0]) == before
+		hb.bay_hold = 99.0
+		hb.bay_yaw = Data.BAY_WEAPON_YAW
+		await _wait(0.5)
+		await _capture("tryon_hologram")
+		var be: Button = hb.find_child("ShopBuyEquip", true, false)
+		var s0: int = hb.equip_sounds
+		var had_be: bool = be != null
+		if be != null: be.pressed.emit()
+		await _wait(1.0)
+		var locked: bool = str(GS.mount_items()[0]) == "nx_yellow" and hb.equip_sounds == s0 + 1
+		var solid: bool = not holo.call()
+		hb.bay_hold = 99.0
+		hb.bay_yaw = Data.BAY_WEAPON_YAW
+		await _wait(0.5)
+		await _capture("tryon_locked")
+		_check("Try on, then lock in (v13.291): tapping NX YELLOW shows it on the left wing as a hologram (%s) without fitting it (%s); BUY & EQUIP fits it (%s) with the lock-in sound, and it turns solid (%s)" % [shown_holo, not_locked, locked, solid],
+			shown_holo and not_locked and had_be and locked and solid, "")
+		_finish_group()
+		return
 	if _flag("HL_MAPGEST"):   # v13.288 (owner: "on every map: one finger rotates, two fingers move, pinch zooms")
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
