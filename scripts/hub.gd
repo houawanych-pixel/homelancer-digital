@@ -629,7 +629,7 @@ func open(station_or_planet: Dictionary) -> void:
 			{"id": str(p["id"]), "voice_id": str(p.get("voice_id", p["id"])), "voice": float(p.get("voice", 1.0)), "female": str(p.get("sex", "")) == "female"})
 	status.text = "Docked at %s. Shields and energy restored. REPAIR and RESTOCK are in SUPPLIES." % base["name"]   # v13.98 (owner: "we will need repairs and ammo restock"): in the supplies room
 	var sa_worth: int = GS.sell_all_worth(str(base["name"]), str(base.get("kind", "station")), GS.system_id)
-	if sa_worth > 0: status.text = "Docked at %s. Your cargo is worth %d cr here: tap SELL ALL CARGO." % [base["name"], sa_worth]   # v13.296
+	if sa_worth > 0: status.text = "Docked at %s. Your cargo is worth %d cr here: SUPPLIES > SELL ALL CARGO." % [base["name"], sa_worth]   # v13.296
 
 ## v9.2 (owner): the lockdown. A station whose people are HOSTILE to you (or worse) sounds the alarm when you dock:
 ## security comes for you, you can't launch, and you have to fight through the hub to the hangar (Breakout).
@@ -763,7 +763,7 @@ func _end_lockdown() -> void:
 func _refresh_sell_all(s: String) -> void:
 	if sell_all_btn == null: return
 	var w: int = GS.sell_all_worth(str(base.get("name", "")), str(base.get("kind", "station")), GS.system_id) if not base.is_empty() else 0
-	sell_all_btn.visible = w > 0 and s in ["hub", "equipment"] and not lockdown
+	sell_all_btn.visible = false   # v13.300 (owner: "sell cargo should be in supply"): it lives on the SUPPLIES page now
 	sell_all_btn.anchor_left = 0.3 if s == "equipment" else 0.5   # (in the hangar: over the bay, not the shop)
 	sell_all_btn.anchor_right = sell_all_btn.anchor_left
 	sell_all_btn.text = "SELL ALL CARGO  +%s cr" % _thousands(w)
@@ -2326,6 +2326,8 @@ func _sell_all_button(v: Control, back: String) -> void:
 	var b := Button.new()
 	b.name = "SellAll"
 	b.text = "SELL ALL CARGO  +%s cr" % _thousands(worth)
+	b.clip_text = true
+	b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	b.custom_minimum_size = Vector2(0, 58)
 	b.add_theme_font_size_override("font_size", 20)
 	b.add_theme_color_override("font_color", GOLD)
@@ -2572,7 +2574,6 @@ func _hub_panel() -> void:
 	v.add_theme_constant_override("separation", 6)
 	sc.add_child(v)
 	_fix_button(v)   # v11.25 (owner): repair and restock right from the station page
-	_sell_all_button(v, "hub")   # v13.296
 	if str(base.get("role", "")) == "ally": _rep_buttons(v)   # v11.55 (owner): an ally station mends your standing, for credits
 	v.add_child(_caption(str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id])).to_upper() + "  ·  " + str(base["name"]).to_upper()))
 	var l := _label(15, Color(1, 1, 1))
@@ -6856,7 +6857,7 @@ func _ship_page() -> void:
 		else: lines.append("%s (%s)" % [item.get("name", item.get("kind", "?")), item.get("note", item.get("kind", ""))])
 	c.text = "CARGO HOLD  %s\n%s" % [GS.hold_text(), "\n".join(lines) if not lines.is_empty() else "Empty."]
 	v.add_child(c)
-	_sell_all_button(v, "ship")   # v13.296
+
 	for ci in GS.cargo.size():   # v13.266 (owner: "keep it or sell it"): a SELL button for each spare part in the hold
 		var it: Dictionary = GS.cargo[ci]
 		if not (it.get("kind", "") in ["part", "weapon"]): continue
@@ -7042,6 +7043,7 @@ func _fix_button(v: Control) -> void:
 func _repair_page() -> void:
 	var v := _page_box()
 	_fix_button(v)   # v11.25: first, so it is never scrolled out of sight
+	if screen == "supplies": _sell_all_button(v, "supplies")   # v13.300 (owner: "sell cargo should be in supply"): near the top
 	if str(base.get("role", "")) == "ally": _rep_buttons(v)   # v11.61: Repair Reputation lives here now (the hub box is gone)
 	if _board_locked(v): return   # v11.55 (owner): low standing locks the services too
 	var l := _label(20, Color(1, 1, 1))
@@ -7077,6 +7079,7 @@ func _atlas_button(v: Control) -> void:
 	var ab := Button.new()
 	ab.name = "BuyAtlas"
 	ab.custom_minimum_size = Vector2(0, 60)
+	ab.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART   # v13.300: its long words wrap (they stretched the whole SUPPLIES page off the tablet)
 	var pn := str(Surface.PLANETS[ap]["name"])
 	if ap in GS.atlases:
 		ab.text = "%s ATLAS  ·  OWNED (the whole planet is on your map)" % pn.to_upper()

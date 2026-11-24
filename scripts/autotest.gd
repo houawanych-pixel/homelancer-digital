@@ -8921,15 +8921,20 @@ func _run() -> void:
 		main.dock(s.station)
 		await _until(func(): return main.state == "hub", 15.0)
 		main.hub.show_screen("hub")
-		await _wait(0.6)
-		var sb: Button = main.hub.sell_all_btn if main.hub.sell_all_btn.visible else null
+		await _wait(0.4)
+		var not_on_hub: bool = main.hub.content.find_child("SellAll", true, false) == null and not main.hub.sell_all_btn.visible
+		main.hub.show_screen("supplies")
+		await _wait(2.0)
+		var sb: Button = main.hub.content.find_child("SellAll", true, false)
 		var label: String = sb.text if sb != null else "none"
-		var had_sb := sb != null
+		var had_sb := sb != null and not_on_hub
+		await _wait(1.0)
+		var fits: bool = main.hub.board_sc.get_global_rect().size.x <= main.hub.content.get_global_rect().size.x
 		await _shot("sell_all", 0.3)
 		if sb != null: sb.pressed.emit()
 		await _wait(0.5)
 		var left: Array = GS.cargo.map(func(c): return str(c.get("kind", "")))
-		_check("v13.296: docked, HOME has SELL ALL CARGO (%s; window said '%s'): it sells the gold, goods and the spare gun and keeps the prisoner (credits %d, left %s)" % [label, titled, GS.credits, str(left)], had_sb and GS.credits > 1000 and left.size() == 1 and str(left[0]) == "pilot" and titled.find("FULL") < 0, "")
+		_check("v13.300: docked, SUPPLIES has SELL ALL CARGO (not the station page) (%s; window said '%s'): it sells the gold, goods and the spare gun and keeps the prisoner (credits %d, left %s)" % [label, titled, GS.credits, str(left)], had_sb and fits and GS.credits > 1000 and left.size() == 1 and str(left[0]) == "pilot" and titled.find("FULL") < 0, "")
 		main.hub.show_screen("ship")
 		await _wait(0.4)
 		_check("v13.296: nothing left to sell: the SELL ALL buttons are gone", main.hub.content.find_child("SellAll", true, false) == null and not main.hub.sell_all_btn.visible, "")
