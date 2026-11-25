@@ -8835,6 +8835,57 @@ func _run() -> void:
 		_check("v13.317: MY QUARTERS has home point, contacts, standing and status and no ship parts (%s, %s); the parts are in the SHIPYARD (%s)" % [str(no_parts), str(has), str(in_yard)], no_parts and has and in_yard, "")
 		_finish_group()
 		return
+	if _flag("HL_SKYPIER"):   # v13.320 (owner: "there's pillars blocking roads ... bigger lanes, enough for 4 cars")
+		var pid := "new_terra"
+		var tt := 4
+		var cr: Rect2i = CityPlan.rect(pid, tt)
+		var g := CityPlan.ground(pid, tt)
+		var org := Vector2(-Surface.EDGE, -Surface.EDGE) + Vector2(cr.position) * Data.BLOCK_REGION
+		var S: float = Data.BLOCK_REGION
+		var av: float = Data.CITY_AVENUE * Data.BLOCK_MIN
+		var al: float = Data.CITY_ALLEY * Data.BLOCK_MIN
+		var piers := 0
+		var bad := []
+		for pt in (CityTowers.city_links(pid, tt)[0] as Array):
+			if str(pt.get("k", "")) != "white": continue
+			var c: Vector3 = pt["p"]
+			var sz: Vector3 = pt["s"]
+			if sz.y < 30.0 or c.y - sz.y * 0.5 > g + 5.0: continue   # (a pier stands on the street)
+			var lx := c.x - org.x
+			var lz := c.z - org.y
+			if lx < 0.0 or lz < 0.0 or lx > S * cr.size.x or lz > S * cr.size.y: continue   # (the capitol's legs, outside the blocks)
+			piers += 1
+			for q in [[lx, sz.x], [lz, sz.z]]:   # each axis: is the pier's span inside a road (an avenue or an alley)?
+				var m := fposmod(float(q[0]), S)
+				var hw: float = float(q[1]) * 0.5
+				if m - hw < av or m + hw > S - av or absf(m - S * 0.5) < al * 0.5 + hw: bad.append([snappedf(lx, 1), snappedf(lz, 1)])   # (an avenue: 30 m each side of a block line; the alley through the middle)
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main._load_surface(pid, tt)
+		await _until(func(): return is_instance_valid(main.space) and main.space.surface_mode and main.space.planet_id == pid and main.space.tile == tt, 40.0)
+		await _wait(4.0)
+		var s := _sp()
+		var line := org.x + S   # the first inner avenue (along z)
+		s.player.global_position = Vector3(line, g + 8.0, org.y + S * 0.12)
+		s.yaw = PI   # looking down the avenue (+z)
+		s.pitch = 0.05
+		s.player.basis = Basis.from_euler(Vector3(s.pitch, s.yaw, 0))
+		s.vel = Vector3.ZERO
+		s._update_camera(1.0, true)
+		await _wait(4.0)
+		await _capture("skyway_street")
+		s.player.global_position = Vector3(line + 120.0, g + 110.0, org.y + S * 0.6)
+		var dv: Vector3 = (Vector3(line, g + 70.0, org.y + S * 0.9) - s.player.global_position).normalized()
+		s.yaw = atan2(-dv.x, -dv.z)
+		s.pitch = asin(clampf(dv.y, -1.0, 1.0))
+		s.player.basis = Basis.from_euler(Vector3(s.pitch, s.yaw, 0))
+		s._update_camera(1.0, true)
+		await _wait(3.0)
+		await _capture("skyway_deck")
+		_check("v13.320: the skyways are %d m wide (4 lanes) and their %d piers stand off the roads (%d in a road: %s)" % [int(Data.SKYWAY_W), piers, bad.size(), str(bad.slice(0, 6))], Data.SKYWAY_W >= 40.0 and piers > 0 and bad.is_empty(), "")
+		_finish_group()
+		return
 	if _flag("HL_TOWN"):   # v13.319 (owner: "a small town, no huge skyscrapers, the same good structure, smaller"; C3 Red Canyon)
 		var pid := "new_terra"
 		var tt := 8

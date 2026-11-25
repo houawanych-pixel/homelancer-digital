@@ -443,12 +443,19 @@ static func _skyway(out: Array, along_z: bool, line: float, s0: float, s1: float
 	for sg in [-1.0, 1.0]:
 		put.call("glass", sg * (W * 0.5 - 0.4), y, 0.8, 2.6, L)
 		put.call("glow", sg * (W * 0.5 + 0.05), y - 1.6, 0.4, 0.5, L)
-	put.call("glow", 0.0, y + 0.02, 0.5, 0.05, L)
-	var n := int(L / Data.SKYWAY_PIER_EVERY)
-	for i in range(1, n):
-		var a := -L * 0.5 + i * L / n
-		for sg in [-1.0, 1.0]:
-			put.call("white", sg * Data.SKYWAY_PIER_OFF, g, 7.0, y - 6.0 - g, 7.0, a)
+	put.call("glow", 0.0, y + 0.02, 0.5, 0.05, L)   # the middle line
+	for sg in [-1.0, 1.0]:   # v13.320 (owner: "bigger lanes, enough for 4 cars"): two lanes each way, the lane lines
+		put.call("glow", sg * W * 0.25, y + 0.02, 0.25, 0.05, L)
+	# v13.320 (owner: "there's pillars blocking roads"): the piers stand on the pavement either side of the avenue,
+	# never in the road, and only along the blocks (not in a crossing street or the alley); a cross beam carries the deck
+	var S: float = Data.BLOCK_REGION
+	var nb := int(round(L / S))
+	for b in nb:
+		for f in Data.SKYWAY_PIER_AT:
+			var a := -L * 0.5 + (float(b) + float(f)) * S
+			for sg in [-1.0, 1.0]:
+				put.call("white", sg * Data.SKYWAY_PIER_OFF, g, Data.SKYWAY_PIER_W, y - 6.0 - g, Data.SKYWAY_PIER_W, a)
+			put.call("white", 0.0, y - 8.5, Data.SKYWAY_PIER_OFF * 2.0 + Data.SKYWAY_PIER_W, 3.0, Data.SKYWAY_PIER_W * 0.8, a)
 
 ## A glass tunnel between two points (tile-local x, z) at height y, axis-aligned legs: glass tube with white rings.
 static func _tunnel(out: Array, a: Vector2, b: Vector2, y: float) -> void:
