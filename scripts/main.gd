@@ -232,6 +232,14 @@ func _new_space(nm: String) -> void:
 	add_child(space)
 	move_child(space, 0)
 
+## v13.322 (owner: "the alarm at the New Terra planetary dock is black"; the facility went black too): on a phone the
+## world you leave (a whole city) and the deck being built must not be in memory together. Behind the black screen the
+## old world goes first, a couple of frames to let it go, then the deck is built.
+func _release_world() -> void:
+	_new_space("Boarding")
+	await get_tree().process_frame
+	await get_tree().process_frame
+
 func _connect_space() -> void:
 	space.atmosphere_entered.connect(enter_atmosphere)
 	space.tile_edge.connect(_on_tile_edge)
@@ -1673,6 +1681,7 @@ func board_station(kind: String, job := {}, opts := {}) -> void:
 	if Data.FLEET_MECH:
 		Packs.request("mechs")
 		await Packs.wait("mechs", 60.0)
+	await _release_world()   # v13.322
 	var _bt1 := Time.get_ticks_msec()
 	Boarding.use(L)
 	if OS.get_environment("HL_BTIME") != "": print("BTIME use %d" % (Time.get_ticks_msec() - _bt1))
@@ -2574,6 +2583,7 @@ func _enter_facility_deck(site: Dictionary, path: String) -> void:
 	if bool(site.get("tower", false)): board_from["tower"] = true
 	Sfx.play("whoosh", -2.0, 0.7)
 	GS.form = "mech"
+	await _release_world()   # v13.322
 	Boarding.use(L)
 	Boarding.INFO["name"] = nm
 	var dm := {}

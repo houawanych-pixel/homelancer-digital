@@ -8835,6 +8835,37 @@ func _run() -> void:
 		_check("v13.317: MY QUARTERS has home point, contacts, standing and status and no ship parts (%s, %s); the parts are in the SHIPYARD (%s)" % [str(no_parts), str(has), str(in_yard)], no_parts and has and in_yard, "")
 		_finish_group()
 		return
+	if _flag("HL_PLANETALARM"):   # v13.322 (owner: "the alarm at the New Terra planetary dock is black")
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main._load_surface("new_terra", 4)
+		await _until(func(): return is_instance_valid(main.space) and main.space.surface_mode and main.space.tile == 4, 40.0)
+		await _wait(3.0)
+		var s := _sp()
+		var l: Dictionary = Surface.locations_in("new_terra", 4)[0]
+		var pos: Vector2 = l["pos"]
+		s.player.global_position = Vector3(pos.x, Surface.pad_top("new_terra", 4) + 12.0, pos.y)
+		await _wait(0.5)
+		var dc: Node3D = s.dock_candidate()
+		if dc != null: main.dock(dc)
+		await _until(func(): return main.state == "hub", 20.0)
+		await _wait(1.0)
+		main.hub.escape_3d = true   # (as in the game: the tests' default is the older panorama fight)
+		main.alarm_on_deck = true
+		var t0 := Time.get_ticks_msec()
+		main.hub.test_alarm()
+		var seen := []
+		for i in 120:
+			await _wait(0.5)
+			var st := "%s fade %.2f cap '%s' sub '%s' hub %s boarding %s lock %s clip %s" % [main.state, main.fx.fade, main.fx.caption, main.fx.sub, str(main.hub.visible), str(is_instance_valid(main.space) and main.space.boarding), str(main.hub.lockdown), str(main.hub.alarm_clip != null)]
+			if seen.is_empty() or seen[-1] != st: seen.append(st)
+			if main.state == "flight" and is_instance_valid(main.space) and main.space.boarding and main.fx.fade < 0.05: break
+		for x in seen: print("PALARM ", x)   # (what the screen did, step by step)
+		await _capture("planet_alarm")
+		_check("v13.322: the ALARM at a planet dock (%s) runs, not a black screen (%d ms; %s)" % [str(main.hub.base.get("name", "")), Time.get_ticks_msec() - t0, str(seen[-1] if not seen.is_empty() else "")], main.state == "flight" and main.fx.fade < 0.05, "")
+		_finish_group()
+		return
 	if _flag("HL_SKYPIER"):   # v13.320 (owner: "there's pillars blocking roads ... bigger lanes, enough for 4 cars")
 		var pid := "new_terra"
 		var tt := 4
