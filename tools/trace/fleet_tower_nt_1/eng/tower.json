@@ -1,0 +1,16 @@
+{
+ "floors": 10,
+ "style": "cluster",
+ "names": {
+  "main": "GROUND FLOOR",
+  "upper": "FLOOR 2",
+  "upper2": "FLOOR 3",
+  "upper3": "FLOOR 4",
+  "upper4": "FLOOR 5",
+  "upper5": "FLOOR 6",
+  "upper6": "FLOOR 7",
+  "upper7": "FLOOR 8",
+  "upper8": "FLOOR 9",
+  "upper9": "FLOOR 10"
+ }
+}

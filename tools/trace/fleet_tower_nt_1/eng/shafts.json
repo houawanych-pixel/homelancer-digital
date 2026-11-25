@@ -1,0 +1,53 @@
+[
+ {
+  "label": "LIFT L",
+  "decks": [
+   "main",
+   "upper",
+   "upper2",
+   "upper3"
+  ],
+  "at": [
+   1242.0,
+   1350.0
+  ]
+ },
+ {
+  "label": "LIFT M",
+  "decks": [
+   "upper3",
+   "upper4",
+   "upper5",
+   "upper6"
+  ],
+  "at": [
+   2058.0,
+   1950.0
+  ]
+ },
+ {
+  "label": "LIFT H",
+  "decks": [
+   "upper6",
+   "upper7",
+   "upper8",
+   "upper9"
+  ],
+  "at": [
+   1242.0,
+   1950.0
+  ]
+ },
+ {
+  "label": "LIFT X",
+  "decks": [
+   "main",
+   "upper3",
+   "upper6"
+  ],
+  "at": [
+   1962.0,
+   1350.0
+  ]
+ }
+]
