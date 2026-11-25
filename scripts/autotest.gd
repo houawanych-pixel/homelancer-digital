@@ -2208,6 +2208,58 @@ func _run() -> void:
 		GS.save_enabled = false
 		_finish_group()
 		return
+	if _flag("HL_GPUMEM"):   # v13.328 (owner: "New Terra black screen", WebGL context lost on the phone): what a big city costs the GPU
+		var pid := "new_terra"
+		var cts: Dictionary = CityPlan.city_tiles(pid)
+		var tile := -1
+		for t0 in cts:
+			if tile < 0 or int(cts[t0]) > int(cts[tile]): tile = int(t0)
+		main.start_game()
+		await _until(func(): return main.state != "title", 15.0)
+		if main.state == "hub": main.launch()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main._load_surface(pid, tile)
+		await _until(func(): return is_instance_valid(main.space) and main.space.surface_mode and main.space.planet_id == pid, 40.0)
+		var s: Node = _sp()
+		var cr: Rect2i = CityPlan.rect(pid, tile)
+		var g: float = CityPlan.ground(pid, tile)
+		var mid := Vector2(-Surface.EDGE, -Surface.EDGE) + (Vector2(cr.position) + Vector2(cr.size) * 0.5) * Data.BLOCK_REGION
+		for st in [["arrive", s.player.global_position], ["over", Vector3(mid.x - 380.0, g + 220.0, mid.y + 520.0)], ["street", Vector3(mid.x - 30.0, g + 8.0, mid.y + 255.0)]]:
+			var t0 := Time.get_ticks_msec()
+			while Time.get_ticks_msec() - t0 < 20000:
+				s.player.global_position = st[1]; s.vel = Vector3.ZERO
+				await _frames(1)
+			await _wait(1.0)
+			print("GPUMEM %s vmem %.0f MB tex %.0f MB buf %.0f MB objs %d draws %d prims %d nodes %d mesh_inst %d" % [st[0],
+				RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_VIDEO_MEM_USED) / 1e6,
+				RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TEXTURE_MEM_USED) / 1e6,
+				RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_BUFFER_MEM_USED) / 1e6,
+				Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME), Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),
+				Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME), Performance.get_monitor(Performance.OBJECT_NODE_COUNT),
+				get_tree().root.find_children("*", "MeshInstance3D", true, false).size()])
+			var by := {}
+			for mi in get_tree().root.find_children("*", "MeshInstance3D", true, false):
+				var m: MeshInstance3D = mi
+				if m.mesh == null or not m.is_visible_in_tree(): continue
+				var tri := 0
+				for si in m.mesh.get_surface_count():
+					var arr = m.mesh.surface_get_arrays(si)
+					var ix = arr[Mesh.ARRAY_INDEX]
+					tri += (ix.size() if ix != null and ix.size() > 0 else (arr[Mesh.ARRAY_VERTEX] as PackedVector3Array).size()) / 3
+				var path := str(m.get_path()).split("/")
+				var key := "/".join(path.slice(2, 6)) if path.size() > 6 else str(m.get_path())
+				key = key.rstrip("0123456789")
+				if not by.has(key): by[key] = [0, 0]
+				by[key][0] += tri; by[key][1] += 1
+			var ks := by.keys(); ks.sort_custom(func(x, y): return by[x][0] > by[y][0])
+			for k in ks.slice(0, 14): print("  TRIS %8d  n %4d  %s" % [by[k][0], by[k][1], k])
+			var tk: Array = by.keys().filter(func(x): return str(x).ends_with("CityTraffic"))
+			if st[0] == "arrive":
+				_check("v13.328: New Terra's city traffic lights are merged (%s meshes, %s tris; was ~1,500 meshes and 1 M tris that lost phones' WebGL)" % [str(by[tk[0]][1]) if not tk.is_empty() else "-", str(by[tk[0]][0]) if not tk.is_empty() else "-"],
+					not tk.is_empty() and int(by[tk[0]][1]) < 100 and int(by[tk[0]][0]) < 200000)
+		_finish_group()
+		return
 	if _flag("HL_CAPBOOM"):   # v13.327 (owner: "blew up a huge fleet ship ... there should have been a huge explosion as well as multiple drops")
 		main.start_game()
 		await _until(func(): return main.state == "hub", 15.0)

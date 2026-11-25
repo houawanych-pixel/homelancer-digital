@@ -282,22 +282,29 @@ func _build_lights() -> void:
 		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	var frame := _mat("tl_frame", Color(0.1, 0.12, 0.16))
 	var trim := _mat("tl_trim", Data.CITY_TRIM, 1.5)
-	var pole := CylinderMesh.new()
-	pole.top_radius = 0.35
-	pole.bottom_radius = 0.45
-	pole.height = Data.TRAFFIC_LIGHT_H
-	var disc := CylinderMesh.new()   # the head: a round dark frame ...
-	disc.top_radius = 1.6
-	disc.bottom_radius = 1.6
-	disc.height = 0.4
-	var dot := CylinderMesh.new()    # ... a ring of round lamps ...
-	dot.top_radius = 0.28
-	dot.bottom_radius = 0.28
-	dot.height = 0.5
+	# v13.328 (owner: "New Terra black screen ... WebGL context lost"): the lights were ~23 nodes each (1,500 meshes,
+	# 1 M triangles on a big city) and phones ran out of GPU memory. Now every part goes into one merged mesh per
+	# material (4 meshes for all the lights), with low-segment shapes. Same look; the lamps still change colour.
+	var cyl := func(r_top: float, r_bot: float, h: float, segs: int) -> CylinderMesh:
+		var c := CylinderMesh.new()
+		c.top_radius = r_top
+		c.bottom_radius = r_bot
+		c.height = h
+		c.radial_segments = segs
+		c.rings = 1
+		return c
+	var pole: CylinderMesh = cyl.call(0.35, 0.45, Data.TRAFFIC_LIGHT_H, 8)
+	var disc: CylinderMesh = cyl.call(1.6, 1.6, 0.4, 16)   # the head: a round dark frame ...
+	var dot: CylinderMesh = cyl.call(0.28, 0.28, 0.5, 8)   # ... a ring of round lamps ...
 	var bar_z := BoxMesh.new()       # ... and a glowing bar under it (laid along its face: one for each way the head turns)
 	bar_z.size = Vector3(2.4, 0.5, 0.4)
 	var bar_x := BoxMesh.new()
 	bar_x.size = Vector3(0.4, 0.5, 2.4)
+	var st := {}
+	for k in ["frame", "trim", "x", "z"]:
+		var t := SurfaceTool.new()
+		t.begin(Mesh.PRIMITIVE_TRIANGLES)
+		st[k] = t
 	for ax in _ave_x:
 		for az in _ave_z:
 			for sx in [-1.0, 1.0]:
@@ -307,38 +314,26 @@ func _build_lights() -> void:
 					post.position = Vector3(float(ax[0]) + sx * (float(ax[1]) + 3.0), _g, float(az[0]) + sz * (float(az[1]) + 3.0))
 					add_child(post)
 					lights.append(post)
-					var pm := MeshInstance3D.new()
-					pm.mesh = pole
-					pm.material_override = frame
-					pm.position.y = Data.TRAFFIC_LIGHT_H * 0.5
-					post.add_child(pm)
+					var pxf := Transform3D(Basis.IDENTITY, post.position)
+					(st["frame"] as SurfaceTool).append_from(pole, 0, pxf * Transform3D(Basis.IDENTITY, Vector3(0, Data.TRAFFIC_LIGHT_H * 0.5, 0)))
 					for face_x in [true, false]:   # one head for each way through the crossing
-						var hd := Node3D.new()
-						hd.position = Vector3(0, Data.TRAFFIC_LIGHT_H - 1.0, 0)
-						hd.rotation = Vector3(PI * 0.5, 0.0, 0.0) if not face_x else Vector3(0.0, 0.0, PI * 0.5)   # its face toward the traffic
-						hd.position += (Vector3(-sx * 1.2, 0, 0) if face_x else Vector3(0, 0, -sz * 1.2))
-						post.add_child(hd)
-						var dm := MeshInstance3D.new()
-						dm.mesh = disc
-						dm.material_override = frame
-						hd.add_child(dm)
-						var lm: StandardMaterial3D = _lamp_x if face_x else _lamp_z
+						var hp := Vector3(0, Data.TRAFFIC_LIGHT_H - 1.0, 0) + (Vector3(-sx * 1.2, 0, 0) if face_x else Vector3(0, 0, -sz * 1.2))
+						var hb := Basis.from_euler(Vector3(PI * 0.5, 0.0, 0.0) if not face_x else Vector3(0.0, 0.0, PI * 0.5))   # its face toward the traffic
+						var hxf := pxf * Transform3D(hb, hp)
+						var lk := "x" if face_x else "z"
+						(st["frame"] as SurfaceTool).append_from(disc, 0, hxf)
 						for k in 8:
 							var a := TAU * k / 8.0
-							var dd := MeshInstance3D.new()
-							dd.mesh = dot
-							dd.material_override = lm
-							dd.position = Vector3(cos(a) * 1.05, 0.0, sin(a) * 1.05)
-							hd.add_child(dd)
-						var rim := MeshInstance3D.new()
-						rim.mesh = dot
-						rim.material_override = trim
-						hd.add_child(rim)
-						var bm := MeshInstance3D.new()
-						bm.mesh = bar_x if face_x else bar_z
-						bm.material_override = lm
-						bm.position = Vector3(-2.2, 0.0, 0.0) if face_x else Vector3(0.0, 0.0, 2.2)
-						hd.add_child(bm)
+							(st[lk] as SurfaceTool).append_from(dot, 0, hxf * Transform3D(Basis.IDENTITY, Vector3(cos(a) * 1.05, 0.0, sin(a) * 1.05)))
+						(st["trim"] as SurfaceTool).append_from(dot, 0, hxf)
+						(st[lk] as SurfaceTool).append_from(bar_x if face_x else bar_z, 0, hxf * Transform3D(Basis.IDENTITY, Vector3(-2.2, 0.0, 0.0) if face_x else Vector3(0.0, 0.0, 2.2)))
+	for pr in [["frame", frame], ["trim", trim], ["x", _lamp_x], ["z", _lamp_z]]:
+		var mi := MeshInstance3D.new()
+		mi.name = "Lights_" + str(pr[0])
+		mi.mesh = (st[pr[0]] as SurfaceTool).commit()
+		mi.material_override = pr[1]
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(mi)
 	_show_lights()
 
 func _show_lights() -> void:
