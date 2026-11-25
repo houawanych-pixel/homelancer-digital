@@ -1,4 +1,6 @@
 {
+ "pilot_h": 16.0,
+ "door_w_u": 22.4,
  "floors": 10,
  "style": "cluster",
  "names": {

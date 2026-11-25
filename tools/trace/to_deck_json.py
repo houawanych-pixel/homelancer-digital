@@ -292,8 +292,11 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("folder")
     ap.add_argument("--out")
+    ap.add_argument("--pilot-h", type=float, default=0.0, help="pilot room / door height in u (a city tower: taller, owner Nov 25)")
     ap.add_argument("--decks", action="store_true", help="also merge the composed upper / lower decks (eng/deck_*.json) - only once the owner approved them")
     a = ap.parse_args()
+    if a.pilot_h > 0:
+        global H_PILOT; H_PILOT = a.pilot_h   # (module level: every pilot room, pilot way and pilot door below uses it)
     eng = os.path.join(a.folder, "eng")
     plan = json.load(open(os.path.join(eng, "plan.json")))
     play = json.load(open(os.path.join(eng, "gameplay.json")))

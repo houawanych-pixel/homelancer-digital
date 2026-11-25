@@ -434,7 +434,10 @@ def main():
         print("%-7s %-12s %-16s junctions %d links %d rooms %d (back %d, room doors %d, kit shapes %d) lifts %s unreachable %s" % (
             dname, role, hub, info["junctions"], info["links"], info["rooms"], info["back"], info["doors"], info["kit_shapes"], info["lifts"], bad))
     json.dump([{"label": sh["label"], "decks": sh["decks"], "at": shaft_at.get("Stairs" if sh["label"].startswith("STAIRS") else "Lift %s" % sh["label"][-1])} for sh in SH], open(os.path.join(eng, "shafts.json"), "w"), indent=1)
-    json.dump({"floors": nfl, "style": style, "names": {k: r for k, r, _ in FL}}, open(os.path.join(eng, "tower.json"), "w"), indent=1)
+    # (owner, Nov 25: "the room should be a little taller with the person in it; make sure you fit through the doors"):
+    # tower rooms and doors 16 u high (a pilot is 3.8 u: over 4x), pilot doors 22 u wide (5-6 pilots side by side);
+    # to_deck_json gets --pilot-h 16 when a tower goes into the game
+    json.dump({"pilot_h": 16.0, "door_w_u": 64.0 * 0.35, "floors": nfl, "style": style, "names": {k: r for k, r, _ in FL}}, open(os.path.join(eng, "tower.json"), "w"), indent=1)
     sys.exit(1 if any(bad_all.values()) else 0)
 
 if __name__ == "__main__":
