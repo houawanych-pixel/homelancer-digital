@@ -2208,6 +2208,36 @@ func _run() -> void:
 		GS.save_enabled = false
 		_finish_group()
 		return
+	if _flag("HL_FIXER"):   # v13.321 (owner: "someone in the bar I can pay to fix the reputation back to neutral"; the faction box as big as the mission board)
+		main.start_game()
+		await _until(func(): return main.state == "hub", 15.0)
+		var hb: Node = main.hub
+		Factions.adjust("Unity", -100.0 - Factions.standing("Unity"))
+		Factions.adjust("Covenant", -10.0 - Factions.standing("Covenant"))
+		GS.credits = 400000
+		main.hud.visible = false
+		hb.visible = true
+		hb.show_screen("lounge")
+		await _wait(0.5)
+		var cu: int = hb.fixer_cost("Unity")
+		var cc: int = hb.fixer_cost("Covenant")
+		_check("v13.321: the lounge FIXER lists the factions you're below neutral with; worse costs more (Unity %s %d cr, Covenant %s %d cr)" % [Factions.band("Unity"), cu, Factions.band("Covenant"), cc],
+			hb.find_child("Fixer_Unity", true, false) != null and hb.find_child("Fixer_Covenant", true, false) != null and cu > cc * 4 and cc > 0)
+		await _shot("fixer_lounge", 0.3)
+		var c0: int = GS.credits
+		(hb.find_child("Fixer_Unity", true, false) as Button).pressed.emit()
+		await _wait(0.3)
+		_check("v13.321: paying the fixer puts Unity back to neutral (%.1f, %s) for %d cr" % [Factions.standing("Unity"), Factions.band("Unity"), c0 - GS.credits],
+			absf(Factions.standing("Unity")) < 0.6 and c0 - GS.credits == cu and not Factions.hostile("Unity"))
+		hb.show_screen("board")
+		await _wait(0.4)
+		var bw: float = hb.content.size.x
+		hb.show_screen("command")
+		await _wait(0.4)
+		_check("v13.321: the COMMAND (faction) box is as wide as the mission board (%.0f vs %.0f)" % [hb.content.size.x, bw], absf(hb.content.size.x - bw) < 2.0)
+		await _shot("fixer_command", 0.3)
+		_finish_group()
+		return
 	if _flag("HL_TOWER"):   # v13.315 (owner: "a dock on top of each building ... eject from the top and enter; one building loaded at a time")
 		var pid := "new_terra"
 		var cts: Dictionary = CityPlan.city_tiles(pid)

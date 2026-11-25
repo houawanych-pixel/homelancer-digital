@@ -2016,6 +2016,8 @@ func _layout_windows(s: String) -> void:
 ## v11.4 (owner): the MISSION BOARD is a big landscape window (3 wide for 2 tall); the SHIPYARD and MECHS have two
 ## 2 x 3 tablets, one each side.
 func board_page(s: String) -> bool: return s in ["missions", "bounty", "boarding", "board"]
+## v13.321 (owner: "the faction interface box should be bigger, just like the mission board"): COMMAND too
+func wide_page(s: String) -> bool: return board_page(s) or s in ["command", "faction"]
 ## v12.72: pages that take the whole screen (the hangar bay; the garage, owner's mock-up)
 func full_page(s: String) -> bool: return s in ["equipment", "loadout"]
 func two_tablets(s: String) -> bool: return s in ["ships", "mechs"]
@@ -2028,7 +2030,7 @@ func _place_tablets() -> void:
 	var rr := right_reserve()
 	var pw := panel_w()
 	content.offset_bottom = -66.0
-	if board_page(screen):   # (3 wide for 2 tall; on a tall screen it is shorter rather than narrower)
+	if wide_page(screen):   # (3 wide for 2 tall; on a tall screen it is shorter rather than narrower)
 		pw = clampf((S.y - CONTENT_Y - 66.0) * Data.HUB_BOARD_ASPECT, 240.0, S.x - rr - left_reserve() - 8.0)
 		content.offset_bottom = minf(-66.0, CONTENT_Y + pw / Data.HUB_BOARD_ASPECT - S.y)
 	if two_tablets(screen):   # (the second tablet at the right)
@@ -2148,6 +2150,58 @@ func _lounge_page() -> void:
 		var none := _label(16, Color(0.8, 0.88, 1.0))
 		none.text = "No pilots here right now."
 		v.add_child(none)
+	_fixer_rows(v)
+
+## v13.321 (owner: "I need someone in the bar I can talk to and pay, so he can fix the reputation, back to neutral; you
+## pay more depending on how bad your reputation is"): THE FIXER sits in every lounge. Any faction you're below neutral
+## with: one payment puts it back to neutral (its rival moves the other way). Cost: REP_FIXER_PER_POINT for each point
+## below, x (1 + points / REP_FIXER_SCALE), so a HUNTED record costs far more than a CAUTIOUS one.
+static func fixer_cost(f: String) -> int:
+	var d: float = Factions.below_neutral(f)
+	return int(round(d * Data.REP_FIXER_PER_POINT * (1.0 + d / Data.REP_FIXER_SCALE) / 10.0)) * 10
+
+func fixer_factions() -> Array:
+	var out: Array = []
+	for f in Factions.DEFS:
+		if Factions.normal(f) and Factions.below_neutral(f) > 0.5: out.append(f)
+	out.sort_custom(func(a, b): return Factions.below_neutral(a) > Factions.below_neutral(b))
+	return out
+
+func fixer_pay(f: String) -> String:
+	var cost := fixer_cost(f)
+	if GS.credits < cost: return "THE FIXER: \"That's %d cr. Come back when you have it.\"" % cost
+	var was: String = Factions.band(f).to_upper()
+	GS.credits -= cost
+	Factions.set_neutral(f)
+	GS.changed.emit()
+	return "THE FIXER: \"Done. %s forgets about you.\" %s -> %s (%d cr)." % [str(Factions.def(f).get("display_name", f)), was, Factions.band(f).to_upper(), cost]
+
+func _fixer_rows(v: VBoxContainer) -> void:
+	var cap := _label(18, GOLD)
+	cap.text = "THE FIXER"
+	v.add_child(cap)
+	var say := _label(16, Color(0.85, 0.9, 1.0))
+	say.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var fs := fixer_factions()
+	say.text = "\"Records can be changed, for a price. The worse it is, the more it costs.\"" if not fs.is_empty() else "\"Your record's clean. Nothing for me to fix.\""
+	v.add_child(say)
+	for f in fs:
+		var fl := _label(16, (Factions.info(f)["color"] as Color).lightened(0.2))
+		fl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		fl.text = "%s: %s -> NEUTRAL" % [str(Factions.def(f).get("display_name", f)).to_upper(), str(Factions.info(f)["name"])]
+		v.add_child(fl)
+		var b := Button.new()
+		b.name = "Fixer_" + str(f)
+		b.text = "PAY %d cr" % fixer_cost(f)
+		b.custom_minimum_size = Vector2(0, 52)
+		b.clip_text = true
+		b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		b.add_theme_color_override("font_color", (Factions.info(f)["color"] as Color).lightened(0.2))
+		b.disabled = GS.credits < fixer_cost(f)
+		b.pressed.connect(func():
+			status.text = fixer_pay(f)
+			show_screen(screen))
+		v.add_child(b)
 
 func _gui_input(e: InputEvent) -> void:
 	if not room_view.visible: return

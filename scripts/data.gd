@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.325"
+const VERSION := "v13.326"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -2430,6 +2430,9 @@ const REP_REPAIR_UNTIL := 5.0     # v11.55 (owner): Repair Reputation at an ally
 const REP_REPAIR_STEP := 10.0     # standing gained per repair
 const REP_REPAIR_BASE := 1500.0   # credits for one step at the green line ...
 const REP_REPAIR_SCALE := 40.0    # ... and +100 % for every this many points below it
+const REP_FIXER_PER_POINT := 150.0   # v13.321 (owner: "someone in the bar I can pay to fix the reputation, back to neutral;
+                                     # you pay more the worse it is"): cr per point below neutral ...
+const REP_FIXER_SCALE := 50.0        # ... x (1 + points below / this): the deeper the hole, the dearer each point
 const REP_KILL := 1.5            # standing lost with a faction per ship of theirs you destroy, x the pilot's rank
 const REP_BOUNTY := 6.0          # extra standing lost when you hand in one of their named pilots
 const REP_RIVAL_SHARE := 1.0     # the rival gains this share of what the faction lost (one shared number per pair)

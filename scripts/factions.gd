@@ -124,6 +124,16 @@ static func adjust(f: String, delta: float) -> void:
 	GS.rep[k] = clampf(float(GS.rep.get(k, 0.0)) + _side(f) * delta * (Data.REP_RIVAL_SHARE if rival(f) != "" else 1.0), -Data.REP_LIMIT * 2.0, Data.REP_LIMIT * 2.0)
 	GS.changed.emit()
 
+## v13.321: how far below neutral (0) your standing with f really is (past the -100 floor too); 0 if not below.
+static func below_neutral(f: String) -> float:
+	if not DEFS.has(f) or not normal(f): return 0.0
+	return maxf(0.0, -(float(DEFS[f]["base_standing"]) + _side(f) * float(GS.rep.get(axis_key(f), 0.0))))
+
+## v13.321: put your standing with f back to neutral (0). Its rival moves the other way (one shared number).
+static func set_neutral(f: String) -> void:
+	var d := below_neutral(f)
+	if d > 0.0: adjust(f, d / (Data.REP_RIVAL_SHARE if rival(f) != "" else 1.0))
+
 ## The faction that raids this system's owner (its rival, if that rival has people and raids). "" = nobody.
 static func raider_of(f: String) -> String:
 	var r := rival(f)
