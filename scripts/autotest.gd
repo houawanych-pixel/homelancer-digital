@@ -2208,6 +2208,29 @@ func _run() -> void:
 		GS.save_enabled = false
 		_finish_group()
 		return
+	if _flag("HL_CAPBOOM"):   # v13.327 (owner: "blew up a huge fleet ship ... there should have been a huge explosion as well as multiple drops")
+		main.start_game()
+		await _until(func(): return main.state == "hub", 15.0)
+		await _launch()
+		await _wait(1.0)
+		var s := _sp()
+		var p: Node3D = s.player
+		var e: Dictionary = s.spawn_unit("elyza_battleship", p.global_position - p.global_basis.z * 1500.0, p.global_position)
+		await _wait(0.5)
+		var l0: int = s.loot.size()
+		var b0: int = s.capital_booms
+		s._destroy_unit(e)
+		await _wait(0.1)
+		var pend: int = s.blast_pending.size()
+		await _shot("capboom_blast", 0.3)
+		await _shot("capboom_blast2", 0.6)
+		await _shot("capboom_blast3", 0.6)
+		_check("v13.327: a battleship going down chains big blasts (%d queued) and drops a spread of loot (%d pods/valuables)" % [pend, s.loot.size() - l0],
+			s.capital_booms == b0 + 1 and pend >= 3 and s.loot.size() - l0 >= Data.CAPITAL_LOOT)
+		await _wait(2.0)
+		await _shot("capboom_loot", 0.1)
+		_finish_group()
+		return
 	if _flag("HL_FIXER"):   # v13.321 (owner: "someone in the bar I can pay to fix the reputation back to neutral"; the faction box as big as the mission board)
 		main.start_game()
 		await _until(func(): return main.state == "hub", 15.0)

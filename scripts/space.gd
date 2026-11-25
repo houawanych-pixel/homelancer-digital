@@ -11197,6 +11197,7 @@ func _destroy_unit(e: Dictionary) -> void:
 		if not GS.l3_found.has(lk): GS.l3_found.append(lk)
 		message.emit("LEVEL 3 FIND: %s. Its blueprint is logged (%d found)." % [str(e.get("l3_name", e["def"]["name"])), GS.l3_found.size()])
 	_drop_loot(n.global_position, reward, str(e["def"].get("zone", "")) == "pirates" or str(e["def"].get("class", "")) == "pirate" or str(e.get("faction", "")) == "Savagers")
+	if str(e["def"].get("class", "")) in Data.CAPITAL_BOOM_CLASSES and not e.has("part_role"): _capital_down(n.global_position, maxf(float(n.get_meta("radius", 60.0)), ShipFactory._aabb(n, Transform3D.IDENTITY).get_longest_axis_size() * n.scale.x * 0.5), reward)
 	if Data.WEAPON_DROPS and not e.has("part_role"):   # (a battleship part shot off drops none; the ship itself does)
 		for wid in weapon_drops(reward, _rng): _drop_weapon(n.global_position, str(wid))
 	enemy_killed.emit(reward, n.name)
@@ -13634,6 +13635,28 @@ func fire_slot(i: int) -> bool:
 	return trigger_system(item)
 
 # ---------------------------------------------------------------- loot pods + tractor beam
+## v13.327 (owner: "I blew up a huge fleet ship ... the explosion was not good. There should have been a huge explosion
+## as well as multiple drops"): a capital ship (battleship, cruiser, fleet ship) goes up like the mission battleship:
+## a chain of big blasts across the hull, the fire burst, the screen flash and shake, then a spread of loot.
+var capital_booms := 0   # (tests)
+func _capital_down(at: Vector3, radius: float, reward: int) -> void:
+	capital_booms += 1
+	var r := clampf(radius, 40.0, 400.0)
+	for k in Data.CAPITAL_BLASTS:
+		blast_pending.append({"t": 0.22 * k, "at": at + Vector3(_rng.randfn(0, 1), _rng.randfn(0, 0.4), _rng.randfn(0, 1)) * r * 0.8, "size": r * _rng.randf_range(0.6, 1.0), "full": true})
+	for k in Data.CAPITAL_BLASTS:   # (and white-hot pops between them)
+		blast_pending.append({"t": 0.11 + 0.22 * k, "at": at + Vector3(_rng.randfn(0, 1), _rng.randfn(0, 0.4), _rng.randfn(0, 1)) * r * 0.7, "size": r * _rng.randf_range(0.8, 1.3), "fire": true})
+	_explode(at, maxf(radius, 60.0))
+	_blast(at, [r * 1.4, 30, 24, 6, 0.18], "capital")   # the core goes up: one huge fireball
+	_burst_fx(at, r * 4.0, 2.0)
+	hit_shake = 1.0
+	screen_flash = maxf(screen_flash, 0.9)
+	for i in Data.CAPITAL_LOOT:
+		var p := at + Vector3(_rng.randfn(0, 1), _rng.randfn(0, 0.3), _rng.randfn(0, 1)) * r * 0.5
+		_drop_loot(p, maxi(200, reward / 3), false)
+	for g in Data.CAPITAL_GEMS:
+		_drop_gem(at + Vector3(_rng.randfn(0, 1), 0, _rng.randfn(0, 1)) * r * 0.4, ["gold", "silver", "orb"][g % 3])
+
 func _drop_loot(at: Vector3, reward: int, outlaw := false) -> void:
 	var n := 1 + _rng.randi() % 2
 	for i in n:
