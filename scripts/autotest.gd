@@ -9072,6 +9072,44 @@ func _run() -> void:
 			var m: Mesh = (n as MeshInstance3D).mesh
 			for si in m.get_surface_count(): tris += (m.surface_get_arrays(si)[Mesh.ARRAY_VERTEX] as PackedVector3Array).size() / 3
 		print("RAMPTRIS ", tris)
+		# v13.332: no column stands on a road (a deck, a slant, the street out or the loop)
+		var parts: Array = CityTowers.interchange_parts(pid, tt)
+		var cols: Array = parts.filter(func(q): return str(q["k"]) == "white" and (q["s"] as Vector3).x < 4.0)
+		var on_road := 0
+		for c in cols:
+			var cp: Vector3 = c["p"]
+			for rb in parts:
+				if str(rb["k"]) != "ribbon": continue
+				var pts: PackedVector3Array = rb["pts"]
+				var hw2: float = float(rb["w"]) * 0.5 + 1.5 + Data.RAMP_WALL_T
+				for i in pts.size() - 1:
+					var a2 := Vector2(pts[i].x, pts[i].z)
+					var b2 := Vector2(pts[i + 1].x, pts[i + 1].z)
+					var q2 := Geometry2D.get_closest_point_to_segment(Vector2(cp.x, cp.z), a2, b2)
+					if q2.distance_to(Vector2(cp.x, cp.z)) < hw2 and maxf(pts[i].y, pts[i + 1].y) < cp.y + (c["s"] as Vector3).y: on_road += 1
+		# v13.332: the decks are solid and walled: on foot, dropped on a spiral you land on it; walking at its wall, you stay on
+		s.on_foot = true
+		GS.form = "mech"
+		s.set_player_model()
+		s.ground_mode = true
+		var deck: PackedVector3Array = parts.filter(func(q): return str(q["k"]) == "ribbon" and bool(q.get("rail", false)))[0]["pts"]
+		var dp: Vector3 = deck[deck.size() / 3]
+		s.player.global_position = dp + Vector3(0, 12.0, 0)
+		s.vel = Vector3.ZERO
+		s._ramp_last = Vector3.INF
+		await _wait(1.5)
+		var stood: float = s.player.global_position.y - Data.PILOT_FEET_BELOW - dp.y
+		var d1: Vector3 = deck[deck.size() / 3 + 1] - dp
+		var side := Vector3(-d1.z, 0.0, d1.x).normalized()
+		s.player.global_position = dp + Vector3(0, Data.PILOT_FEET_BELOW + 0.1, 0)
+		s._ramp_last = s.player.global_position
+		for i in 40:   # push hard at the wall
+			s.vel = side * 30.0
+			await _frames(1)
+		var lat_now: float = (s.player.global_position - dp).dot(side)
+		var kept: bool = absf(lat_now) < Data.RAMP_W * 0.5 and s.player.global_position.y - Data.PILOT_FEET_BELOW > dp.y - 3.0
+		await _capture("ramps_walls")
+		_check("v13.332: no ramp column stands on a road (%d columns, %d on a road); the decks hold you up (%.1f m over the deck) and their walls keep you on (%.1f m from the middle)" % [cols.size(), on_road, stood, lat_now], on_road == 0 and absf(stood) < 1.0 and kept, "")
 		_check("v13.331: %d spiral interchanges (%d ramp lanes, %d dead ends); a car runs on round the track: %d lanes, down the spiral from %.0f m to %.0f m, still driving (%s)" % [ix.size(), tr.ramp_lanes, dead, visited.size(), high, low, car["state"]], ix.size() >= 4 and dead == 0 and visited.size() >= 6 and high > Data.SKYWAY_Y - 5.0 and low < 5.0 and car["state"] != "off", "")
 		_finish_group()
 		return

@@ -16806,6 +16806,72 @@ func _city_solids() -> void:
 			if vel.dot(n2) < 0.0: vel -= n2 * vel.dot(n2)
 			solid_hits += 1
 
+## v13.332 (owner: "those roads need to be solid, with protective walls so cars don't fall off"): the interchange
+## ramps' decks hold you up (you land, walk and drive on them; from underneath you bump your head), and their walls
+## keep you on: crossing a wall's line low enough, you're put back on the side you came from.
+var _ramp_segs: Array = []      # [a (deck top), b, half width, walls] for this tile
+var _ramp_key := ""
+var ramp_hits := 0              # (checks)
+var _ramp_last := Vector3.INF
+func _ramp_solids() -> void:
+	if not surface_mode or boarding or not is_instance_valid(player): return
+	var key := "%s|%d" % [planet_id, tile]
+	if key != _ramp_key:
+		_ramp_key = key
+		_ramp_segs = []
+		for prt in CityTowers.interchange_parts(planet_id, tile):
+			if str(prt.get("k", "")) != "ribbon" or not bool(prt.get("rail", false)): continue
+			var pts: PackedVector3Array = prt["pts"]
+			for i in pts.size() - 1: _ramp_segs.append([pts[i], pts[i + 1], float(prt["w"]) * 0.5, true])
+	if _ramp_segs.is_empty(): return
+	var pp := player.global_position
+	var me_r: float = float(Data.CITY_SOLID_PAD["foot" if on_foot and not driving else ("car" if driving else ("mech" if GS.form == "mech" else "ship"))])
+	var below: float = Data.PILOT_FEET_BELOW if on_foot else me_r
+	var last := _ramp_last if _ramp_last != Vector3.INF else pp
+	for sg in _ramp_segs:
+		var a: Vector3 = sg[0]
+		var b: Vector3 = sg[1]
+		if absf(pp.x - a.x) > 60.0 or absf(pp.z - a.z) > 60.0: continue
+		var ab := Vector2(b.x - a.x, b.z - a.z)
+		var L := ab.length()
+		if L < 0.01: continue
+		var dir := ab / L
+		var rel := Vector2(pp.x - a.x, pp.z - a.z)
+		var s2 := rel.dot(dir)
+		if s2 < -0.5 or s2 > L + 0.5: continue
+		var lat := rel.x * dir.y - rel.y * dir.x
+		var hw: float = sg[2]
+		var top := lerpf(a.y, b.y, clampf(s2 / L, 0.0, 1.0))
+		var feet := pp.y - below
+		var head := pp.y + me_r
+		if absf(lat) <= hw:   # over the deck: stand on it (or, coming up from under it, stay under)
+			if feet < top and head > top - 1.6:
+				var was_above := last.y - below >= top - 1.0
+				if was_above:
+					player.global_position.y = top + below
+					if vel.y < 0.0: vel.y = 0.0
+					grounded = true
+				else:
+					player.global_position.y = top - 1.6 - me_r
+					if vel.y > 0.0: vel.y = 0.0
+				pp = player.global_position
+				ramp_hits += 1
+		if bool(sg[3]) and absf(lat) > hw - me_r - Data.RAMP_WALL_T and absf(lat) < hw + me_r + Data.RAMP_WALL_T and feet < top + Data.RAMP_WALL_H and head > top - 1.6:
+			var rl := Vector2(last.x - a.x, last.z - a.z)
+			var lat0 := rl.x * dir.y - rl.y * dir.x
+			var inside := absf(lat0) < hw
+			var want := (hw - me_r - Data.RAMP_WALL_T) if inside else (hw + me_r + Data.RAMP_WALL_T)
+			var sgn := signf(lat if lat != 0.0 else 1.0)
+			var nlat := sgn * want
+			var perp := Vector2(dir.y, -dir.x)
+			var q := Vector2(a.x, a.z) + dir * s2 + perp * nlat
+			player.global_position = Vector3(q.x, pp.y, q.y)
+			var n3 := Vector3(perp.x, 0.0, perp.y) * (-sgn if inside else sgn)
+			if vel.dot(n3) < 0.0: vel -= n3 * vel.dot(n3)
+			pp = player.global_position
+			ramp_hits += 1
+	_ramp_last = player.global_position
+
 ## The vehicle you could take right now ({} if none).
 func car_candidate() -> Dictionary:
 	if not on_foot or driving or city_traffic == null or not is_instance_valid(city_traffic) or not is_instance_valid(player): return {}
@@ -17238,6 +17304,7 @@ func _surface_update(_dt: float) -> void:
 		if is_instance_valid(bx[0]): _surf_push(bx)
 	_tower_push(_dt)   # v13.302: the city's megatowers are solid
 	_city_solids()   # v13.325: so are the cars and the people
+	_ramp_solids()   # v13.332: and the spiral ramps' decks and walls
 	_hull_prev = player.global_position
 	for fl in _fields(): (fl as BlockField).fluid_update(_dt, player.global_position)   # v1.6b: water and lava move near you
 	_update_light(_dt, bfp, p)   # v1.7m
