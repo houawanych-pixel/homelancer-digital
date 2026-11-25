@@ -8591,6 +8591,26 @@ func _run() -> void:
 			wanted and cop_kill_ok and first >= 2 and backup >= 6 and followed >= mini(tail, Data.HEAT_FOLLOW_MAX) and followed > 0 and still and zone_e == "enemy" and no_backup and zone_n == "neutral" and escaped, "")
 		_finish_group()
 		return
+	if _flag("HL_UNLOCK"):   # v13.307 (owner: "I'm locked into the station, I can't leave")
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var s := _sp()
+		main.dock(s.station)
+		await _until(func(): return main.state == "hub", 15.0)
+		await _wait(0.5)
+		var hb: Node = main.hub
+		hb.launch_btn.disabled = true   # as a lockdown left it when you were towed back after the escape
+		hb.launch_btn.text = "LOCKED"
+		hb.lockdown = false
+		hb.open(hb.base)
+		await _wait(0.3)
+		var open_ok: bool = not hb.launch_btn.disabled and hb.launch_btn.text == "LAUNCH"
+		main.launch()
+		await _until(func(): return main.state == "flight", 15.0)
+		_check("v13.307: docking again after a lockdown ended another way, LAUNCH works (%s, %s)" % [hb.launch_btn.text, main.state], open_ok and main.state == "flight", "")
+		_finish_group()
+		return
 	if _flag("HL_LANERING"):   # v13.305 (owner's dark mechanical ring: green on your right to go, red on the left, the boxy block on the left)
 		main.start_game()
 		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and not main.space.lanes.is_empty(), 20.0)

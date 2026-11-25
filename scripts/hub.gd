@@ -613,6 +613,10 @@ func open(station_or_planet: Dictionary) -> void:
 	comms_big = false
 	typing = false
 	lockdown = lockdown_due()
+	if not lockdown and not deck_mode:   # v13.307 (owner: "I'm locked into the station, I can't leave"): a lockdown that ended any other way (towed back after the escape) no longer leaves LAUNCH locked
+		launch_btn.disabled = false
+		launch_btn.text = "LAUNCH"
+		if alarm_btn != null: alarm_btn.visible = true
 	if kind == "station" and Packs.PACKS.has("alarm_" + lockdown_faction()): Packs.request("alarm_" + lockdown_faction())   # v13.13: ready for the ALARM
 	if kind == "station" and dock_bay and not lockdown:   # v13.187 (owner): you dock into the docking bay (the hangar 360)
 		eq_tab = "hangar"
