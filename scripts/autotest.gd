@@ -8087,11 +8087,12 @@ func _run() -> void:
 		Packs.request("wing_guns")
 		await Packs.wait("wing_guns", 60.0)
 		var hb: Node = main.hub
+		hb.close_call("r")
 		for vw in ["mech", "ship"]:
 			hb.eq_view = vw
 			hb.eq_tab = "weapon"
 			hb.eq_sel = 0
-			hb.eq_card = "twin_cannon"
+			hb.eq_card = "twin_cannon" if vw == "mech" else "ion"
 			hb.show_screen("equipment")
 			await _until(func(): return is_instance_valid(hb.preview_pivot) and hb.preview_pivot.get_child_count() > 0, 30.0)
 			await _wait(3.0)

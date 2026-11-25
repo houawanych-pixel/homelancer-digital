@@ -3785,61 +3785,82 @@ func _weapons_room(v: VBoxContainer) -> void:
 	v.add_child(res)
 
 ## One weapon as a row: picture, name (Mk if owned), what it does, price or OWNED (and ON if it is on the picked slot).
+## One weapon as a row (v13.308, owner: "the thumbnails need to be bigger, that section a lot better"): a lit
+## accent edge in the weapon's colour, a big side-view picture in a dark frame, its name, what kind it is and what it
+## does, and the price or OWNED. The picked one has a gold frame.
 func _weapon_row(id: String, kind: String) -> Control:
 	var d: Dictionary = Data.MOUNT_PODS[id] if kind == "pod" else Data.WEAPONS[id]
 	var owned := _card_owned(id, kind)
+	var accent: Color = d.get("color", Color(1.0, 0.65, 0.3)) as Color
 	var b := Button.new()
 	b.name = "Card_" + id
-	b.custom_minimum_size = Vector2(0, 66)
+	b.custom_minimum_size = Vector2(0, Data.SHOP_ROW_H)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.clip_contents = true
-	if eq_card == id:
-		var sb := _glass(true)
-		sb.border_color = GOLD
-		b.add_theme_stylebox_override("normal", sb)
-		b.add_theme_stylebox_override("hover", sb)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.03, 0.08, 0.14, 0.92) if eq_card != id else Color(0.08, 0.13, 0.2, 0.96)
+	sb.border_color = GOLD if eq_card == id else Color(accent, 0.75)
+	sb.set_border_width_all(3 if eq_card == id else 1)
+	sb.border_width_left = 6
+	sb.set_corner_radius_all(8)
+	for stn in ["normal", "hover", "pressed", "focus"]: b.add_theme_stylebox_override(stn, sb)
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	row.offset_left = 6
-	row.offset_right = -8
-	row.add_theme_constant_override("separation", 8)
+	row.offset_left = 10
+	row.offset_right = -12
+	row.offset_top = 6
+	row.offset_bottom = -6
+	row.add_theme_constant_override("separation", 12)
 	b.add_child(row)
+	var frame := PanelContainer.new()
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.custom_minimum_size = Vector2(Data.SHOP_PIC_W, 0)
+	var fs := StyleBoxFlat.new()
+	fs.bg_color = Color(0.0, 0.02, 0.05, 0.85)
+	fs.border_color = Color(accent, 0.35)
+	fs.set_border_width_all(1)
+	fs.set_corner_radius_all(6)
+	frame.add_theme_stylebox_override("panel", fs)
+	row.add_child(frame)
 	var pic := TextureRect.new()
 	pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pic.custom_minimum_size = Vector2(118, 0)   # v13.297: a bigger side view
 	pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED   # (the square side view cropped to the wide frame: the gun fills it)
 	pic.name = "Pic"
+	pic.clip_contents = true
 	_weapon_pic(id, pic)
-	row.add_child(pic)
+	frame.add_child(pic)
 	var col := VBoxContainer.new()
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
-	col.add_theme_constant_override("separation", 0)
+	col.add_theme_constant_override("separation", 2)
 	row.add_child(col)
 	var nm: String = str(d.get("short", d["name"]))
 	if kind in ["blaster", "gun"] and owned: nm += " Mk %s" % GS.roman(GS.gun_level(id))
+	var tag: String = {"blaster": "BLASTER", "gun": "CANNON", "pod": "MISSILE"}.get(kind, "")
+	if kind == "gun" and bool(d.get("heavy", false)): tag = "HEAVY CANNON"
 	var line2 := ""
 	match kind:
 		"blaster":
 			var sh := int(round(float(d["shield"]) * 100.0))
 			line2 = "%d%% shield · %d%% hull" % [sh, 100 - sh]
-		"gun": line2 = "dmg %d · %.1f shots/s" % [int(round(GS.gun_damage(id))), float(d["rate"])]
+		"gun": line2 = "dmg %d · %.1f shots/s · range %d" % [int(round(GS.gun_damage(id))), float(d["rate"]), int(d.get("range", 0))]
 		"pod": line2 = "+%d missiles · +%d locks" % [int(d["ammo"]), int(d["locks"])]
-	for ln in [[nm.to_upper(), 13, GOLD if owned else Color(1, 1, 1)], [line2, 11, Color(0.7, 0.88, 1.0)]]:
+	for ln in [[nm.to_upper(), 16, GOLD if owned else Color(1, 1, 1)], [tag, 11, accent.lightened(0.3)], [line2, 13, Color(0.72, 0.88, 1.0)]]:
 		var l := Label.new()
 		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		l.text = ln[0]
 		l.clip_text = true
+		l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		l.add_theme_font_size_override("font_size", Data.ts(int(ln[1])))
 		l.add_theme_color_override("font_color", ln[2])
 		col.add_child(l)
 	var pr := Label.new()
 	pr.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pr.text = "OWNED" if owned else "%d cr" % int(d["price"])
-	pr.add_theme_font_size_override("font_size", Data.ts(13))
+	pr.text = "OWNED" if owned else "%s cr" % _thousands(int(d["price"]))
+	pr.add_theme_font_size_override("font_size", Data.ts(15))
 	pr.add_theme_color_override("font_color", GOLD if owned else Color(1.0, 0.82, 0.4))
 	row.add_child(pr)
 	b.pressed.connect(func():
@@ -3848,6 +3869,49 @@ func _weapon_row(id: String, kind: String) -> Control:
 		Sfx.play("comm_open", -10.0, 1.3)   # v13.291: trying it on (a hologram on the slot)
 		show_screen("equipment"))
 	return b
+
+## v13.308: the picked weapon, big, over the list: its picture across a wide dark frame, its name, kind and price.
+func _weapon_detail(id: String) -> Control:
+	var d: Dictionary = Data.WEAPONS.get(id, Data.MOUNT_PODS.get(id, {}))
+	var accent: Color = d.get("color", Color(1.0, 0.65, 0.3)) as Color
+	var card := PanelContainer.new()
+	card.name = "ShopDetail"
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.0, 0.03, 0.07, 0.9)
+	sb.border_color = Color(accent, 0.8)
+	sb.set_border_width_all(1)
+	sb.border_width_bottom = 3
+	sb.set_corner_radius_all(8)
+	sb.set_content_margin_all(8)
+	card.add_theme_stylebox_override("panel", sb)
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 12)
+	card.add_child(h)
+	var pic := TextureRect.new()
+	pic.name = "DetailPic"
+	pic.custom_minimum_size = Vector2(Data.SHOP_DETAIL_PIC.x, Data.SHOP_DETAIL_PIC.y)
+	pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	pic.clip_contents = true
+	_weapon_pic(id, pic)
+	h.add_child(pic)
+	var v := VBoxContainer.new()
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	h.add_child(v)
+	var n := _label(19, Color.WHITE)
+	n.text = str(d.get("name", id)).to_upper()
+	n.clip_text = true
+	v.add_child(n)
+	var info := _label(13, Color(0.72, 0.88, 1.0))
+	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	if Data.WEAPONS.has(id): info.text = "Damage %d  ·  %.1f shots/s  ·  range %d" % [int(round(GS.gun_damage(id))), float(d.get("rate", 0.0)), int(d.get("range", 0))]
+	else: info.text = "+%d missiles  ·  +%d locks" % [int(d.get("ammo", 0)), int(d.get("locks", 0))]
+	v.add_child(info)
+	var pr := _label(16, GOLD)
+	pr.text = "OWNED" if _card_owned(id, _card_kind(id)) else "%s cr" % _thousands(int(d.get("price", 0)))
+	v.add_child(pr)
+	return card
 
 func _shop_panel(shop: VBoxContainer) -> void:
 	var st := _label(16, GOLD)
@@ -3882,6 +3946,7 @@ func _shop_panel(shop: VBoxContainer) -> void:
 				eq_filter = fid
 				show_screen("equipment"))
 			frow.add_child(b)
+	if eq_tab == "weapon" and (Data.WEAPONS.has(eq_card) or Data.MOUNT_PODS.has(eq_card)): shop.add_child(_weapon_detail(eq_card))   # v13.308
 	var vb := _eq_scroll(shop, "EqBuy", eq_tab in ["weapon", "module"])
 	var grid := GridContainer.new()
 	grid.name = "ShopGrid"
@@ -3923,7 +3988,8 @@ func _shop_panel(shop: VBoxContainer) -> void:
 			var b0: float = float(nw.get("damage", 0.0)) * float(nw.get("rate", 0.0)) if sx[1] == "dps" else float(nw.get(sx[1], 0.0))
 			var col := Color(0.55, 1.0, 0.6) if b0 > a0 + 0.01 else (Color(1.0, 0.45, 0.4) if b0 < a0 - 0.01 else Color(0.85, 0.9, 1.0))
 			var cl := _label(13, col)
-			cl.text = "%s→%s %s" % [("%.0f" % a0) if cw.size() > 0 else "-", "%.0f" % b0, "▲" if b0 > a0 + 0.01 else ("▼" if b0 < a0 - 0.01 else "=")]
+			var dlt := b0 - a0
+			cl.text = "%s > %s  %s" % [("%.0f" % a0) if cw.size() > 0 else "-", "%.0f" % b0, ("+%.0f" % dlt) if dlt > 0.01 else (("%.0f" % dlt) if dlt < -0.01 else "same")]   # v13.308: plain text (the font has no arrows: they showed as boxes)
 			cmp.add_child(cl)
 	# BUY / INSTALL
 	var act := HBoxContainer.new()
@@ -3959,7 +4025,7 @@ func _shop_panel(shop: VBoxContainer) -> void:
 	if eq_card != "" and not owned and kind != "":   # v11.59 (owner): buy and fit it in one go
 		var be := Button.new()
 		be.name = "ShopBuyEquip"
-		be.text = "BUY & EQUIP"
+		be.text = "BUY+FIT"
 		be.custom_minimum_size = Vector2(0, 50)
 		be.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		be.clip_text = true

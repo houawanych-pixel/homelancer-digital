@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.307"
+const VERSION := "v13.308"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -672,6 +672,9 @@ const SKYWAY_PIER_EVERY := 160.0        # m between its piers
 const SKYWAY_PIER_OFF := 18.0           # piers this far either side of its middle (clear of the avenue's middle)
 const TUNNEL_W := 16.0                  # v13.304 (owner: "bridges with glass tunnels"): m wide
 const TUNNEL_RING_EVERY := 36.0         # m between the white rings round a tunnel
+const SHOP_ROW_H := 104.0               # v13.308 (owner: "weapon thumbnails bigger, that section a lot better"): px, a weapon row
+const SHOP_PIC_W := 200.0               # px, its picture
+const SHOP_DETAIL_PIC := Vector2(240, 96)   # px, the picked weapon's picture over the list
 const TOWER_PAD_R_FOOT := 1.0           # m a person on foot keeps off a tower's wall (a ship: RETOPO_BOX_PAD)
 const CITY_FLOOR_LAYERS := 2        # layers (5 m) a floor: 1 of room (5 m: people, not mechs), 1 of slab (v13.273: was 3)
 const MODULE := 10                  # v13.273: cells a building module is across: a 3 x 3 grid of 2 x 2-cell rooms (10 m) in 1-cell walls, the middle room the lift
