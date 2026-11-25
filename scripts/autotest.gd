@@ -8610,6 +8610,20 @@ func _run() -> void:
 		main.launch()
 		await _until(func(): return main.state == "flight", 15.0)
 		_check("v13.307: docking again after a lockdown ended another way, LAUNCH works (%s, %s)" % [hb.launch_btn.text, main.state], open_ok and main.state == "flight", "")
+		# v13.311 (owner: "I'm still locked ... as long as I can get to the hangar I should be able to launch"): mid-lockdown
+		main.dock(s.station)
+		await _until(func(): return main.state == "hub", 15.0)
+		await _wait(0.5)
+		hb.lockdown = true   # (the lockdown as the hub shows it: the 3D escape is not started here)
+		hb.launch_btn.disabled = false
+		hb.launch_btn.text = "RUN FOR IT"
+		hb.show_screen("hub")
+		main.launch()
+		await _wait(0.3)
+		var to_hangar: bool = main.state == "hub" and hb.screen == "equipment" and not hb.launch_btn.disabled
+		main.launch()
+		await _until(func(): return main.state == "flight", 15.0)
+		_check("v13.311: in a lockdown LAUNCH is never dead: first it takes you to the hangar (%s), then out hot (%s, chasers %d, lockdown %s)" % [str(to_hangar), main.state, main.escape_chasers, str(hb.lockdown)], to_hangar and main.state == "flight" and not hb.lockdown, "")
 		_finish_group()
 		return
 	if _flag("HL_LANERING"):   # v13.305 (owner's dark mechanical ring: green on your right to go, red on the left, the boxy block on the left)
@@ -11836,7 +11850,7 @@ func _job_v1114() -> void:
 	var has_btn: bool = ab != null and red_ok and hb.find_child("FixAndRestock", true, false) != null   # (v11.25: REPAIR & RESTOCK on the station page)
 	if has_btn: ab.pressed.emit()   # (the page is rebuilt: the button is a new one after this)
 	await _frames(20)
-	var alarm_ok: bool = has_btn and hb.lockdown and hb.breakout != null and hb.breakout.visible and hb.breakout.faction == "orion" and hb.launch_btn.disabled
+	var alarm_ok: bool = has_btn and hb.lockdown and hb.breakout != null and hb.breakout.visible and hb.breakout.faction == "orion" and hb.launch_btn.text == "RUN FOR IT"
 	await _shot("v1117_alarm_test", 0.5)
 	await _wait(4.0)
 	await _shot("v1119_layers_fight", 0.0)
@@ -19955,7 +19969,7 @@ func _job_v92_breakout() -> void:
 	await _frames(3)
 	var hb = main.hub
 	var bo: Breakout = hb.breakout
-	var lock_ok: bool = Factions.hostile(own) and hb.lockdown and bo != null and bo.visible and hb.launch_btn.disabled and not hb.asst.visible
+	var lock_ok: bool = Factions.hostile(own) and hb.lockdown and bo != null and bo.visible and hb.launch_btn.text == "RUN FOR IT" and not hb.asst.visible
 	main.launch()
 	await _frames(2)
 	lock_ok = lock_ok and main.state == "hub"

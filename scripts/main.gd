@@ -1785,8 +1785,17 @@ func launch() -> void:
 		back_to_deck()
 		return
 	if state != "hub": return
-	if hub.lockdown:   # v9.2 (owner): no launching in a lockdown until you reach the hangar
-		hub.status.text = "LOCKED DOWN. Fight your way to the hangar first."
+	if hub.lockdown:   # v13.311 (owner: "I should still be able to launch as long as I can get to the hangar"): never stuck
+		if hub.breakout != null and hub.breakout.visible:   # (the older room-by-room fight on screen: that fight is the way to the hangar)
+			hub.status.text = "Fight your way to the hangar, then LAUNCH."
+			return
+		if hub.screen != "equipment":   # first to the hangar (where your ship is) ...
+			hub.eq_tab = "hangar"
+			hub.show_screen("equipment")
+			hub.status.text = "LOCKDOWN. You made it to the hangar: LAUNCH to run for it. Their ships will come after you."
+			return
+		escape_from = str(hub.base["name"])   # ... then out hot: their ships chase you and they won't let you dock again
+		_escape_finish()
 		return
 	state = "launching"
 	hub.visible = false
