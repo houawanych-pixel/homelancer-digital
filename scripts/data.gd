@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.324"
+const VERSION := "v13.325"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -566,6 +566,9 @@ const TRAFFIC_LIGHT_H := 8.0         # m: the light post
 const TRAFFIC_STOP_GAP := 4.0        # m: cars wait this far short of the crossing
 const TRAFFIC_LIGHT_SEE := 70.0      # m: how far ahead a car minds a red light or the car in front
 const TRAFFIC_CAR_GAP := 14.0        # m kept to the car in front in a queue
+const CITY_SOLID_PAD := {"foot": 1.0, "car": 2.6, "mech": 4.0, "ship": 6.0}   # v13.325 (owner: "cars are solids, people are solids"): how wide you are against them (m)
+const CITY_PED_RADIUS := 0.9         # m: a person, as a post
+const TRAFFIC_YIELD := 22.0          # m: a street car stops this far short of you when you stand in its lane
 const TRAFFIC_RANGE := 400.0        # m round you that has traffic
 const TRAFFIC_ALT := 250.0          # m over the street: higher than this, none
 const TRAFFIC_SPAWN_EVERY := 0.3    # s between new vehicles (until the pool is out)

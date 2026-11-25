@@ -8867,6 +8867,65 @@ func _run() -> void:
 		_check("v13.322: the ALARM at a planet dock (%s) runs, not a black screen (%d ms; %s)" % [str(main.hub.base.get("name", "")), Time.get_ticks_msec() - t0, str(seen[-1] if not seen.is_empty() else "")], main.state == "flight" and main.fx.fade < 0.05, "")
 		_finish_group()
 		return
+	if _flag("HL_SOLIDS"):   # v13.325 (owner: "cars are solids, people are solids, so you can't just walk through them")
+		var pid := "new_terra"
+		var tt := 4
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main._load_surface(pid, tt)
+		await _until(func(): return is_instance_valid(main.space) and main.space.surface_mode and main.space.tile == tt and main.space.city_traffic != null and main.space.city_life != null, 40.0)
+		await _wait(2.0)
+		var s := _sp()
+		var tr: CityTraffic = s.city_traffic
+		var g := CityPlan.ground(pid, tt)
+		s.on_foot = true
+		GS.form = "mech"
+		s.set_player_model()
+		s.ground_mode = true
+		var li := -1
+		for i in tr._lanes.size():
+			if (tr._lanes[i] as Array).size() == 2: li = i; break
+		for p in tr.pool: tr._off(p)
+		var c: Dictionary = tr.pool[0]
+		var ln: Array = tr._lanes[li]
+		c["lane"] = li; c["from"] = ln[0]; c["to"] = ln[1]; c["len"] = ((ln[1] as Vector2) - (ln[0] as Vector2)).length(); c["up"] = 0.0
+		c["t"] = 300.0; c["speed"] = 0.0; c["state"] = "drive"; c["held"] = false
+		(c["node"] as Node3D).visible = true
+		tr._place(c, 0.0)
+		var cp: Vector3 = (c["node"] as Node3D).global_position
+		s.player.global_position = Vector3(cp.x, g + Data.PILOT_FEET_BELOW + 0.2, cp.z)   # standing inside the car
+		var h0: int = s.solid_hits
+		await _wait(0.5)
+		var away := Vector2(s.player.global_position.x - cp.x, s.player.global_position.z - cp.z).length()
+		var car_ok: bool = away >= (Data.TRAFFIC_SIZE[str(c["kind"])] as Vector3).x * 0.5 and s.solid_hits > h0
+		# a car coming down the lane stops short of you
+		var d0: Vector2 = ((ln[1] as Vector2) - (ln[0] as Vector2)).normalized()
+		var stand: Vector2 = (ln[0] as Vector2) + d0 * 300.0
+		c["t"] = 240.0
+		c["speed"] = 18.0
+		tr._place(c, 0.0)
+		s.player.global_position = Vector3(stand.x, g + Data.PILOT_FEET_BELOW + 0.2, stand.y)
+		await _wait(5.0)
+		var gap: float = 300.0 - float(c["t"])
+		var yield_ok: bool = gap >= Data.TRAFFIC_YIELD - 2.0 and gap < 60.0
+		await _capture("solids_car_stops")
+		# a person
+		var ped: Dictionary = {}
+		for k in 60:
+			for q in s.city_life.pool: if (q["state"] == "walk" or q["state"] == "idle") and (q["node"] as Node3D).visible: ped = q
+			if not ped.is_empty(): break
+			await _wait(0.5)
+		var ped_ok := true
+		if not ped.is_empty():
+			var pp2: Vector3 = (ped["node"] as Node3D).global_position
+			s.player.global_position = Vector3(pp2.x, pp2.y + Data.PILOT_FEET_BELOW + 0.2, pp2.z)
+			await _frames(3)
+			var np3: Vector3 = (ped["node"] as Node3D).global_position
+			ped_ok = Vector2(s.player.global_position.x - np3.x, s.player.global_position.z - np3.z).length() >= Data.CITY_PED_RADIUS + 0.5
+		_check("v13.325: you can't walk through a car (pushed %.1f m out) or a person (%s, person found %s); a car stops %.0f m short of you in its lane (%s)" % [away, str(ped_ok), str(not ped.is_empty()), gap, str(yield_ok)], car_ok and ped_ok and not ped.is_empty() and yield_ok, "")
+		_finish_group()
+		return
 	if _flag("HL_LIGHTS"):   # v13.324 (owner: "traffic lights: a set of circles, green bars for green and red; cars stop and go")
 		var pid := "new_terra"
 		var tt := 4

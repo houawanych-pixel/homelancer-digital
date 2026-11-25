@@ -381,6 +381,13 @@ func tick(dt: float) -> void:
 			var d0 := ((p["to"] as Vector2) - (p["from"] as Vector2)).normalized()
 			if ts < INF and light(absf(d0.x) > absf(d0.y)) != "go" and ts - float(p["t"]) < Data.TRAFFIC_LIGHT_SEE:
 				limit = ts
+			var me: Vector3 = space.player.global_position   # v13.325: and for you, standing in its lane
+			var a0: Vector2 = p["from"]
+			var rel := Vector2(me.x, me.z) - a0
+			var t_me := rel.dot(d0)
+			var side := absf(rel.x * d0.y - rel.y * d0.x)
+			if side < Data.TRAFFIC_LANE_W * 0.5 + 2.0 and t_me > float(p["t"]) and t_me - float(p["t"]) < Data.TRAFFIC_LIGHT_SEE and me.y < _g + 12.0:
+				limit = minf(limit, t_me - Data.TRAFFIC_YIELD)
 			for q in pool:   # keep a gap to the car ahead on the same lane
 				if q == p or q["state"] == "off" or q.get("lane", -1) != p.get("lane", -2): continue
 				var dt2 := float(q["t"]) - float(p["t"])

@@ -16665,6 +16665,55 @@ var cars_stolen := 0     # (tests; the police chase reads it)
 var last_crime := ""     # what you last did that the law cares about ("car_theft" ...)
 var last_crime_at := Vector3.ZERO
 
+## v13.325 (owner: "cars are solids, people are solids, so you can't just walk through them"): you're pushed out of
+## the street traffic (each car its own box, turned the way it drives) and out of the people round you (each a post
+## as wide as a person). Only near the street, and never out of the car you're driving.
+var solid_hits := 0   # (checks)
+func _city_solids() -> void:
+	if not is_instance_valid(player): return
+	var pp := player.global_position
+	var me_r: float = float(Data.CITY_SOLID_PAD["foot" if on_foot and not driving else ("car" if driving else ("mech" if GS.form == "mech" else "ship"))])
+	var feet := pp.y - (Data.PILOT_FEET_BELOW if on_foot else me_r)
+	var head := pp.y + me_r
+	if city_traffic != null and is_instance_valid(city_traffic):
+		for q in city_traffic.pool:
+			if q["state"] == "off": continue
+			var nd: Node3D = q["node"]
+			if nd == car or not nd.visible: continue
+			var np := nd.global_position
+			if absf(np.x - pp.x) > 40.0 or absf(np.z - pp.z) > 40.0: continue
+			var dims: Vector3 = Data.TRAFFIC_SIZE.get(str(q["kind"]), Vector3(4.6, 3.2, 10.0))
+			if feet > np.y + dims.y or head < np.y - 0.5: continue
+			var lq: Vector3 = nd.global_transform.affine_inverse() * pp
+			var hx := dims.x * 0.5 + me_r
+			var hz := dims.z * 0.5 + me_r
+			if absf(lq.x) >= hx or absf(lq.z) >= hz: continue
+			if hx - absf(lq.x) < hz - absf(lq.z): lq.x = signf(lq.x if lq.x != 0.0 else 1.0) * hx
+			else: lq.z = signf(lq.z if lq.z != 0.0 else 1.0) * hz
+			var out := nd.global_transform * lq
+			player.global_position = Vector3(out.x, pp.y, out.z)
+			pp = player.global_position
+			var nrm := Vector3(player.global_position.x - np.x, 0.0, player.global_position.z - np.z).normalized()
+			if vel.dot(nrm) < 0.0: vel -= nrm * vel.dot(nrm)
+			solid_hits += 1
+	if city_life != null and is_instance_valid(city_life):
+		var pr: float = Data.CITY_PED_RADIUS + me_r
+		for q in city_life.pool:
+			if q["state"] == "off" or q["state"] == "in": continue
+			var nd2: Node3D = q["node"]
+			if not nd2.visible: continue
+			var np2 := nd2.global_position
+			if feet > np2.y + 4.0 or head < np2.y - 0.5: continue
+			var d := Vector2(pp.x - np2.x, pp.z - np2.z)
+			if d.length() >= pr: continue
+			if d.length() < 0.01: d = Vector2(1, 0)
+			var o := Vector2(np2.x, np2.z) + d.normalized() * pr
+			player.global_position = Vector3(o.x, pp.y, o.y)
+			pp = player.global_position
+			var n2 := Vector3(d.x, 0.0, d.y).normalized()
+			if vel.dot(n2) < 0.0: vel -= n2 * vel.dot(n2)
+			solid_hits += 1
+
 ## The vehicle you could take right now ({} if none).
 func car_candidate() -> Dictionary:
 	if not on_foot or driving or city_traffic == null or not is_instance_valid(city_traffic) or not is_instance_valid(player): return {}
@@ -17096,6 +17145,7 @@ func _surface_update(_dt: float) -> void:
 	for bx: Array in surf_boxes:   # v1.9q: the faction buildings are solid
 		if is_instance_valid(bx[0]): _surf_push(bx)
 	_tower_push(_dt)   # v13.302: the city's megatowers are solid
+	_city_solids()   # v13.325: so are the cars and the people
 	_hull_prev = player.global_position
 	for fl in _fields(): (fl as BlockField).fluid_update(_dt, player.global_position)   # v1.6b: water and lava move near you
 	_update_light(_dt, bfp, p)   # v1.7m
