@@ -8591,6 +8591,29 @@ func _run() -> void:
 			wanted and cop_kill_ok and first >= 2 and backup >= 6 and followed >= mini(tail, Data.HEAT_FOLLOW_MAX) and followed > 0 and still and zone_e == "enemy" and no_backup and zone_n == "neutral" and escaped, "")
 		_finish_group()
 		return
+	if _flag("HL_LANERING"):   # v13.305 (owner's dark mechanical ring: green on your right to go, red on the left, the boxy block on the left)
+		main.start_game()
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and not main.space.lanes.is_empty(), 20.0)
+		await _wait(1.0)
+		var s := _sp()
+		var ln: Dictionary = s.lanes[0]
+		var k: int = mini(1, (ln["up"] as Array).size() - 1)
+		var mid: Vector3 = ((ln["up"][k] as Vector3) + (ln["down"][k] as Vector3)) * 0.5
+		var dir: Vector3 = ln["dir"]
+		var m: ArrayMesh = s._lane_mm.multimesh.mesh if is_instance_valid(s._lane_mm) else null
+		main.hud.visible = false
+		_tp(mid - dir * 520.0 + Vector3(0, 40, 0), mid)
+		await _wait(1.5)
+		await _capture("lanering_from_a")
+		_tp(mid + dir * 520.0 + Vector3(0, 40, 0), mid)
+		await _wait(1.5)
+		await _capture("lanering_from_b")
+		var up_x: Transform3D = s._lane_mm.multimesh.get_instance_transform(0)
+		var dn_x: Transform3D = s._lane_mm.multimesh.get_instance_transform(1)
+		var faces_ok: bool = up_x.basis.z.normalized().dot(-dir) > 0.9 and dn_x.basis.z.normalized().dot(dir) > 0.9
+		_check("v13.305: the lane rings are the new dark ring (metal, green and red glow: %d surfaces); each row faces the way it runs, so green shows on your right-hand row from either end (%s)" % [m.get_surface_count() if m else 0, faces_ok], m != null and m.get_surface_count() == 3 and faces_ok, "")
+		_finish_group()
+		return
 	if _flag("HL_MEGACITY"):   # v13.302 (owner's concept art: "look at the shapes, the colours, the size; build this city")
 		var pid := "new_terra"
 		var cts: Dictionary = CityPlan.city_tiles(pid)
@@ -8662,7 +8685,7 @@ func _run() -> void:
 		await _wait(2.0)
 		await _capture("skyways")
 		_check("v13.304: the capitol stands at the port, the tallest tower (roof %.0f m over the street, the tallest giant %.0f m), the landing deck black" % [float(cap.get("top", 0.0)) - g, tallest], cap_ok and s.tile_root.get_node_or_null("CityLinks") != null, "")
-		_check("v13.302: the city is %d x %d blocks of megatowers (%d towers, the tallest %.0f m over its podium); %d blocks near you draw theirs (%d triangles)" % [cr.size.x, cr.size.y, all_t.size(), tallest, tw_nodes, tris], cr.size.x >= 3 and all_t.size() >= 30 and tallest > 600.0 and tw_nodes >= 3, "")
+		_check("v13.302: the city is %d x %d blocks of megatowers (%d towers, the tallest %.0f m over its podium); %d blocks near you draw theirs (%d triangles)" % [cr.size.x, cr.size.y, all_t.size(), tallest, tw_nodes, tris], cr.size.x >= 3 and all_t.size() >= 30 and tallest > 400.0 and tallest < 700.0 and tw_nodes >= 3, "")
 		# solid: fly into the nearest tower
 		var near_t: Dictionary = all_t[0]
 		for tw in all_t:
@@ -8754,12 +8777,12 @@ func _run() -> void:
 						mn = Vector2i(mini(mn.x, c.x), mini(mn.y, c.y))
 						mx = Vector2i(maxi(mx.x, c.x), maxi(mx.y, c.y))
 					if (b["cells"] as Dictionary).size() >= (mx.x - mn.x + 1) * (mx.y - mn.y + 1): cut_ok = false
-					if not (b["door"] as Array).is_empty(): doors += 1
+					if not (b["door"] as Array).is_empty() or not bool(b.get("main", false)): doors += 1   # (v13.305: only the big ones have doors)
 					if not (b["shaft"] as Array).is_empty(): shafts += 1
 					shapes[b["shape"]] = true
 		var centre_d: float = (Vector2(crect.position) + Vector2(crect.size) * 0.5 - Vector2(5, 5)).length() * Data.BLOCK_REGION
 		_check("v13.274: New Terra's capital tile has a %dx%d city at the tile's centre (%.0f m off it, clear of Port Meridian): %d buildings of %d kinds, corners notched (%s), %d with street doors, %d with a lift, %d bridges" % [crect.size.x, crect.size.y, centre_d, n_b, shapes.size(), str(cut_ok), doors, shafts, bridges],
-			crect.size == Vector2i(3, 3) and centre_d <= Data.BLOCK_REGION * (1.5 + Data.CITY_OFFCENTRE * 2.0) and n_b >= 10 and cut_ok and doors == n_b and shafts == n_b and shapes.size() >= 3 and bridges >= 2, "")
+			crect.size == Vector2i(3, 3) and centre_d <= Data.BLOCK_REGION * (1.5 + Data.CITY_OFFCENTRE * 2.0) and n_b >= 10 and cut_ok and doors == n_b and shafts == n_b and shapes.size() >= 3 and bridges >= 1, "")
 		# which tiles get cities: green ones, by land; none on ice / desert; a harsh world gets one block
 		var nt: Dictionary = CityPlan.city_tiles(pid)
 		var tl: Array = Surface.PLANETS[pid]["tiles"]

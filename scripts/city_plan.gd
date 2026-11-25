@@ -284,7 +284,11 @@ static func block(pid: String, tile: int, r: Vector2i) -> Dictionary:
 			for c in b["cells"]:
 				b["cells"][c] = mini(int(b["cells"][c]), pf)
 				plan["cells"][c] = b["cells"][c]
-		plan["bridges"] = (plan["bridges"] as Array).filter(func(br): return int(br["f"]) < Data.CITY_PODIUM_FLOORS)
+		plan["bridges"] = (plan["bridges"] as Array).filter(func(br): return int(br["f"]) < Data.CITY_PODIUM_FLOORS and int(br["f"]) >= Data.CITY_BRIDGE_MIN_FLOOR)
+		for b in plan["buildings"]:   # v13.305 (owner: "no point going into those little round ones; I got stuck"): only the big ones have street doors
+			if not bool(b.get("main", false)):
+				b["door"] = []
+				b["door_out"] = []
 	plan["downtown"] = downtown
 	_blocks[key] = plan
 	return plan

@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.304"
+const VERSION := "v13.305"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -390,6 +390,10 @@ const LANE_RING_GAP := 7000.0         # metres between rings (v9.0: systems fill
 const LANE_MAX_RINGS := 24
 const LANE_MIN_LEN := 1400.0          # shorter runs get no lane
 const LANE_RING_RADIUS := 68.0   # v11.89 (owner): lanes 2x (was 34)
+const LANE_RING_METAL := Color(0.13, 0.14, 0.16)   # v13.305 (owner's ring): dark gunmetal
+const LANE_GO := Color(0.2, 1.0, 0.35)            # its glow on the side you fly in from (your right-hand row)
+const LANE_STOP := Color(1.0, 0.18, 0.12)         # and on the far side (the oncoming row)
+const LANE_RING_LIGHTS := false                  # (the old green / yellow / red lamps beside each ring)
 const LANE_RING_TUBE := 0.2      # v11.99: how thick the solid ring frame is (share of the ring radius)
 const LANE_STACK := 220.0   # v11.89: 2x with the rings
 #            # the two directions sit this far apart, one ring above the other
@@ -607,10 +611,11 @@ const GUARD_LOD_EVERY := 0.3        # s between checks
 # v13.302 (owner's concept art: white sci-fi megatowers, "look at the shapes, the colours, the size"): every building is a
 # walkable podium (its first CITY_PODIUM_FLOORS floors of rooms) with a megatower on top (CityTowers)
 const CITY_TOWERS := true
+const CITY_BRIDGE_MIN_FLOOR := 3       # v13.305 (owner: "a bridge so low the traffic can hit it"): walkway bridges only this floor up (~25 m)
 const CITY_PODIUM_FLOORS := 4           # floors of rooms under each tower
-const TOWER_H_DOWNTOWN := Vector2(950.0, 1150.0)  # m over the podium: the downtown block's giant
-const TOWER_H_MAIN := Vector2(450.0, 760.0)       # each other block's giant
-const TOWER_H_SLIM := Vector2(130.0, 280.0)       # the slim towers in the lots' far corners
+const TOWER_H_DOWNTOWN := Vector2(475.0, 575.0)   # v13.305 (owner: "way too high: half that at the tallest")  # m over the podium: the downtown block's giant
+const TOWER_H_MAIN := Vector2(225.0, 380.0)       # each other block's giant
+const TOWER_H_SLIM := Vector2(65.0, 140.0)       # the slim towers in the lots' far corners
 const TOWER_MEGA_R := 135.0             # m: a block giant's foot (corner to middle), over its four main buildings
 const TOWER_SLIM_GROW := 1.15           # a slim tower a little wider than its podium's outline
 const TOWER_STYLES := ["cluster", "twin", "slab", "cluster"]   # v13.303: how a giant's kit parts are put together (one glass core, two linked, a long slab)
@@ -646,7 +651,7 @@ const KIT_BEVEL_WHITE := 0.1            # a white box's edges rounded this share
 const KIT_GLASS := Color(0.08, 0.1, 0.12)   # the glass blocks
 const KIT_GREEN := Color(0.3, 0.5, 0.2)     # the planters
 const CAPITOL_W := 260.0               # v13.304 (owner: "the capitol: the docking building, the highest tower"): m across its twin towers
-const CAPITOL_ABOVE := 1250.0           # m its roof stands over the landing deck (the tallest tower: downtown's is ~1150 over the street)
+const CAPITOL_ABOVE := 600.0           # m its roof stands over the landing deck (the tallest tower: downtown's is ~1150 over the street)
 const CAPITOL_DECK_CLEAR := 320.0       # m its landing deck floats over the highest ground under it (other ports: PAD_ISLAND_CLEAR)
 const DECK_R := 200.0                   # v13.306: m, the overwatch disc (the pad on one side, the dome on the other)
 const DECK_SHIFT := 95.0                # m from the pad to the disc's middle
