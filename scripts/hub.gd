@@ -788,7 +788,7 @@ func show_screen(s: String) -> void:
 	_refresh_sell_all(s)
 	status.offset_right = -(get_viewport_rect().size.x * 0.4 + 10.0) if s == "equipment" and not panels_hidden else -24.0   # v13.297: in the hangar, clear of the shop's buttons
 	var sysname: String = Data.SYSTEMS[GS.system_id]["name"]
-	header.text = base["name"].to_upper() if s == "hub" else {"equipment": "WEAPONS & EQUIPMENT DEALER", "ships": "SHIP DEALER", "mechs": "MECH DEALER", "repair": "MEDICAL BAY", "supplies": "SUPPLIES", "command": "COMMAND", "bounty": "MISSION BOARD", "missions": "MISSION BOARD", "boarding": "MISSION BOARD", "board": "MISSION BOARD", "ship": "YOUR SHIP", "faction": "FACTION", "surface": "PLANET DESTINATIONS", "lounge": "PILOTS' LOUNGE", "loadout": "LOADOUT", "market": "MARKET"}[s]
+	header.text = base["name"].to_upper() if s == "hub" else {"equipment": "WEAPONS & EQUIPMENT DEALER", "ships": "SHIP DEALER", "mechs": "MECH DEALER", "repair": "MEDICAL BAY", "supplies": "SUPPLIES", "command": "COMMAND", "bounty": "MISSION BOARD", "missions": "MISSION BOARD", "boarding": "MISSION BOARD", "board": "MISSION BOARD", "ship": "MY QUARTERS", "faction": "FACTION", "surface": "PLANET DESTINATIONS", "lounge": "PILOTS' LOUNGE", "loadout": "LOADOUT", "market": "MARKET"}[s]
 	subheader.text = "%s  ·  %s  ·  %s SYSTEM" % [str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id])).to_upper(), "ORBITAL STATION" if kind == "station" else "PLANET SURFACE", sysname.to_upper()]   # v8.2 (owner): faction and station
 	for box in [left, content, leftwin]:   # take the old page out at once, so the new buttons keep their own names
 		for c in box.get_children():
@@ -2389,6 +2389,8 @@ func _market_page() -> void:
 		if market_pick == "s:%d" % ci: sb.add_theme_color_override("font_color", Color(0.55, 1.0, 0.65))
 		sb.pressed.connect(func(): market_pick = "s:%d" % ci; market_qty = -1; show_screen("market"))
 		v.add_child(sb)
+	rows_for_parts(v)   # v13.317: spare parts and salvaged guns (were in MY QUARTERS)
+	for ci in GS.cargo.size(): if GS.cargo[ci].get("kind", "") in ["part", "weapon"]: any = true
 	var worth: int = GS.ore_worth(str(base["name"]))
 	if worth > 0:
 		any = true
@@ -5075,6 +5077,7 @@ func _ships_page() -> void:
 		card.add_child(row)
 		list.add_child(card)
 	_fleet_dealer_cards(list)   # v12.97: extra entries only (the ships above are unchanged)
+	_ship_parts_cards(list)   # v13.317
 	# 3D showroom
 	var svc := SubViewportContainer.new()
 	svc.stretch = true
@@ -5112,6 +5115,75 @@ func _ships_page() -> void:
 	hint.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	hint.offset_top = -26
 	svc.add_child(hint)
+
+## v13.317: KEEP / SELL for each spare part or salvaged gun in the hold (in the market; was in MY QUARTERS).
+func rows_for_parts(v: Container) -> void:
+	for ci in GS.cargo.size():   # v13.266 (owner: "keep it or sell it"): a SELL button for each spare part in the hold
+		var it: Dictionary = GS.cargo[ci]
+		if not (it.get("kind", "") in ["part", "weapon"]): continue
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 8)
+		v.add_child(row)
+		if it["kind"] == "weapon" and not (str(it["id"]) in GS.owned_weapons):   # v13.267: a salvaged gun: KEEP or SELL
+			var kb := Button.new()
+			kb.name = "KeepWeapon_%d" % ci
+			kb.text = "KEEP\n%s" % str(it.get("name", "weapon")).to_upper()
+			kb.custom_minimum_size = Vector2(0, 62)
+			kb.clip_text = true
+			kb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			kb.add_theme_color_override("font_color", CYAN)
+			kb.pressed.connect(func(): status.text = GS.keep_weapon(ci); Sfx.play("pickup", -6.0); show_screen("market"))
+			row.add_child(kb)
+		var pb := Button.new()
+		pb.name = ("SellPart_%d" if it["kind"] == "part" else "SellWeapon_%d") % ci
+		pb.text = "SELL +%d cr\n%s" % [GS.cargo_sell_price(it), str(it.get("name", "part")).to_upper()]
+		pb.custom_minimum_size = Vector2(0, 62)
+		pb.clip_text = true
+		pb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		pb.add_theme_color_override("font_color", GOLD)
+		pb.pressed.connect(func(): status.text = GS.sell_cargo(ci); Sfx.play("pickup", -6.0); show_screen("market"))
+		row.add_child(pb)
+
+## v13.317: the ship parts (moved here from MY QUARTERS: "that should be done in the hangar").
+func _ship_parts_cards(v: Container) -> void:
+	var sh := GS.ship()
+	if Data.SHIP_PARTS and Data.PART_CARDS:   # v13.268: the parts as picture cards (yours, and the base ships' to buy)
+		var cap0 := _label(16, CYAN)
+		cap0.text = "SHIP PARTS  ·  the look is yours, the stats stay the %s's" % str(sh["name"])
+		cap0.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(cap0)
+		var ids: Array = []
+		for sid in Data.PART_SHIPS + GS.owned_ships:
+			if Data.SHIPS.has(str(sid)) and not ids.has(str(sid)) and ShipFactory.has_real_model(str(Data.SHIPS[str(sid)]["model"])): ids.append(str(sid))
+		_part_cards(v, "ship", ShipParts.PARTS, ids, "ships")
+	elif Data.SHIP_PARTS and GS.owned_ships.size() > 1:   # v13.266 (owner): your cockpit, body, wings and tail, from any ship you own
+		var cap := _label(16, CYAN)
+		cap.text = "SHIP PARTS  ·  the look is yours, the stats stay the %s's" % str(sh["name"])
+		cap.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(cap)
+		for part in ShipParts.PARTS:
+			var row := HFlowContainer.new()
+			row.name = "ShipPart_" + part
+			row.add_theme_constant_override("h_separation", 8)
+			row.add_theme_constant_override("v_separation", 6)
+			var pl := _label(17, GOLD)
+			pl.text = "%s:" % part.to_upper()
+			pl.custom_minimum_size = Vector2(0, 48)
+			row.add_child(pl)
+			for sid in GS.owned_ships:
+				if not Data.SHIPS.has(str(sid)) or not ShipFactory.has_real_model(str(Data.SHIPS[str(sid)]["model"])): continue
+				var cur := str(GS.ship_parts.get(part, ""))
+				var on: bool = (cur == "" and str(sid) == GS.ship_id) or cur == str(sid)
+				var b := Button.new()
+				b.name = "FitShip_%s_%s" % [part, sid]
+				b.custom_minimum_size = Vector2(130, 48)
+				b.clip_text = true
+				b.text = ("[%s]" % Data.SHIPS[str(sid)]["name"]) if on else str(Data.SHIPS[str(sid)]["name"])
+				b.disabled = on
+				var sid2 := str(sid)
+				b.pressed.connect(func(): status.text = GS.fit_ship_part(part, sid2); show_screen("ships"))
+				row.add_child(b)
+			v.add_child(row)
 
 ## v1.9i (owner): MECH DEALER. A mech is ARMS + CORE (upper body) + LEGS. Buy a frame to own its three parts, then
 ## fit each part from any frame you own (the arms are always a matched pair).
@@ -7069,46 +7141,19 @@ func _lo_change(a: Dictionary, b: Dictionary, what: String) -> String:
 func _ship_page() -> void:
 	var v := _page_box()
 	var sh := GS.ship()
-	var head := _label(22, Color(1, 1, 1))
-	head.text = "%s  ·  %s" % [str(sh["name"]).to_upper(), sh["class"]]
-	v.add_child(head)
-	if Data.SHIP_PARTS and Data.PART_CARDS:   # v13.268: the parts as picture cards (yours, and the base ships' to buy)
-		var cap0 := _label(16, CYAN)
-		cap0.text = "SHIP PARTS  ·  the look is yours, the stats stay the %s's" % str(sh["name"])
-		cap0.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		v.add_child(cap0)
-		var ids: Array = []
-		for sid in Data.PART_SHIPS + GS.owned_ships:
-			if Data.SHIPS.has(str(sid)) and not ids.has(str(sid)) and ShipFactory.has_real_model(str(Data.SHIPS[str(sid)]["model"])): ids.append(str(sid))
-		_part_cards(v, "ship", ShipParts.PARTS, ids, "ship")
-	elif Data.SHIP_PARTS and GS.owned_ships.size() > 1:   # v13.266 (owner): your cockpit, body, wings and tail, from any ship you own
-		var cap := _label(16, CYAN)
-		cap.text = "SHIP PARTS  ·  the look is yours, the stats stay the %s's" % str(sh["name"])
-		cap.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		v.add_child(cap)
-		for part in ShipParts.PARTS:
-			var row := HFlowContainer.new()
-			row.name = "ShipPart_" + part
-			row.add_theme_constant_override("h_separation", 8)
-			row.add_theme_constant_override("v_separation", 6)
-			var pl := _label(17, GOLD)
-			pl.text = "%s:" % part.to_upper()
-			pl.custom_minimum_size = Vector2(0, 48)
-			row.add_child(pl)
-			for sid in GS.owned_ships:
-				if not Data.SHIPS.has(str(sid)) or not ShipFactory.has_real_model(str(Data.SHIPS[str(sid)]["model"])): continue
-				var cur := str(GS.ship_parts.get(part, ""))
-				var on: bool = (cur == "" and str(sid) == GS.ship_id) or cur == str(sid)
-				var b := Button.new()
-				b.name = "FitShip_%s_%s" % [part, sid]
-				b.custom_minimum_size = Vector2(130, 48)
-				b.clip_text = true
-				b.text = ("[%s]" % Data.SHIPS[str(sid)]["name"]) if on else str(Data.SHIPS[str(sid)]["name"])
-				b.disabled = on
-				var sid2 := str(sid)
-				b.pressed.connect(func(): status.text = GS.fit_ship_part(part, sid2); show_screen("ship"))
-				row.add_child(b)
-			v.add_child(row)
+	# v13.317 (owner: "the pilot's room shouldn't have an area to customise your ship; that's done in the hangar. The
+	# pilot's room is for saving your home point, checking your status, talking to your contacts, and pilot gear"):
+	# home point, contacts and where you stand first; your ship's status, hold and job below. Ship parts are in
+	# HANGAR > SHIPYARD, selling is in SUPPLIES.
+	_home_row(v)
+	var cb := Button.new()
+	cb.name = "QuartersContacts"
+	cb.text = "CONTACTS"
+	cb.custom_minimum_size = Vector2(0, 58)
+	cb.add_theme_color_override("font_color", CYAN)
+	cb.pressed.connect(func(): open_comms("contacts"))
+	v.add_child(cb)
+	_standing_rows(v)
 	# v13.09 (owner: "this should activate while you're in the pilot's room"): your pilot and his gear, from your quarters
 	var gs_btn := Button.new()
 	gs_btn.name = "QuartersGear"
@@ -7123,7 +7168,7 @@ func _ship_page() -> void:
 	w.name = "Weapons"
 	var slots: Array = []
 	for it in GS.slots: slots.append("%s %s %d/%d" % [Data.SLOT_ITEMS[it]["label"], Data.SLOT_ITEMS[it]["sub"], GS.slot_ammo(it), {"light_missile": GS.max_missiles(), "heavy_missile": GS.max_heavy(), "mine": GS.max_mines(), "nuke": GS.max_nukes()}[it]])
-	w.text = "WEAPONS\nGuns: %s ×%d   ·   Hull %d/%d   ·   Shield %d\nRacks: %s" % [GS.weapon()["name"], sh["guns"], int(GS.hull), int(sh["hull"]), int(sh["shield"]), "   ·   ".join(slots)]
+	w.text = "YOUR SHIP: %s  ·  %s\nGuns: %s ×%d   ·   Hull %d/%d   ·   Shield %d\nRacks: %s" % [str(sh["name"]).to_upper(), sh["class"], GS.weapon()["name"], sh["guns"], int(GS.hull), int(sh["hull"]), int(sh["shield"]), "   ·   ".join(slots)]
 	v.add_child(w)
 	var c := _label(18, CYAN)
 	c.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -7138,41 +7183,6 @@ func _ship_page() -> void:
 	c.text = "CARGO HOLD  %s\n%s" % [GS.hold_text(), "\n".join(lines) if not lines.is_empty() else "Empty."]
 	v.add_child(c)
 
-	for ci in GS.cargo.size():   # v13.266 (owner: "keep it or sell it"): a SELL button for each spare part in the hold
-		var it: Dictionary = GS.cargo[ci]
-		if not (it.get("kind", "") in ["part", "weapon"]): continue
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 8)
-		v.add_child(row)
-		if it["kind"] == "weapon" and not (str(it["id"]) in GS.owned_weapons):   # v13.267: a salvaged gun: KEEP or SELL
-			var kb := Button.new()
-			kb.name = "KeepWeapon_%d" % ci
-			kb.text = "KEEP\n%s" % str(it.get("name", "weapon")).to_upper()
-			kb.custom_minimum_size = Vector2(0, 62)
-			kb.clip_text = true
-			kb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			kb.add_theme_color_override("font_color", CYAN)
-			kb.pressed.connect(func(): status.text = GS.keep_weapon(ci); Sfx.play("pickup", -6.0); show_screen("ship"))
-			row.add_child(kb)
-		var pb := Button.new()
-		pb.name = ("SellPart_%d" if it["kind"] == "part" else "SellWeapon_%d") % ci
-		pb.text = "SELL +%d cr\n%s" % [GS.cargo_sell_price(it), str(it.get("name", "part")).to_upper()]
-		pb.custom_minimum_size = Vector2(0, 62)
-		pb.clip_text = true
-		pb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		pb.add_theme_color_override("font_color", GOLD)
-		pb.pressed.connect(func(): status.text = GS.sell_cargo(ci); Sfx.play("pickup", -6.0); show_screen("ship"))
-		row.add_child(pb)
-	_home_row(v)   # v12.61 (owner): SET HOME POINT in your quarters
-	var worth: int = GS.ore_worth(str(base["name"]))
-	if worth > 0:
-		var sb := Button.new()
-		sb.name = "SellOre"
-		sb.text = "SELL ORE  +%d cr" % worth
-		sb.custom_minimum_size = Vector2(0, 56)
-		sb.add_theme_color_override("font_color", GOLD)
-		sb.pressed.connect(func(): status.text = GS.sell_ore(str(base["name"])); Sfx.play("pickup", -6.0); show_screen("ship"))
-		v.add_child(sb)
 	if not GS.mission.is_empty():
 		var m := _label(18, GOLD)
 		m.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

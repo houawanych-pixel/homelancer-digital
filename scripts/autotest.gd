@@ -8716,6 +8716,25 @@ func _run() -> void:
 		_check("v13.305: the lane rings are the new dark ring (metal, green and red glow: %d surfaces); each row faces the way it runs, so green shows on your right-hand row from either end (%s)" % [m.get_surface_count() if m else 0, faces_ok], m != null and m.get_surface_count() == 3 and faces_ok, "")
 		_finish_group()
 		return
+	if _flag("HL_QUARTERS2"):   # v13.317 (owner: "the pilot's room shouldn't customise your ship; that's the hangar")
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main.dock(_sp().station)
+		await _until(func(): return main.state == "hub", 15.0)
+		main.hub.show_screen("ship")
+		await _wait(0.6)
+		var hc: Control = main.hub.content
+		var no_parts: bool = hc.find_child("Cards_cockpit", true, false) == null and hc.find_child("ShipPart_cockpit", true, false) == null
+		var has: bool = hc.find_child("SetHome", true, false) != null and hc.find_child("QuartersContacts", true, false) != null and hc.find_child("Standing", true, false) != null and hc.find_child("Weapons", true, false) != null
+		await _capture("quarters")
+		main.hub.show_screen("ships")
+		await _wait(0.6)
+		var in_yard: bool = main.hub.content.find_child("Cards_cockpit", true, false) != null or main.hub.content.find_child("ShipPart_cockpit", true, false) != null or not (Data.SHIP_PARTS)
+		await _capture("shipyard_parts")
+		_check("v13.317: MY QUARTERS has home point, contacts, standing and status and no ship parts (%s, %s); the parts are in the SHIPYARD (%s)" % [str(no_parts), str(has), str(in_yard)], no_parts and has and in_yard, "")
+		_finish_group()
+		return
 	if _flag("HL_CITY2"):   # v13.316 (owner: "another city in the centre ... same size, same kind of build"; B3 Forest)
 		var pid := "new_terra"
 		var cts: Dictionary = CityPlan.city_tiles(pid)
@@ -9375,7 +9394,7 @@ func _run() -> void:
 		GS.credits = 1000
 		main.dock(s.station)
 		await _until(func(): return main.state == "hub", 15.0)
-		main.hub.show_screen("ship")
+		main.hub.show_screen("market")   # (v13.317: KEEP / SELL moved from MY QUARTERS to the market)
 		await _wait(0.5)
 		var kb: Button = main.hub.content.find_child("KeepWeapon_0", true, false)
 		var had_keep := kb != null
@@ -9420,13 +9439,15 @@ func _run() -> void:
 		var said2 := GS.unequip_part("mech", "head")
 		var both: bool = GS.hold_used() == 2 and GS.owns_mech_part(a, "head") and GS.owns_mech_part(b, "head")
 		_check("v13.266: a new part pushes the old one into the hold (%d then %s), EQUIP takes it back out (%s), UNEQUIP puts it in (%s; hold %d)" % [u0, str(a_in), said, said2, GS.hold_used()], u0 == 0 and a_in and swapped and both, "")
-		main.hub.show_screen("ship")
+		main.hub.show_screen("market")   # (v13.317: selling moved from MY QUARTERS to the market)
 		await _wait(0.5)
 		var sb: Button = main.hub.content.find_child("SellPart_0", true, false)
 		var cr0: int = GS.credits
 		var had_btn := sb != null
 		if sb != null: sb.pressed.emit()
 		await _wait(0.5)
+		main.hub.show_screen("ship")
+		await _wait(0.4)
 		var cl: Label = main.hub.content.find_child("Cargo", true, false)
 		_check("v13.266: SELL a spare part from the hold (+%d cr, hold %d, page: %s)" % [GS.credits - cr0, GS.hold_used(), cl.text.split("\n")[0] if cl != null else "?"], had_btn and GS.credits > cr0 and GS.hold_used() == 1 and cl != null and cl.text.begins_with("CARGO HOLD  1 / %d" % GS.hold_size()), "")
 		var got := 0
