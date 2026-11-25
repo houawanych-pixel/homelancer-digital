@@ -2260,6 +2260,30 @@ func _run() -> void:
 					not tk.is_empty() and int(by[tk[0]][1]) < 100 and int(by[tk[0]][0]) < 200000)
 		_finish_group()
 		return
+	if _flag("HL_WALLSIDE"):   # v13.329 (owner: "I went through a wall and now I'm stuck, I'm in a different area")
+		main.start_game()
+		await _until(func(): return main.state != "title", 15.0)
+		if main.state == "hub": main.launch()
+		await _until(func(): return main.state == "flight", 10.0)
+		var s := _sp()
+		var w := Node3D.new()
+		s.add_child(w)
+		w.global_position = Vector3(5000, 0, 5000)
+		var bb := AABB(Vector3(-2, -10, -50), Vector3(4, 40, 100))   # a 4 m wall across x
+		var from := w.global_position + Vector3(-12, 5, 0)
+		s.player.global_position = w.global_position + Vector3(0.8, 5, 0)   # a fast step lands just past the wall's middle
+		s._push_out_box(w, bb, "ground", from)
+		var x1: float = s.player.global_position.x - w.global_position.x
+		s.player.global_position = w.global_position + Vector3(14, 5, 0)    # a step that jumped clean over it
+		s._push_out_box(w, bb, "ground", from)
+		var x2: float = s.player.global_position.x - w.global_position.x
+		s.player.global_position = w.global_position + Vector3(-1.5, 5, 0) # walking into it from the near side, as before
+		s._push_out_box(w, bb, "ground", from)
+		var x3: float = s.player.global_position.x - w.global_position.x
+		_check("v13.329: a wall never lets you through: past its middle -> back on your side (x %.1f), jumped over -> back (x %.1f), walking into it -> stopped (x %.1f)" % [x1, x2, x3], x1 < -2.0 and x2 < -2.0 and x3 < -2.0)
+		w.queue_free()
+		_finish_group()
+		return
 	if _flag("HL_CAPBOOM"):   # v13.327 (owner: "blew up a huge fleet ship ... there should have been a huge explosion as well as multiple drops")
 		main.start_game()
 		await _until(func(): return main.state == "hub", 15.0)

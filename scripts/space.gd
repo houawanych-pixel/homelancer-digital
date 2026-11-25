@@ -909,18 +909,37 @@ func _bump_box(body: Node3D) -> void:
 	_push_out_box(body.get_meta("box_holder"), body.get_meta("box_aabb"), "station")
 
 ## Push the ship out of a model's box through the nearest face (box = the mesh bounds in the holder's own frame).
-func _push_out_box(hd: Node3D, bb: AABB, kind: String) -> bool:
+## v13.329 (owner: "I went through a wall and now I'm stuck ... I'm in a different area"): inside a ship or station the
+## walls are thin boxes, and a fast step (sprint, dash, grapple, a sword flip, a low frame rate on a phone) could land
+## past a wall's middle, so the old push (out by the nearest face) threw you out on the FAR side. Now, with where you
+## were last frame (prev), you're always put back on the side you came from, and a step that jumped right over a wall
+## is caught too.
+func _push_out_box(hd: Node3D, bb: AABB, kind: String, prev := Vector3.INF) -> bool:
 	var xf := hd.global_transform
 	var k := maxf(xf.basis.get_scale().x, 0.001)
 	var pad := (Data.BOARD_PILOT_PAD if boarding and (escape_pilot or on_foot) else Data.RETOPO_BOX_PAD) / k   # v13.156 (owner: "I can't fit in the door as a pilot"): the pilot's own size, not the ship's
-	var q := xf.affine_inverse() * player.global_position
+	var inv := xf.affine_inverse()
+	var q := inv * player.global_position
 	var lo := bb.position - Vector3.ONE * pad
 	var hi := bb.end + Vector3.ONE * pad
-	if q.x <= lo.x or q.x >= hi.x or q.y <= lo.y or q.y >= hi.y or q.z <= lo.z or q.z >= hi.z: return false
-	var pens := [q.x - lo.x, hi.x - q.x, q.y - lo.y, hi.y - q.y, q.z - lo.z, hi.z - q.z]
-	var best := 0
-	for i in 6:
-		if pens[i] < pens[best]: best = i
+	var qp := inv * prev if prev != Vector3.INF else Vector3.INF
+	var best := -1
+	if q.x <= lo.x or q.x >= hi.x or q.y <= lo.y or q.y >= hi.y or q.z <= lo.z or q.z >= hi.z:
+		if qp == Vector3.INF: return false
+		best = _seg_box_face(qp, q, lo, hi)   # (did this step cross the whole box?)
+		if best < 0: return false
+		walls_crossed += 1
+		q = qp   # (back where you were: just short of the face you hit)
+	elif qp != Vector3.INF:
+		var bp := INF
+		for i in 3:   # the face on the side you came from (an axis you were outside the box on, last frame)
+			if qp[i] <= lo[i] and q[i] - lo[i] < bp: bp = q[i] - lo[i]; best = i * 2
+			elif qp[i] >= hi[i] and hi[i] - q[i] < bp: bp = hi[i] - q[i]; best = i * 2 + 1
+	if best < 0:
+		var pens := [q.x - lo.x, hi.x - q.x, q.y - lo.y, hi.y - q.y, q.z - lo.z, hi.z - q.z]
+		best = 0
+		for i in 6:
+			if pens[i] < pens[best]: best = i
 	var axis := best / 2
 	q[axis] = lo[axis] if best % 2 == 0 else hi[axis]
 	var local_n := Vector3.ZERO
@@ -931,6 +950,26 @@ func _push_out_box(hd: Node3D, bb: AABB, kind: String) -> bool:
 	if vel.dot(n2) < 0.0: vel = vel - n2 * vel.dot(n2) * (1.0 if ground_mode else 1.5)
 	if ground_mode and n2.y > 0.7: grounded = true   # standing on a roof
 	return true
+
+var walls_crossed := 0   # (tests) steps that jumped clean over a wall, caught
+## The face (0 -x, 1 +x, 2 -y, 3 +y, 4 -z, 5 +z) where the step a -> b first enters the box, or -1 if it misses it.
+static func _seg_box_face(a: Vector3, b: Vector3, lo: Vector3, hi: Vector3) -> int:
+	var d := b - a
+	var t0 := 0.0
+	var t1 := 1.0
+	var face := -1
+	for i in 3:
+		if absf(d[i]) < 1e-6:
+			if a[i] <= lo[i] or a[i] >= hi[i]: return -1
+			continue
+		var ta := (lo[i] - a[i]) / d[i]
+		var tb := (hi[i] - a[i]) / d[i]
+		var f := i * 2 if d[i] > 0.0 else i * 2 + 1
+		if ta > tb: var tt := ta; ta = tb; tb = tt
+		if ta > t0: t0 = ta; face = f
+		t1 = minf(t1, tb)
+		if t0 >= t1: return -1
+	return face
 
 ## v1.9q RETOPO planetary buildings: a faction's Command Center and Hangar stand on its homeworld (the system's main
 ## planet), sat on the ground near the sector centre, each with a simple box to collide with. Built when the
@@ -2202,6 +2241,7 @@ func _core_look(tint: Color) -> Node3D:
 	return root
 
 ## Inside, every frame: deck, roof, walls; their mechs kept in; the fight's steps.
+var _board_prev := Vector3.INF   # v13.329: where you were at the end of the last boarding frame (walls push you back that side)
 func _board_update(dt: float) -> void:
 	var p := player.global_position
 	if not board_lifts.is_empty(): _board_lifts(dt)   # v12.51: the lifts
@@ -2238,7 +2278,8 @@ func _board_update(dt: float) -> void:
 		var q := Boarding.keep_in(player.global_position, 6.0)
 		player.global_position = Vector3(q.x, player.global_position.y, q.z)
 		vel = Vector3(0, vel.y, 0)
-	for bx: Array in surf_boxes: _push_out_box(bx[0], bx[1], "ground")
+	if riding or (_board_prev != Vector3.INF and _board_prev.distance_to(player.global_position) > 40.0): _board_prev = Vector3.INF   # (a lift ride or a jump across the ship: not a step)
+	for bx: Array in surf_boxes: _push_out_box(bx[0], bx[1], "ground", _board_prev)
 	_fleet_mech_bounds(dt)
 	if life != null:
 		var pq := life.push_out(player.global_position, 5.0)
@@ -2262,6 +2303,7 @@ func _board_update(dt: float) -> void:
 			var q := Boarding.keep_in(n.global_position, 0.5 if e.has("routine") else 12.0)   # (v13.262: crew are people: they fit the pilot doors)
 			n.global_position = Vector3(q.x, Boarding.floor_at(q) + Data.WALKER_STAND * float(e.get("stand_k", Data.MECH_BOSS_SCALE if e.get("boss_mech", false) else 1.0)), q.z)
 	_board_steps(dt)
+	_board_prev = player.global_position
 
 func _board_steps(dt: float) -> void:
 	if not controls: return
