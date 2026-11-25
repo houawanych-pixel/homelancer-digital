@@ -2242,7 +2242,7 @@ func _run() -> void:
 		var names: Array = (Boarding.INFO.get("deck_names", []) as Array).map(func(x): return str(x[1]))
 		var here: String = Boarding.room_at(s.player.global_position)
 		_check("v13.315: inside the tower: ten floors (%s), in at the ROOF DOCK (%s), %s" % [", ".join(names), here, str(s.board.get("fleet", {}).get("kind", ""))],
-			bool(Boarding.INFO.get("tower", false)) and names.size() == 10 and here.ends_with("roof_dock") and str(s.board.get("fleet", {}).get("kind", "")) in ["capture", "rescue"], here)
+			bool(Boarding.INFO.get("tower", false)) and names.size() == 10 and str(Boarding.ROOMS.get(here, {}).get("label", "")) == "ROOF DOCK" and str(s.board.get("fleet", {}).get("kind", "")) in ["capture", "rescue"], here)
 		await _capture("tower_in_mech")
 		# eject, then the pilot fits every pilot door: wide (3+ pilots) and tall (4+ pilots)
 		s._fleet_eject()
@@ -2253,13 +2253,13 @@ func _run() -> void:
 		var n_d := 0
 		for k in Boarding.ROOMS:
 			var r: Dictionary = Boarding.ROOMS[k]
-			if str(r.get("label", "")) != "PILOT DOOR": continue
+			if not str(r.get("label", "")).ends_with("DOOR") or not bool(r.get("pilot", false)): continue
 			n_d += 1
 			var rr: Array = r["r"]
 			var wd: float = (rr[1] - rr[0]) if str(r.get("axis", "x")) == "z" else (rr[3] - rr[2])
 			if wd < ph * 1.5: narrow += 1
 			if float(r.get("h", 0.0)) < ph * 3.0: low += 1
-		_check("v13.315: the pilot (%.1f tall) fits all %d pilot doors (narrow %d, low %d)" % [ph, n_d, narrow, low], n_d > 100 and narrow == 0 and low == 0)
+		_check("v13.315: the pilot (%.1f tall) fits all %d pilot doors (narrow %d, low %d)" % [ph, n_d, narrow, low], n_d > 300 and narrow == 0 and low == 0)
 		# walk through one: stand in a pilot door on the roof floor, it holds you (no push-out)
 		var dk := ""
 		for k in Boarding.ROOMS:

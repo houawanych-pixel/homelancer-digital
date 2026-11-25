@@ -39,7 +39,7 @@ b["info"]["difficulty"] = 1
 b["info"]["deck_names"] = sorted([[ys[k], v] for k, v in T["names"].items()], key=lambda x: x[0])
 # every room a pilot room (no mech fits in a building)
 for k, r in b["rooms"].items():
-    if r.get("kind") != "lift" and not r.get("pilot") and not k.endswith("r_roof_dock"):   # (the roof dock: the mech lands and parks there)
+    if r.get("kind") != "lift" and not r.get("pilot") and str(r.get("label", "")) != "ROOF DOCK" and not k.endswith("r_roof_dock"):   # (the roof dock: the mech lands and parks there)
         r["pilot"] = True; r["h"] = min(float(r.get("h", 100.0)), max(float(T["pilot_h"]), 16.0)) if r.get("label") not in ("CORRIDOR",) else float(T["pilot_h"])
 # the target: a room on a lower floor (picked by the tower's id; the game may re-pick per run)
 f = b["fleet"]
