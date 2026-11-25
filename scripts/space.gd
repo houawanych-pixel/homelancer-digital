@@ -15708,10 +15708,19 @@ func _nuke_splash(at: Vector3, r: float, k: float, hit: Node3D, which: String) -
 		if en == hit or not is_instance_valid(en) or e["def"].has("carrier"): continue   # (v11.33: the fleet ships count direct nuke hits only)
 		var d := en.global_position.distance_to(at)
 		if d >= r: continue
-		_damage_enemy(e, missile_damage(e, true, 1.0) * k * Data.MISSILE_SPLASH * (1.0 - d / r))
+		# v13.312 (owner: "it should do a lot of damage to whoever is inside; only high-level Level 3 ships with upgraded
+		# shields and armor withstand it, and fleet ships; most fighters and bombers are destroyed")
+		if nuke_tough(e): _damage_enemy(e, (float(e["max"]) + float(e.get("sh_max", 0.0))) * float(Data.NUKE_TOUGH_SHARE[0 if which == "first" else 1]))
+		else: _damage_enemy(e, float(e["hp"]) + float(e.get("sh", 0.0)) + float(e["max"]) + float(e.get("sh_max", 0.0)) + 1.0)
 		n += 1
 	nuke_log.append([which, r, n])
 	if nuke_log.size() > 10: nuke_log.pop_front()
+
+## v13.312: a ship that lives through a nuke's blast (badly hurt): Level 3 and up, a capital ship or a boss.
+## (Fleet ships are not in the splash at all: they count direct nuke hits.)
+static func nuke_tough(e: Dictionary) -> bool:
+	var d: Dictionary = e.get("def", {})
+	return int(d.get("level", d.get("tier", 1))) >= Data.NUKE_TOUGH_LEVEL or d.get("l3", false) or d.get("capital", false) or d.get("boss", false) or e.get("boss", false)
 
 func _update_nukes(dt: float) -> void:
 	for b in nuke_later: b["t"] = float(b["t"]) - dt

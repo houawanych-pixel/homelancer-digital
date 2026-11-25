@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.311"
+const VERSION := "v13.312"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -2196,6 +2196,8 @@ const NUKE_MULT := 3.0
 const NUKE_SEEK := 3000.0              # v12.29 (owner: heat-seeking): with no target picked it grabs the nearest ship ahead within this (m) ...
 const NUKE_SEEK_CONE := 0.5            # ... inside this cone (cos of the half-angle: 60 degrees)
 const NUKE_BLAST_K := 2.0             # x the super missile's blast radius
+const NUKE_TOUGH_LEVEL := 3            # v13.312 (owner): inside the blast, ships below Level 3 are destroyed ...
+const NUKE_TOUGH_SHARE := [0.55, 0.3]  # ... Level 3 / capital / boss ships lose this share of hull + shield (first, second blast)
 const NUKE_SECOND := [0.7, 3.0, 1.5]  # the second blast: after s, x the super radius, x the super splash damage
 const NUKE_TILES := 6                  # v11.85 (owner): the blast ball is 6 x NUKE_TILES^2 hard square tiles, each a small pyramid point
 const NUKE_SMOKE := 10                 # purple smoke puffs inside

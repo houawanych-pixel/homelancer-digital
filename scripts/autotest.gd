@@ -9129,6 +9129,26 @@ func _run() -> void:
 		for r2 in results: print("[route] ", r2)
 		get_tree().quit()
 		return
+	if _flag("HL_NUKEKILL"):   # v13.312 (owner: "the nuke's blast should destroy most fighters and bombers inside it; Level 3 ships and fleet ships withstand it")
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var s: Node = main.space
+		var c: Vector3 = s.player.global_position - s.player.global_basis.z * 400.0
+		var lo: Dictionary = s.spawn_unit("ph_unity", c + Vector3(40, 0, 0), c)
+		var lo2: Dictionary = s.spawn_unit("ph_unity", c + Vector3(0, 0, 70), c)
+		var hi: Dictionary = s.spawn_unit("unity_fighter_l3", c + Vector3(-40, 0, 0), c)
+		var far: Dictionary = s.spawn_unit("ph_unity", c + Vector3(0, 0, 600), c)
+		var hi0: float = float(hi["hp"]) + float(hi["sh"])
+		s.nuke_log.clear()
+		s.missile_blast(c, {"heavy": true, "nuke": true}, null)
+		await _wait(float(Data.NUKE_SECOND[0]) + 0.5)
+		var gone := func(e: Dictionary) -> bool: return not s.enemies.has(e) or float(e["hp"]) <= 0.0
+		var hi1: float = float(hi["hp"]) + float(hi["sh"])
+		_check("v13.312: a nuke destroys the Level 1-2 ships inside its blast (%s, %s), a Level 3 lives badly hurt (%d -> %d), one outside is untouched (%s)" % [str(gone.call(lo)), str(gone.call(lo2)), int(hi0), int(hi1), str(not gone.call(far))], gone.call(lo) and gone.call(lo2) and not gone.call(hi) and hi1 < hi0 * 0.5 and not gone.call(far) and float(far["hp"]) == float(far["max"]), "")
+		for r2 in results: print("[route] ", r2)
+		get_tree().quit()
+		return
 	if _flag("HL_SELLALL"):   # v13.296 (owner: "no limit inventory; at any station a SELL ALL option")
 		GS.hold_no_limit = true   # (v13.310 put the ship-level limit back; this still checks the no-limit switch)
 		main.start_game()
@@ -12043,6 +12063,7 @@ func _job_v1125() -> void:
 	var e: Dictionary = s.spawn_unit("ph_unity", s.player.global_position - s.player.global_basis.z * 300.0, s.player.global_position)
 	var near: Dictionary = s.spawn_unit("ph_unity", s.player.global_position - s.player.global_basis.z * 300.0 + Vector3(60, 0, 0), s.player.global_position)
 	e["hp"] = 99999.0
+	e["boss"] = true   # (v13.312: a nuke's blast destroys small ships inside it: this one must live to be the next target)
 	near["hp"] = 99999.0
 	s.target = e["node"]
 	s.missile_cd = 0.0
