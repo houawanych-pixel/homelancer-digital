@@ -9012,6 +9012,92 @@ func _run() -> void:
 		_check("v13.322: the ALARM at a planet dock (%s) runs, not a black screen (%d ms; %s)" % [str(main.hub.base.get("name", "")), Time.get_ticks_msec() - t0, str(seen[-1] if not seen.is_empty() else "")], main.state == "flight" and main.fx.fade < 0.05, "")
 		_finish_group()
 		return
+	if _flag("HL_RAMPS"):   # v13.331 (owner: "curve and swirl round, a real loop from top to bottom, ramps that carry it up; one continuous track")
+		var pid := "new_terra"
+		var tt := 4
+		var ix: Array = CityTowers.interchanges(pid, tt)
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main._load_surface(pid, tt)
+		await _until(func(): return is_instance_valid(main.space) and main.space.surface_mode and main.space.tile == tt and main.space.city_traffic != null, 40.0)
+		await _wait(2.0)
+		var s := _sp()
+		var tr: CityTraffic = s.city_traffic
+		var g := CityPlan.ground(pid, tt)
+		# every lane of every interchange leads somewhere (a closed network: no dead ends on the ramps)
+		var dead := 0
+		for li in tr._lanes.size():
+			if (tr._lanes[li] as Array).size() == 4 and (tr._next.get(li, []) as Array).is_empty(): dead += 1
+		# ride one car round: skyway out, down the spiral, round the loop, back in
+		var e: Dictionary = ix[0]
+		var start := -1
+		for li in tr._lanes.size():
+			var L: Array = tr._lanes[li]
+			if L.size() == 3 and tr._next.has(li): start = li; break
+		for p in tr.pool: tr._off(p)
+		var car: Dictionary = tr.pool[0]
+		car["state"] = "drive"; car["speed"] = 60.0; car["parked"] = false
+		(car["node"] as Node3D).visible = true
+		tr._enter_lane(car, start, 0.0)
+		car["t"] = float(car["len"]) - 5.0
+		var visited := {}
+		var ys := []
+		for i in 2400:   # ~ 80 s of driving at 60 m/s, ticked by hand (the player stays by the car)
+			s.player.global_position = (car["node"] as Node3D).global_position + Vector3(0, 40, 0)
+			tr.tick(1.0 / 30.0)
+			if car["state"] == "off": break
+			var L2: Array = tr._lanes[int(car["lane"])]
+			visited[int(car["lane"])] = true
+			if L2.size() == 4: ys.append((car["node"] as Node3D).position.y - g)
+			if visited.size() > 12 and L2.size() == 2: break
+		var low := 999.0
+		var high := -999.0
+		for y in ys: low = minf(low, y); high = maxf(high, y)
+		var B: Vector2 = e["B"]
+		var o: Vector2 = e["o"]
+		var w: Vector2 = e["w"]
+		var D: float = e["stations"][1]
+		var ctr: Vector2 = B + o * D + w * (Data.RAMP_MID + float(e["radii"][0]))
+		s.player.global_position = Vector3(ctr.x + o.x * 260.0 - w.x * 160.0, g + 140.0, ctr.y + o.y * 260.0 - w.y * 160.0)
+		var dv: Vector3 = (Vector3(ctr.x, g + 30.0, ctr.y) - s.player.global_position).normalized()
+		s.yaw = atan2(-dv.x, -dv.z)
+		s.pitch = asin(clampf(dv.y, -1.0, 1.0))
+		s.player.basis = Basis.from_euler(Vector3(s.pitch, s.yaw, 0))
+		s._update_camera(1.0, true)
+		await _wait(3.0)
+		await _capture("ramps_spiral")
+		var tris := 0
+		for n in s.find_children("CityLinks", "MeshInstance3D", true, false):
+			var m: Mesh = (n as MeshInstance3D).mesh
+			for si in m.get_surface_count(): tris += (m.surface_get_arrays(si)[Mesh.ARRAY_VERTEX] as PackedVector3Array).size() / 3
+		print("RAMPTRIS ", tris)
+		_check("v13.331: %d spiral interchanges (%d ramp lanes, %d dead ends); a car runs on round the track: %d lanes, down the spiral from %.0f m to %.0f m, still driving (%s)" % [ix.size(), tr.ramp_lanes, dead, visited.size(), high, low, car["state"]], ix.size() >= 4 and dead == 0 and visited.size() >= 6 and high > Data.SKYWAY_Y - 5.0 and low < 5.0 and car["state"] != "off", "")
+		_finish_group()
+		return
+	if _flag("HL_LANDNT"):   # (owner: "New Terra: when I landed there was no cut scene and I'm in a white space")
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var s := _sp()
+		var pl: Node3D = s.planet
+		var dir := Surface.direction_from_tile("new_terra", 4)
+		s.player.global_position = pl.global_position + dir * (float(pl.get_meta("radius")) + 50.0)
+		var t0 := Time.get_ticks_msec()
+		main.enter_atmosphere(pl)
+		var seen := []
+		for i in 160:
+			await _wait(0.5)
+			var st := "%s cap '%s' fade %.2f clouds %.2f surf %s tile %d" % [main.state, main.fx.caption, main.fx.fade, main.fx.clouds, str(is_instance_valid(main.space) and main.space.surface_mode), main.space.tile if is_instance_valid(main.space) else -1]
+			if seen.is_empty() or seen[-1] != st: seen.append(st)
+			if main.state == "flight" and main.space.surface_mode and main.fx.clouds < 0.05: break
+		for x in seen: print("LANDNT ", x)
+		await _wait(2.0)
+		await _capture("landing_nt")
+		var kids: int = main.space.tile_root.get_child_count() if is_instance_valid(main.space.tile_root) else -1
+		_check("landing on New Terra: the clouds part, the ground is there (%d things on the tile, %d ms)" % [kids, Time.get_ticks_msec() - t0], main.state == "flight" and kids > 3, "")
+		_finish_group()
+		return
 	if _flag("HL_SOLIDS"):   # v13.325 (owner: "cars are solids, people are solids, so you can't just walk through them")
 		var pid := "new_terra"
 		var tt := 4

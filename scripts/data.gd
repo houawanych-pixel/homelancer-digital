@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.330"
+const VERSION := "v13.331"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -685,6 +685,16 @@ const SKYWAY_W := 40.0                  # m wide (v13.320: 4 lanes, was 24)
 const SKYWAY_PIER_AT := [0.25, 0.75]    # v13.320: piers at these shares along each block (clear of the crossing avenues and the alley)
 const SKYWAY_PIER_OFF := 34.0           # v13.320: piers this far either side of its middle: on the pavement, off the 60 m avenue (was 18, in the road)
 const SKYWAY_PIER_W := 6.0              # m square
+const CITY_RAMPS := true                # v13.331 (owner: "curve and swirl round, a real loop from top to bottom; ramps that carry it up; one continuous track")
+const RAMP_R := [52.0, 64.0]            # m: the spiral's radius for the skyway's level 1 and level 2
+const RAMP_TURNS := [2, 3]              # whole turns down (about a 12 % slope)
+const RAMP_GAP := 18.0                  # m between the city's edge, the spirals and the turning loop
+const RAMP_MID := 6.0                   # m from the avenue's middle line to the middle of a spiral's two lanes
+const RAMP_W := 18.0                    # m: a spiral's deck (two lanes and edges)
+const RAMP_LOOP_R := 34.0               # m: the turning loop at the far end
+const RAMP_STEP_DEG := 12.0             # degrees per piece of a curve
+const RAMP_COLUMNS := 6                 # columns round each spiral
+const RAMP_REACH := 380.0               # m the interchanges reach out past the city (the traffic runs out there too)
 const TUNNEL_W := 16.0                  # v13.304 (owner: "bridges with glass tunnels"): m wide
 const TUNNEL_RING_EVERY := 36.0         # m between the white rings round a tunnel
 const SHOP_ROW_H := 104.0               # v13.308 (owner: "weapon thumbnails bigger, that section a lot better"): px, a weapon row

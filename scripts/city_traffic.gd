@@ -85,7 +85,8 @@ func _build_lanes() -> void:
 						else:
 							_lanes.append([Vector2(org.x, line + off), Vector2(org.x + size.x, line + off), yy])
 							_lanes.append([Vector2(org.x + size.x, line - off), Vector2(org.x, line - off), yy])
-	sky_lanes = _lanes.filter(func(l): return l.size() > 2).size()
+	sky_lanes = _lanes.filter(func(l): return l.size() == 3).size()
+	_build_interchanges()
 	# v13.324: the avenue lines (where the lights stand): [coordinate, half the road's width] on each axis
 	var lines := func(n_blocks: int, o: float) -> Array:
 		var out: Array = [[o + av * 0.5, av * 0.5]]
@@ -266,6 +267,69 @@ func _vehicle(kind: String, i: int, model := "") -> Node3D:
 	root.set_meta("kind", kind)
 	return root
 
+## v13.331 (owner: "everything should loop together like a continuous track"): the spiral interchanges' lanes join the
+## street and skyway lanes into one network. A path lane is [first point, last point, 0, its points (with height)];
+## _next[lane] is the lanes a car can run on to when it gets to the end (none: it leaves the road there).
+var _next := {}            # lane index -> [lane index]
+var ramp_lanes := 0        # (checks)
+func _build_interchanges() -> void:
+	var near_pt := func(p: Vector2, q: Vector2) -> bool: return p.distance_to(q) < 1.5
+	for e in CityTowers.interchanges(planet_id, tile):
+		var o: Vector2 = e["o"]
+		var w: Vector2 = e["w"]
+		var B: Vector2 = e["B"]
+		var lv: Array = e["levels"]
+		var st: Array = e["stations"]
+		var idx := {}
+		for nm in (e["lanes"] as Dictionary):
+			var pts: PackedVector3Array = e["lanes"][nm]
+			idx[nm] = _lanes.size()
+			_lanes.append([Vector2(pts[0].x, pts[0].z), Vector2(pts[pts.size() - 1].x, pts[pts.size() - 1].z), 0.0, pts])
+			ramp_lanes += 1
+		for k in 2:
+			var off := Data.TRAFFIC_LANE_W * (0.5 + k)
+			var nst := st.size() - 1   # links between stations
+			# the city's own lanes that end or start at this end of the avenue
+			for li in _lanes.size():
+				var L: Array = _lanes[li]
+				if L.size() == 4: continue
+				var dvec: Vector2 = ((L[1] as Vector2) - (L[0] as Vector2)).normalized()
+				var lvl := -1
+				if L.size() == 3:
+					for j in lv.size(): if absf(float(L[2]) - float(lv[j]) - Data.TRAFFIC_HOVER) < 1.0: lvl = j
+					if lvl < 0: continue
+				if dvec.dot(o) > 0.99 and near_pt.call(L[1], B + w * off):   # heading out, ending here
+					_next[li] = [idx["out_0_%d" % k]] if L.size() == 2 else [idx["down_%d_%d" % [lvl, k]]]
+				if dvec.dot(o) < -0.99 and near_pt.call(L[0], B - w * off):   # coming in from here
+					if L.size() == 2: _next[idx["in_0_%d" % k]] = [li]
+					else: _next[idx["up_%d_%d" % [lvl, k]]] = [li]
+			for j in lv.size(): _next[idx["down_%d_%d" % [j, k]]] = [idx["out_%d_%d" % [j + 1, k]]]
+			for i in nst:
+				_next[idx["out_%d_%d" % [i, k]]] = [idx["out_%d_%d" % [i + 1, k]]] if i + 1 < nst else [idx["uturn_%d" % k]]
+				if i >= 1: _next[idx["in_%d_%d" % [i, k]]] = [idx["in_%d_%d" % [i - 1, k]], idx["up_%d_%d" % [i - 1, k]]]
+			_next[idx["uturn_%d" % k]] = [idx["in_%d_%d" % [nst - 1, k]]]
+
+## Run a car on to lane li from its start.
+func _enter_lane(p: Dictionary, li: int, t: float) -> void:
+	var L: Array = _lanes[li]
+	p["lane"] = li
+	p["from"] = L[0]
+	p["to"] = L[1]
+	p["up"] = float(L[2]) if L.size() == 3 else 0.0
+	if L.size() == 4:
+		var pts: PackedVector3Array = L[3]
+		var cum := PackedFloat32Array([0.0])
+		for i in range(1, pts.size()): cum.append(cum[i - 1] + pts[i - 1].distance_to(pts[i]))
+		p["path"] = pts
+		p["cum"] = cum
+		p["len"] = cum[cum.size() - 1]
+	else:
+		p.erase("path")
+		var ab: Vector2 = (L[1] as Vector2) - (L[0] as Vector2)
+		p["len"] = ab.length()
+		(p["node"] as Node3D).rotation.y = atan2(-ab.x, -ab.y)
+	p["t"] = t
+
 ## "go", "amber" or "stop" for the traffic running along x (along_x) or along z.
 func light(along_x: bool) -> String:
 	var G: float = Data.TRAFFIC_LIGHT_GREEN
@@ -370,7 +434,7 @@ func tick(dt: float) -> void:
 			continue
 		if bool(p.get("parked", false)): continue
 		var step := float(p["speed"]) * dt
-		if float(p.get("up", 0.0)) <= 0.0:   # v13.324: on the street: the lights, and the car in front
+		if float(p.get("up", 0.0)) <= 0.0 and not p.has("path"):   # v13.324: on the street: the lights, and the car in front
 			var limit := INF
 			var ts := _next_stop(p)
 			var d0 := ((p["to"] as Vector2) - (p["from"] as Vector2)).normalized()
@@ -394,8 +458,11 @@ func tick(dt: float) -> void:
 			else: p["held"] = false
 		p["t"] = float(p["t"]) + step
 		if float(p["t"]) >= float(p["len"]):
-			_off(p)
-			continue
+			var nx: Array = _next.get(int(p.get("lane", -1)), [])
+			if nx.is_empty():
+				_off(p)
+				continue
+			_enter_lane(p, int(nx[_rng.randi() % nx.size()]), float(p["t"]) - float(p["len"]))   # v13.331: on round the track
 		_place(p, dt)
 	if not near: return
 	_spawn_t -= dt
@@ -410,7 +477,7 @@ func _near_city(pp: Vector3) -> bool:
 	if pp.y > _g + Data.TRAFFIC_ALT: return false
 	var cr := CityPlan.rect(planet_id, tile)
 	var org := Vector2(-Surface.EDGE, -Surface.EDGE) + Vector2(cr.position) * Data.BLOCK_REGION
-	var rr := Rect2(org, Vector2(cr.size) * Data.BLOCK_REGION).grow(Data.TRAFFIC_RANGE * 0.5)
+	var rr := Rect2(org, Vector2(cr.size) * Data.BLOCK_REGION).grow(Data.TRAFFIC_RANGE * 0.5 + (Data.RAMP_REACH if ramp_lanes > 0 else 0.0))   # (v13.331: and out over the spiral interchanges)
 	return rr.has_point(Vector2(pp.x, pp.z))
 
 func _off(p: Dictionary) -> void:
@@ -424,6 +491,7 @@ func _spawn(p: Dictionary, pp: Vector3) -> void:
 	var order: Array = range(_lanes.size())
 	order.shuffle()
 	for li in order:
+		if (_lanes[li] as Array).size() == 4: continue   # (cars come on to the spirals from the roads)
 		var a: Vector2 = _lanes[li][0]
 		var b: Vector2 = _lanes[li][1]
 		var ab := b - a
@@ -442,6 +510,7 @@ func _spawn(p: Dictionary, pp: Vector3) -> void:
 		var spd: Vector2 = Data.TRAFFIC_SPEED[kind]
 		p["lane"] = li
 		p["up"] = float(_lanes[li][2]) if (_lanes[li] as Array).size() > 2 else 0.0
+		p.erase("path")
 		p["from"] = a
 		p["to"] = b
 		p["len"] = L
@@ -458,6 +527,18 @@ func _spawn(p: Dictionary, pp: Vector3) -> void:
 
 func _place(p: Dictionary, _dt: float) -> void:
 	var nd: Node3D = p["node"]
+	if p.has("path"):   # v13.331: along a spiral or a loop: its points, turned the way it's going
+		var pts: PackedVector3Array = p["path"]
+		var cum: PackedFloat32Array = p["cum"]
+		var t := clampf(float(p["t"]), 0.0, cum[cum.size() - 1])
+		var i := 1
+		while i < cum.size() - 1 and cum[i] < t: i += 1
+		var seg := maxf(0.001, cum[i] - cum[i - 1])
+		var q := pts[i - 1].lerp(pts[i], (t - cum[i - 1]) / seg)
+		var dv := pts[i] - pts[i - 1]
+		nd.position = Vector3(q.x, q.y + sin(Time.get_ticks_msec() * 0.002 + float(p["phase"])) * 0.25, q.z)
+		if Vector2(dv.x, dv.z).length() > 0.01: nd.rotation.y = atan2(-dv.x, -dv.z)
+		return
 	var a: Vector2 = p["from"]
 	var b: Vector2 = p["to"]
 	var at := a.lerp(b, float(p["t"]) / float(p["len"]))

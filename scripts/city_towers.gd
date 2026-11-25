@@ -198,7 +198,7 @@ static func solids(t: Dictionary) -> Array:
 static func parts_solids(ps: Array) -> Array:
 	var out: Array = []
 	for p in ps:
-		if str(p["k"]) in ["green", "glow"]: continue
+		if str(p["k"]) in ["green", "glow", "ribbon"]: continue   # (v13.331: the ramp decks are drawn, not boxes)
 		var pp: Vector3 = p["p"]
 		var s: Vector3 = p["s"]
 		out.append(AABB(Vector3(pp.x - s.x * 0.5, pp.y, pp.z - s.z * 0.5), s))
@@ -384,6 +384,7 @@ static func city_links(pid: String, tile: int) -> Array:
 			var levels: Array = [Data.SKYWAY_Y] if k > 1 else [Data.SKYWAY_Y, Data.SKYWAY_Y2]
 			for ly in levels:
 				_skyway(out, ax == 0, line, (org.y if ax == 0 else org.x), (org.y + size.y if ax == 0 else org.x + size.x), g, g + float(ly))
+	out.append_array(interchange_parts(pid, tile))   # v13.331: the spiral interchanges at the skyways' ends
 	# glass tunnels between neighbouring giants
 	var giants := {}
 	for rz in cr.size.y:
@@ -457,6 +458,172 @@ static func _skyway(out: Array, along_z: bool, line: float, s0: float, s1: float
 				put.call("white", sg * Data.SKYWAY_PIER_OFF, g, Data.SKYWAY_PIER_W, y - 6.0 - g, Data.SKYWAY_PIER_W, a)
 			put.call("white", 0.0, y - 8.5, Data.SKYWAY_PIER_OFF * 2.0 + Data.SKYWAY_PIER_W, 3.0, Data.SKYWAY_PIER_W * 0.8, a)
 
+## v13.331 (owner: "roads shouldn't just be linear squares: curve and swirl round, a real loop from top to bottom,
+## ramps that carry it up, everything looping together like a continuous track"): at each end of a skyway a twin
+## spiral interchange carries it down to the street and back up. Going out of the city: the skyway lanes spiral
+## down (one helix on the right), the street lanes run on out, both meet a turning loop at the end and come back in:
+## up the other helix to the skyway, or on along the street. Every lane: [path (tile-local, the car's own height)],
+## its name, and which lanes it can run on to. Cached per tile.
+static var _ix := {}
+static func interchanges(pid: String, tile: int) -> Array:
+	var key := "%s|%d" % [pid, tile]
+	if _ix.has(key): return _ix[key]
+	var out: Array = []   # one per skyway end: {o, w, B, line, ax, levels, stations, lanes: {name: PackedVector3Array}}
+	var cr := CityPlan.rect(pid, tile)
+	if cr.size == Vector2i.ZERO or not Data.CITY_TOWERS or CityPlan.is_town(pid, tile) or not Data.CITY_RAMPS:
+		_ix[key] = out
+		return out
+	var g := CityPlan.ground(pid, tile)
+	var S: float = Data.BLOCK_REGION
+	var org := Vector2(-Surface.EDGE, -Surface.EDGE) + Vector2(cr.position) * S
+	var size := Vector2(cr.size) * S
+	var lw: float = Data.TRAFFIC_LANE_W
+	var hv: float = Data.TRAFFIC_HOVER
+	for ax in 2:
+		for kk in range(1, (cr.size.x if ax == 0 else cr.size.y)):
+			var line: float = (org.x if ax == 0 else org.y) + kk * S
+			var lvls: Array = [Data.SKYWAY_Y] if kk > 1 else [Data.SKYWAY_Y, Data.SKYWAY_Y2]
+			for sgn in [-1.0, 1.0]:
+				var o := Vector2(0.0, sgn) if ax == 0 else Vector2(sgn, 0.0)   # outward
+				var w := Vector2(-o.y, o.x)                                    # the outbound lanes' side
+				var B := Vector2(line, org.y if sgn < 0.0 else org.y + size.y) if ax == 0 else Vector2(org.x if sgn < 0.0 else org.x + size.x, line)
+				var st: Array = [0.0]   # stations along o: the city edge, each helix, the turning loop
+				var d := 0.0
+				var radii: Array = []
+				for j in lvls.size():
+					var R: float = float(Data.RAMP_R[j])
+					d = (d + float(Data.RAMP_R[j - 1]) + Data.RAMP_GAP + R) if j > 0 else (R + Data.RAMP_GAP)
+					st.append(d)
+					radii.append(R)
+				st.append(d + float(radii[-1]) + Data.RAMP_GAP)
+				var U: float = st[-1]
+				var lanes := {}
+				for k in 2:
+					var off := lw * (0.5 + k)
+					for j in lvls.size():
+						var R2: float = radii[j]
+						var Y: float = g + float(lvls[j]) + hv
+						var turns: int = int(Data.RAMP_TURNS[j])
+						var D: float = st[j + 1]
+						# down: from the skyway's end, out to the helix, round and down to the street at station j+1
+						var pd := PackedVector3Array()
+						var e0 := B + w * off
+						pd.append(Vector3(e0.x, Y, e0.y))
+						pd.append_array(_helix(B + o * D, o, w, R2 + Data.RAMP_MID - off, off, Y, g + hv, turns, 1.0))
+						lanes["down_%d_%d" % [j, k]] = pd
+						# up: from the street at station j+1, round and up, back in to the skyway's inbound lanes
+						var pu := _helix(B + o * D, o, -w, R2 + Data.RAMP_MID - off, off, g + hv, Y, turns, -1.0)
+						var e1 := B - w * off
+						pu.append(Vector3(e1.x, Y, e1.y))
+						lanes["up_%d_%d" % [j, k]] = pu
+					for i in st.size() - 1:   # the street out and back between the stations
+						var a := B + o * float(st[i]) + w * off
+						var b := B + o * float(st[i + 1]) + w * off
+						lanes["out_%d_%d" % [i, k]] = PackedVector3Array([Vector3(a.x, g + hv, a.y), Vector3(b.x, g + hv, b.y)])
+						var a2 := B + o * float(st[i + 1]) - w * off
+						var b2 := B + o * float(st[i]) - w * off
+						lanes["in_%d_%d" % [i, k]] = PackedVector3Array([Vector3(a2.x, g + hv, a2.y), Vector3(b2.x, g + hv, b2.y)])
+					lanes["uturn_%d" % k] = _uturn(B + o * U, o, w, off, Data.RAMP_LOOP_R, g + hv)
+				out.append({"o": o, "w": w, "B": B, "line": line, "ax": ax, "levels": lvls, "stations": st, "radii": radii, "lanes": lanes, "g": g})
+	_ix[key] = out
+	return out
+
+## Points of a helix lane: it leaves start (station c, the lane's offset off to the side w) heading o, turns toward w
+## round a centre (c + w (off + r)) at radius r, dir 1 = winding one way (out and down), -1 the other (up and in),
+## from height y0 to y1 over a whole number of turns, and ends where it began, heading o again (or -o going up).
+static func _helix(c: Vector2, o: Vector2, w: Vector2, r: float, off: float, y0: float, y1: float, turns: int, dir: float) -> PackedVector3Array:
+	var pts := PackedVector3Array()
+	var ctr := c + w * (off + r)
+	var n := int(turns * 360.0 / Data.RAMP_STEP_DEG)
+	for i in n + 1:
+		var f := float(i) / n
+		var ph := -PI * 0.5 + TAU * turns * f * dir
+		var q := ctr + r * (o * cos(ph) + w * sin(ph))
+		pts.append(Vector3(q.x, lerpf(y0, y1, f), q.y))
+	return pts
+
+## The turning loop at the far end: out on the w side, round a circle and back on the other side.
+static func _uturn(c: Vector2, o: Vector2, w: Vector2, off: float, rr: float, y: float) -> PackedVector3Array:
+	var pts := PackedVector3Array()
+	var q := c + o * rr
+	var a := asin(clampf(off / rr, -1.0, 1.0))
+	var th0 := PI - a
+	var th1 := -PI + a
+	var n := int((th0 - th1) / deg_to_rad(Data.RAMP_STEP_DEG))
+	pts.append(Vector3((c + w * off).x, y, (c + w * off).y))
+	for i in n + 1:
+		var th := lerpf(th0, th1, float(i) / n)
+		var p := q + rr * (o * cos(th) + w * sin(th))
+		pts.append(Vector3(p.x, y, p.y))
+	pts.append(Vector3((c - w * off).x, y, (c - w * off).y))
+	return pts
+
+## The interchanges' roadways to draw: helix decks with rails and lit edges, their columns, the street out to the loop.
+static func interchange_parts(pid: String, tile: int) -> Array:
+	var out: Array = []
+	var hv: float = Data.TRAFFIC_HOVER
+	for e in interchanges(pid, tile):
+		var g: float = e["g"]
+		var o: Vector2 = e["o"]
+		var w: Vector2 = e["w"]
+		var B: Vector2 = e["B"]
+		var st: Array = e["stations"]
+		var mid: float = Data.RAMP_MID
+		for j in (e["levels"] as Array).size():
+			var R: float = e["radii"][j]
+			var Y: float = g + float(e["levels"][j])
+			var D: float = st[j + 1]
+			for side in [1.0, -1.0]:   # the down helix (w side) and the up helix (the other)
+				var ws: Vector2 = w * side
+				var deck := _helix(B + o * D, o, ws, R, mid, (Y if side > 0.0 else g), (g if side > 0.0 else Y), int(Data.RAMP_TURNS[j]), side)
+				var e0 := B + ws * mid
+				deck.insert(0 if side > 0.0 else deck.size(), Vector3(e0.x, Y, e0.y))
+				out.append({"k": "ribbon", "pts": deck, "w": Data.RAMP_W, "rail": true})
+				var ctr := B + o * D + ws * (mid + R)
+				for c in Data.RAMP_COLUMNS:   # columns round the outside of the spiral, up to its top
+					var a := TAU * c / Data.RAMP_COLUMNS
+					var q := ctr + (R + Data.RAMP_W * 0.5 + 2.0) * Vector2(cos(a), sin(a))
+					out.append({"k": "white", "p": Vector3(q.x, g, q.y), "s": Vector3(3.0, Y - g + 2.0, 3.0)})
+				out.append({"k": "white", "p": Vector3(ctr.x, g, ctr.y), "s": Vector3(14.0, Y - g + 6.0, 14.0)})   # the core
+				out.append({"k": "glow", "p": Vector3(ctr.x, Y + 6.0, ctr.y), "s": Vector3(15.0, 0.6, 15.0)})
+		# the street out to the loop (both ways) and the loop
+		var U: float = st[-1]
+		var a0 := B
+		var a1 := B + o * U
+		out.append({"k": "ribbon", "pts": PackedVector3Array([Vector3(a0.x, g + 0.15, a0.y), Vector3(a1.x, g + 0.15, a1.y)]), "w": Data.TRAFFIC_LANE_W * 4.0 + 4.0, "rail": false})
+		var loop := _uturn(B + o * U, o, w, Data.RAMP_MID, Data.RAMP_LOOP_R, g + 0.15)
+		out.append({"k": "ribbon", "pts": loop, "w": Data.RAMP_W, "rail": false})
+	return out
+
+## A road along a line of points: a deck (dark top, white underside), with glass rails and lit edges if rail.
+static func _ribbon(st: SurfaceTool, pts: PackedVector3Array, wd: float, rail: bool, far: bool) -> void:
+	var h := wd * 0.5
+	for i in pts.size() - 1:
+		var a := pts[i]
+		var b := pts[i + 1]
+		var dd := Vector3(b.x - a.x, 0.0, b.z - a.z)
+		if dd.length() < 0.01: continue
+		var sd := Vector3(-dd.z, 0.0, dd.x).normalized() * h
+		var al := a + sd
+		var ar := a - sd
+		var bl := b + sd
+		var br := b - sd
+		var up := Vector3.UP
+		_quad(st, ar, al, bl, br, up, Data.TOWER_SPINE, DARK)
+		if far: continue
+		var t := Vector3(0, 1.6, 0)
+		_quad(st, al - t, ar - t, br - t, bl - t, -up, Data.TOWER_WHITE, PANEL)   # its underside
+		_quad(st, ar - t, ar, br, br - t, -sd.normalized(), Data.TOWER_WHITE, PANEL)
+		_quad(st, al, al - t, bl - t, bl, sd.normalized(), Data.TOWER_WHITE, PANEL)
+		var ln := Vector3(0, 0.03, 0)
+		var gi := sd.normalized() * 0.3
+		_quad(st, ar + gi + ln, ar + ln, br + ln, br + gi + ln, up, Data.CITY_TRIM, GLOW)   # lit edges
+		_quad(st, al + ln, al - gi + ln, bl - gi + ln, bl + ln, up, Data.CITY_TRIM, GLOW)
+		if rail:
+			var r := Vector3(0, 1.4, 0)
+			_quad(st, ar, ar + r, br + r, br, sd.normalized(), Data.KIT_GLASS, GLASS)
+			_quad(st, al + r, al, bl, bl + r, -sd.normalized(), Data.KIT_GLASS, GLASS)
+
 ## A glass tunnel between two points (tile-local x, z) at height y, axis-aligned legs: glass tube with white rings.
 static func _tunnel(out: Array, a: Vector2, b: Vector2, y: float) -> void:
 	var legs := [[a, Vector2(b.x, a.y)], [Vector2(b.x, a.y), b]]
@@ -478,8 +645,8 @@ static func _tunnel(out: Array, a: Vector2, b: Vector2, y: float) -> void:
 # ---------------------------------------------------------------------------------------------------------------- drawing
 static func _part(st: SurfaceTool, p: Dictionary, far: bool) -> void:
 	var k := str(p["k"])
-	var pp: Vector3 = p["p"]
-	var s: Vector3 = p["s"]
+	var pp: Vector3 = p.get("p", Vector3.ZERO)
+	var s: Vector3 = p.get("s", Vector3.ZERO)
 	match k:
 		"white":
 			_bevel_box(st, pp, s, 0.0 if far else minf(s.x, s.z) * Data.KIT_BEVEL_WHITE, Data.TOWER_WHITE, PANEL, PANEL, far)
@@ -493,6 +660,8 @@ static func _part(st: SurfaceTool, p: Dictionary, far: bool) -> void:
 			_pod(st, pp, s, p.get("out", Vector3.RIGHT), far)
 		"glow":   # a line of light
 			_bevel_box(st, pp, s, 0.0, Data.CITY_TRIM, GLOW, GLOW, true)
+		"ribbon":   # v13.331: a road along points (the interchange spirals, the street out, the loop)
+			_ribbon(st, p["pts"], float(p["w"]), bool(p.get("rail", false)), far)
 
 ## A box (bottom centre p, size s) with its four upright edges rounded (radius b, 2 steps) and its top and bottom edges
 ## chamfered by b: the HyperNURBS look with a handful of faces. walls: the side faces' kind; caps: top and bottom.
