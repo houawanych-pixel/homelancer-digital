@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.303"
+const VERSION := "v13.304"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -645,6 +645,28 @@ const KIT_PLANTER := 3.0                # m, a planter's height
 const KIT_BEVEL_WHITE := 0.1            # a white box's edges rounded this share of its width (the HyperNURBS look)
 const KIT_GLASS := Color(0.08, 0.1, 0.12)   # the glass blocks
 const KIT_GREEN := Color(0.3, 0.5, 0.2)     # the planters
+const CAPITOL_W := 260.0               # v13.304 (owner: "the capitol: the docking building, the highest tower"): m across its twin towers
+const CAPITOL_ABOVE := 1250.0           # m its roof stands over the landing deck (the tallest tower: downtown's is ~1150 over the street)
+const CAPITOL_DECK_CLEAR := 320.0       # m its landing deck floats over the highest ground under it (other ports: PAD_ISLAND_CLEAR)
+const DECK_R := 200.0                   # v13.306: m, the overwatch disc (the pad on one side, the dome on the other)
+const DECK_SHIFT := 95.0                # m from the pad to the disc's middle
+const DOME_AT := 0.45                   # the dome this share of the radius past the middle, away from the pad
+const DOME_R := 48.0                    # m, the dome's radius
+const DOME_H := 42.0                    # m, its rise over its glass band
+const DECK_T := 14.0                    # v13.305 (owner: "the black disc on top, an overwatch"): m, the landing disc's thickness
+const DECK_RIM := 14.0                  # m, its white rim
+const DECK_GATE := 0.12                 # radians: the gaps in the rim (dark gate blocks)
+const CAPITOL_PLINTH := 40.0            # m, its white plinth
+const CAPITOL_REACH := 60.0             # m from its face to the landing deck (dark arms, a glass tunnel)
+const CAPITOL_DECK := Color(0.07, 0.075, 0.085)   # the landing deck (was the island's grass)
+const CAPITOL_DECK_SIDE := Color(0.82, 0.84, 0.87) # its sides and underside: white panels
+const SKYWAY_Y := 75.0                  # v13.304 (owner: "futuristic overroads, skyways"): m over the street, the raised roads
+const SKYWAY_Y2 := 150.0                # a second level on one avenue
+const SKYWAY_W := 24.0                  # m wide
+const SKYWAY_PIER_EVERY := 160.0        # m between its piers
+const SKYWAY_PIER_OFF := 18.0           # piers this far either side of its middle (clear of the avenue's middle)
+const TUNNEL_W := 16.0                  # v13.304 (owner: "bridges with glass tunnels"): m wide
+const TUNNEL_RING_EVERY := 36.0         # m between the white rings round a tunnel
 const TOWER_PAD_R_FOOT := 1.0           # m a person on foot keeps off a tower's wall (a ship: RETOPO_BOX_PAD)
 const CITY_FLOOR_LAYERS := 2        # layers (5 m) a floor: 1 of room (5 m: people, not mechs), 1 of slab (v13.273: was 3)
 const MODULE := 10                  # v13.273: cells a building module is across: a 3 x 3 grid of 2 x 2-cell rooms (10 m) in 1-cell walls, the middle room the lift

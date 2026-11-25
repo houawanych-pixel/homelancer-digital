@@ -1344,7 +1344,7 @@ var surf_hulls := 0   # (checks)
 ## v13.302: the city's megatowers are solid: each is a few upright drums (CityTowers.solids); in one, you're pushed out
 ## to its side (or onto its top / under it, whichever is nearest) and lose the speed going in. (A mesh hull let fast
 ## ships through its thin walls.)
-var tower_solids: Array = []   # [[centre, y0, y1, r]] of every tower on this tile
+var tower_solids: Array = []   # [AABB] of every tower part, skyway, tunnel and the capitol on this tile (v13.304: boxes)
 var _tower_tile := ""
 var tower_hits := 0            # (tests)
 func _tower_push(_dt: float) -> void:
@@ -1357,32 +1357,27 @@ func _tower_push(_dt: float) -> void:
 			for rz in cr.size.y:
 				for rx in cr.size.x:
 					for tw in CityPlan.towers(planet_id, tile, cr.position + Vector2i(rx, rz)): tower_solids.append_array(CityTowers.solids(tw))
+			tower_solids.append_array(CityTowers.parts_solids(CityTowers.city_links(planet_id, tile)[0]))
 	if tower_solids.is_empty(): return
 	var pad: float = Data.TOWER_PAD_R_FOOT if (on_foot or escape_pilot) else Data.RETOPO_BOX_PAD
 	var p := player.global_position
-	for sd in tower_solids:
-		var y0: float = sd[1]
-		var y1: float = sd[2]
-		if p.y < y0 - pad or p.y > y1 + pad: continue
-		var c: Vector2 = sd[0]
-		var rr: float = float(sd[3]) + pad
-		var d := Vector2(p.x - c.x, p.z - c.y)
-		var dl := d.length()
-		if dl >= rr: continue
-		var out_side := rr - dl
-		var out_top := y1 + pad - p.y
-		var out_bot := p.y - (y0 - pad)
-		var nrm: Vector3
-		if out_side <= out_top and out_side <= out_bot:
-			var dn := d / dl if dl > 0.01 else Vector2(1, 0)
-			p = Vector3(c.x + dn.x * rr, p.y, c.y + dn.y * rr)
-			nrm = Vector3(dn.x, 0, dn.y)
-		elif out_top <= out_bot:
-			p.y = y1 + pad
-			nrm = Vector3.UP
-		else:
-			p.y = y0 - pad
-			nrm = Vector3.DOWN
+	for bx: AABB in tower_solids:
+		var lo := bx.position - Vector3(pad, pad, pad)
+		var hi := bx.end + Vector3(pad, pad, pad)
+		if p.x <= lo.x or p.x >= hi.x or p.y <= lo.y or p.y >= hi.y or p.z <= lo.z or p.z >= hi.z: continue
+		# out by the shortest way
+		var outs := [p.x - lo.x, hi.x - p.x, p.y - lo.y, hi.y - p.y, p.z - lo.z, hi.z - p.z]
+		var best := 0
+		for k in 6:
+			if float(outs[k]) < float(outs[best]): best = k
+		var nrm: Vector3 = [Vector3.LEFT, Vector3.RIGHT, Vector3.DOWN, Vector3.UP, Vector3.FORWARD, Vector3.BACK][best]
+		match best:
+			0: p.x = lo.x
+			1: p.x = hi.x
+			2: p.y = lo.y
+			3: p.y = hi.y
+			4: p.z = lo.z
+			5: p.z = hi.z
 		var into := -vel.dot(nrm)
 		player.global_position = p
 		if into > 0.0:

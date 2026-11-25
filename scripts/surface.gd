@@ -587,6 +587,7 @@ static func _biome_col(b: Dictionary, h: float) -> Color:
 ## both. pad_base(): {file, at (tile-local x/z of the base's middle)} or {}; island_shape(): [centre, radius].
 static func pad_base(planet_id: String, l: Dictionary) -> Dictionary:
 	if not Data.PAD_ISLAND_BASE: return {}
+	if capitol_port(planet_id, l): return {}   # v13.306 (owner: "get rid of the base on that docking platform; model a dome on it")
 	var sys := str(PLANETS.get(planet_id, {}).get("system", ""))
 	var list: Array = Data.PLANET_BASES.get(sys, [])
 	var pick: Array = []
@@ -598,8 +599,20 @@ static func pad_base(planet_id: String, l: Dictionary) -> Dictionary:
 	var a := float(absi(hash(str(l.get("id", ""))) % 360)) * PI / 180.0   # (each port its own side)
 	var off := Data.PAD_RADIUS + Data.PAD_BASE_GAP + Data.PAD_BASE_WIDTH * 0.5
 	return {"file": str(pick[0]), "name": str(pick[1]), "at": (l["pos"] as Vector2) + Vector2(cos(a), sin(a)) * off}
+## v13.304-306: a city's port is the capitol's overwatch: its disc and the dome on it.
+static func capitol_port(planet_id: String, l: Dictionary) -> bool:
+	return Data.CITY_TOWERS and CityPlan.is_city_tile(planet_id, int(l.get("tile", -1)))
+## The overwatch's dome (tile-local x, z of its middle), beside the landing pad on the far side of the disc.
+static func deck_dome(planet_id: String, l: Dictionary) -> Vector2:
+	var sh := island_shape(planet_id, l)
+	var p2: Vector2 = l["pos"]
+	var c: Vector2 = sh[0]
+	return c + (c - p2).normalized() * float(sh[1]) * Data.DOME_AT
 static func island_shape(planet_id: String, l: Dictionary) -> Array:
 	var p2: Vector2 = l["pos"]
+	if capitol_port(planet_id, l):   # the disc: the pad on one side, the dome on the other
+		var a := float(absi(hash(str(l.get("id", ""))) % 360)) * PI / 180.0
+		return [p2 + Vector2(cos(a), sin(a)) * Data.DECK_SHIFT, Data.DECK_R]
 	var pb := pad_base(planet_id, l)
 	if pb.is_empty(): return [p2, Data.PAD_ISLAND_RADIUS]
 	var q: Vector2 = pb["at"]
@@ -625,7 +638,8 @@ static func pad_top(planet_id: String, tile: int) -> float:
 				var q := p2 + Vector2(-r + i * r / 6.0, -r + j * r / 6.0)
 				hm = maxf(hm, float(sample(planet_id, ox + q.x, oz + q.y)[0]))
 	if biome(planet_id, tile)["sea"] != null: hm = maxf(hm, 0.0)
-	var top := ceilf((hm + Data.PAD_ISLAND_CLEAR) / 5.0) * 5.0
+	var clear: float = Data.CAPITOL_DECK_CLEAR if Data.CITY_TOWERS and CityPlan.is_city_tile(planet_id, tile) else Data.PAD_ISLAND_CLEAR   # v13.304 (owner: "elevated high in the sky"): a capitol's landing deck rides high up its tower
+	var top := ceilf((hm + clear) / 5.0) * 5.0
 	_pad_cache[key] = top
 	return top
 
@@ -641,8 +655,9 @@ static func island_at(planet_id: String, tile: int, x: float, z: float) -> Array
 	for l in locations_in(planet_id, tile):
 		var sh := island_shape(planet_id, l)
 		var d := Vector2(x, z).distance_to(sh[0])
-		if d < float(sh[1]):
+		if d < float(sh[1]) + (Data.DECK_RIM if Data.CITY_TOWERS and CityPlan.is_city_tile(planet_id, tile) else 0.0):
 			var top := pad_top(planet_id, tile)
+			if Data.CITY_TOWERS and CityPlan.is_city_tile(planet_id, tile): return [top, top - Data.DECK_T - (50.0 if d < float(sh[1]) * 0.88 else 0.0)]   # v13.305: the disc (and its rings under the middle)
 			return [top, top - island_depth(d, float(sh[1]))]
 	return []
 
@@ -861,6 +876,14 @@ static func build_tile(planet_id: String, tile: int) -> Node3D:
 					tm.material_override = CityTowers.material()
 					tm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 					ci.add_child(tm)
+		var links: Array = CityTowers.city_links(planet_id, tile)   # v13.304: skyways, glass tunnels, the capitol
+		if not (links[0] as Array).is_empty():
+			var lmi := MeshInstance3D.new()
+			lmi.name = "CityLinks"
+			lmi.mesh = CityTowers.build([], links[0], false)[0]
+			lmi.material_override = CityTowers.material()
+			lmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			root.add_child(lmi)
 		if CityPlan.domed(planet_id):   # v13.280: an airless world's city under its oxygen dome
 			var dm := CityPlan.dome_mesh(planet_id, tile)
 			if dm != null:
@@ -1073,11 +1096,20 @@ static func _prims() -> void:
 ## v1.7c: the floating island under a landing pad: 10 m block columns, ground-coloured on top, rock below, hanging
 ## deepest in the middle like a chunk of ground torn up into the air (one MultiMesh).
 @warning_ignore("integer_division")
-static func _pad_island(root: Node3D, planet_id: String, tile: int, p2: Vector2, gy: float, rad := Data.PAD_ISLAND_RADIUS) -> void:
+static func _pad_island(root: Node3D, planet_id: String, tile: int, p2: Vector2, gy: float, rad := Data.PAD_ISLAND_RADIUS, dome_at := Vector2.INF) -> void:
 	var cell: float = Data.PAD_ISLAND_CELL
 	var nr := int(ceil(rad / cell))
 	var g := grid(planet_id)
 	var top_c: Color = sample(planet_id, float(tile % g) * TILE + p2.x, float(tile / g) * TILE + p2.y)[1]
+	var capitol := Data.CITY_TOWERS and CityPlan.is_city_tile(planet_id, tile)   # v13.304 (owner): a city's port is the capitol's black landing deck, white below
+	if capitol:   # v13.305: the overwatch's black disc (its tower of kit boxes is in CityLinks)
+		var dmi := MeshInstance3D.new()
+		dmi.name = "PadIsland"
+		dmi.mesh = CityTowers.deck_mesh(p2, gy, rad, dome_at)
+		dmi.material_override = CityTowers.material()
+		dmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		root.add_child(dmi)
+		return
 	var cols: Array = []
 	for j in range(-nr, nr):
 		for i in range(-nr, nr):
@@ -1086,6 +1118,7 @@ static func _pad_island(root: Node3D, planet_id: String, tile: int, p2: Vector2,
 			if dep <= 0.0: continue
 			dep += fposmod(sin(i * 12.9898 + j * 78.233) * 43758.5453, 1.0) * 8.0   # a ragged underside
 			dep = ceilf(dep / 5.0) * 5.0
+			if capitol: dep = 15.0 + (5.0 if c.length() < rad * 0.6 else 0.0)   # (a clean deck, not a torn-up chunk of ground)
 			cols.append([c, dep])
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
@@ -1100,6 +1133,7 @@ static func _pad_island(root: Node3D, planet_id: String, tile: int, p2: Vector2,
 		mm.set_instance_color(k, Color(top_c.r, top_c.g, top_c.b))
 		k += 1
 		var rock := Data.BLOCK_ROCK * (0.85 + 0.3 * fposmod(c.x * 0.37 + c.y * 0.11, 1.0))
+		if capitol: rock = Data.CAPITOL_DECK_SIDE * (0.92 + 0.08 * fposmod(c.x * 0.37 + c.y * 0.11, 1.0)) if dep < 30.0 or int(c.x + c.y) % 3 != 0 else Data.CAPITOL_DECK * 1.4
 		mm.set_instance_transform(k, Transform3D(Basis.from_scale(Vector3(cell, dep - 5.0, cell)), Vector3(p2.x + c.x, gy - 5.0 - (dep - 5.0) * 0.5, p2.y + c.y)))
 		mm.set_instance_color(k, Color(rock.r, rock.g, rock.b))
 		k += 1
@@ -1119,13 +1153,13 @@ static func _settlement(root: Node3D, planet_id: String, tile: int, l: Dictionar
 	var gy := pad_top(planet_id, tile)
 	if BlockField.enabled():
 		var sh := island_shape(planet_id, l)   # v13.240: the island holds the port's base too
-		_pad_island(root, planet_id, tile, sh[0], gy, float(sh[1]))
+		_pad_island(root, planet_id, tile, sh[0], gy, float(sh[1]), deck_dome(planet_id, l) if capitol_port(planet_id, l) else Vector2.INF)
 	# the landing pad: flat disc with green guide lights
 	var pad := MeshInstance3D.new()
 	pad.mesh = _cyl
 	pad.scale = Vector3(180, 1.5, 180)
 	pad.position = Vector3(p2.x, gy + 1.5, p2.y)
-	pad.material_override = ShipFactory.mat(Color(0.3, 0.33, 0.38), false, 0.3)
+	pad.material_override = ShipFactory.mat(Color(0.3, 0.33, 0.38) if not (Data.CITY_TOWERS and CityPlan.is_city_tile(planet_id, tile)) else Data.CAPITOL_DECK * 1.6, false, 0.3)
 	root.add_child(pad)
 	for i in 12:
 		var a2 := i * TAU / 12.0
@@ -1133,7 +1167,7 @@ static func _settlement(root: Node3D, planet_id: String, tile: int, l: Dictionar
 		lm.mesh = _box
 		lm.scale = Vector3(4, 2, 4)
 		lm.position = Vector3(p2.x + cos(a2) * 84.0, gy + 4.0, p2.y + sin(a2) * 84.0)
-		lm.material_override = ShipFactory.mat(Color(0.3, 1.0, 0.6), true)
+		lm.material_override = ShipFactory.mat(Data.CITY_TRIM if CityPlan.is_city_tile(planet_id, tile) and Data.CITY_TOWERS else Color(0.3, 1.0, 0.6), true)   # (v13.304: the capitol's deck lights are cyan)
 		lm.set_meta("blink", i * 0.08)
 		root.add_child(lm)
 

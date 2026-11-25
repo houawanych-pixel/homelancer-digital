@@ -2061,15 +2061,24 @@ func _run() -> void:
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
 		await _wait(1.0)
-		var lp: Dictionary = Surface.location("new_terra", "port_meridian")
-		main._load_surface("new_terra", int(lp["tile"]))
+		var ppid := ""   # v13.306: a port that isn't a city's capitol (those have the overwatch, no base)
+		var lp: Dictionary = {}
+		for p3 in Surface.PLANETS:
+			if not Surface.has_surface(p3) or Surface.is_sun(p3): continue
+			for l3 in Surface.PLANETS[p3]["locations"]:
+				if not Surface.pad_base(p3, l3).is_empty():
+					ppid = p3
+					lp = l3
+					break
+			if ppid != "": break
+		main._load_surface(ppid, int(lp["tile"]))
 		await _until(func(): return is_instance_valid(main.space) and main.space.surface_mode and not main.space.port_bases.is_empty(), 60.0)
 		await _wait(2.0)
 		var s := _sp()
-		var pb: Dictionary = Surface.pad_base("new_terra", lp)
+		var pb: Dictionary = Surface.pad_base(ppid, lp)
 		var hb: Node3D = s.port_bases[0] if not s.port_bases.is_empty() else null
-		var isl: Array = Surface.island_at("new_terra", int(lp["tile"]), float(pb["at"].x), float(pb["at"].y)) if not pb.is_empty() else []
-		var pad_isl: Array = Surface.island_at("new_terra", int(lp["tile"]), float(lp["pos"].x), float(lp["pos"].y))
+		var isl: Array = Surface.island_at(ppid, int(lp["tile"]), float(pb["at"].x), float(pb["at"].y)) if not pb.is_empty() else []
+		var pad_isl: Array = Surface.island_at(ppid, int(lp["tile"]), float(lp["pos"].x), float(lp["pos"].y))
 		var on_top: bool = hb != null and not isl.is_empty() and absf(s._ground(hb.position.x, hb.position.z) - float(isl[0])) < 1.0
 		_check("v13.240: Port Meridian's island carries the world's base (%s) beside the pad, the island grown to hold both" % (hb.name if hb else "-"), hb != null and not isl.is_empty() and not pad_isl.is_empty() and on_top, "base %s island %s pad %s" % [hb != null, isl, pad_isl])
 		s.player.global_position = hb.global_position + Vector3(0, 150, 0) if hb else s.player.global_position
@@ -8632,6 +8641,27 @@ func _run() -> void:
 		_tp(Vector3(mid.x - 30.0, g + 8.0, mid.y + 255.0), Vector3(mid.x + 40.0, g + 500.0, mid.y - 60.0))
 		await _wait(2.0)
 		await _capture("megacity_street")
+		var cap: Dictionary = CityTowers.city_links(pid, tile)[1]
+		var cap_ok := false
+		if not cap.is_empty():
+			var ca: Vector2 = cap["at"]
+			var dk: float = cap["deck"]
+			_tp(Vector3(ca.x - 1100.0, dk + 150.0, ca.y - 900.0), Vector3(ca.x, dk + 300.0, ca.y))
+			await _wait(2.5)
+			await _capture("capitol_far")
+			var isl: Array = Surface.island_shape(pid, Surface.locations_in(pid, tile)[0])
+			var ic: Vector2 = isl[0]
+			_tp(Vector3(ic.x - 700.0, dk - 60.0, ic.y - 500.0), Vector3(ic.x, dk - 150.0, ic.y))
+			await _wait(2.0)
+			await _capture("overwatch")
+			_tp(Vector3(ic.x - 320.0, dk + 110.0, ic.y - 240.0), Vector3(ic.x, dk, ic.y))
+			await _wait(2.0)
+			await _capture("capitol_deck")
+			cap_ok = float(cap["top"]) - g > tallest + 50.0
+		_tp(Vector3(mid.x - 250.0, g + 110.0, mid.y + 120.0), Vector3(mid.x + 250.0, g + 75.0, mid.y + 250.0))
+		await _wait(2.0)
+		await _capture("skyways")
+		_check("v13.304: the capitol stands at the port, the tallest tower (roof %.0f m over the street, the tallest giant %.0f m), the landing deck black" % [float(cap.get("top", 0.0)) - g, tallest], cap_ok and s.tile_root.get_node_or_null("CityLinks") != null, "")
 		_check("v13.302: the city is %d x %d blocks of megatowers (%d towers, the tallest %.0f m over its podium); %d blocks near you draw theirs (%d triangles)" % [cr.size.x, cr.size.y, all_t.size(), tallest, tw_nodes, tris], cr.size.x >= 3 and all_t.size() >= 30 and tallest > 600.0 and tw_nodes >= 3, "")
 		# solid: fly into the nearest tower
 		var near_t: Dictionary = all_t[0]
@@ -8729,7 +8759,7 @@ func _run() -> void:
 					shapes[b["shape"]] = true
 		var centre_d: float = (Vector2(crect.position) + Vector2(crect.size) * 0.5 - Vector2(5, 5)).length() * Data.BLOCK_REGION
 		_check("v13.274: New Terra's capital tile has a %dx%d city at the tile's centre (%.0f m off it, clear of Port Meridian): %d buildings of %d kinds, corners notched (%s), %d with street doors, %d with a lift, %d bridges" % [crect.size.x, crect.size.y, centre_d, n_b, shapes.size(), str(cut_ok), doors, shafts, bridges],
-			crect.size == Vector2i(2, 2) and centre_d <= 600.0 and n_b >= 10 and cut_ok and doors == n_b and shafts == n_b and shapes.size() >= 3 and bridges >= 2, "")
+			crect.size == Vector2i(3, 3) and centre_d <= Data.BLOCK_REGION * (1.5 + Data.CITY_OFFCENTRE * 2.0) and n_b >= 10 and cut_ok and doors == n_b and shafts == n_b and shapes.size() >= 3 and bridges >= 2, "")
 		# which tiles get cities: green ones, by land; none on ice / desert; a harsh world gets one block
 		var nt: Dictionary = CityPlan.city_tiles(pid)
 		var tl: Array = Surface.PLANETS[pid]["tiles"]
