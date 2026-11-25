@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.317"
+const VERSION := "v13.318"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -2312,6 +2312,9 @@ const FLEET_CARRIER := {"battleship": [90, 15], "cruiser": [30, 5], "frigate": [
 # standing with the faction is orange / red. They replace the capital's looping display fleet (FLEET_GUARD_ON).
 const FLEET_PATROL_AT := {"battleship": 12800.0, "cruiser": 7800.0}   # v11.89: 4x / 3x with the ships
 const FLEET_PATROL_LOOP := {"battleship": 5600.0, "cruiser": 2700.0}
+const JUNCTION_GUARD_ROLES := ["battleship", "cruiser"]   # v13.318 (owner): the capital ship over each trade-lane crossing, in turn
+const JUNCTION_GUARD_LIFT := 700.0     # m above or below the crossing (clear of the lanes and the lane rings)
+const JUNCTION_GUARD_LOOP := 1800.0    # m: its slow loop round the crossing
 const FLEET_GUARD_ON := false
 # v11.42 (owner: "I want to go inside the battleship as a mech"): BOARDING. A boardable faction's battleship has parts
 # you can shoot off: the SHIELD TOWER on top (its power: down = the shield is off and the open side hangar lets you in),

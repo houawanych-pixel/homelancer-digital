@@ -8716,6 +8716,35 @@ func _run() -> void:
 		_check("v13.305: the lane rings are the new dark ring (metal, green and red glow: %d surfaces); each row faces the way it runs, so green shows on your right-hand row from either end (%s)" % [m.get_surface_count() if m else 0, faces_ok], m != null and m.get_surface_count() == 3 and faces_ok, "")
 		_finish_group()
 		return
+	if _flag("HL_JUNCGUARD"):   # v13.318 (owner: "where the trade lanes come together, a battleship or a capital ship of the system's owner, to patrol that area")
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _until(func(): return is_instance_valid(main.space) and not main.space.junction_guards.is_empty(), 40.0)
+		await _wait(2.0)
+		var s := _sp()
+		var js: Dictionary = s.sys.get("junctions", {})
+		var near_ok := true
+		var peace := true
+		var names := []
+		for e in s.junction_guards:
+			var c: Vector3 = js[str(e["junction_guard"])]
+			if (e["node"] as Node3D).global_position.distance_to(c) > Data.JUNCTION_GUARD_LOOP + Data.JUNCTION_GUARD_LIFT + 800.0: near_ok = false
+			if e["aggro"] or not s.enemies.has(e): peace = false
+			names.append(str((e["node"] as Node3D).name))
+		var g0: Dictionary = s.junction_guards[0] if not s.junction_guards.is_empty() else {}
+		if not g0.is_empty():
+			var gp: Vector3 = (g0["node"] as Node3D).global_position
+			s.player.global_position = gp + Vector3(0, 400, 3200)
+			var dv: Vector3 = (gp - s.player.global_position).normalized()
+			s.yaw = atan2(-dv.x, -dv.z)
+			s.pitch = asin(clampf(dv.y, -1.0, 1.0))
+			s.player.basis = Basis.from_euler(Vector3(s.pitch, s.yaw, 0))
+			s._update_camera(1.0, true)
+			await _wait(3.0)
+			await _capture("junction_guard")
+		_check("v13.318: a capital ship of %s patrols each trade-lane crossing (%d crossings: %s), close to it (%s) and peaceful (%s)" % [str(s.sys.get("faction", "")), js.size(), str(names), str(near_ok), str(peace)], js.size() > 0 and s.junction_guards.size() == js.size() and near_ok and peace, "")
+		_finish_group()
+		return
 	if _flag("HL_QUARTERS2"):   # v13.317 (owner: "the pilot's room shouldn't customise your ship; that's the hangar")
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -12602,9 +12631,10 @@ func _job_v1132() -> void:
 	main._load_system("aurelion", "station")
 	await _wait(2.0)
 	var s := _sp()
-	var names: Array = s.fleet_patrols.map(func(e): return str(e["node"].name))
+	var loops: Array = s.fleet_patrols.filter(func(e): return not e.has("junction_guard"))   # (v13.318: the crossings' guards are counted on their own)
+	var names: Array = loops.map(func(e): return str(e["node"].name))
 	var n_bs: int = names.filter(func(n): return str(n).begins_with("Elyza Battleship")).size()   # v11.87: the home system has 3 battleships
-	var guard_ok: bool = s.fleet_patrols.size() == Data.HOME_BATTLESHIPS + 1 and n_bs == Data.HOME_BATTLESHIPS and names.has("Elyza Cruiser") and s.fleet_guard.is_empty()
+	var guard_ok: bool = loops.size() == Data.HOME_BATTLESHIPS + 1 and n_bs == Data.HOME_BATTLESHIPS and names.has("Elyza Cruiser") and s.fleet_guard.is_empty()
 	var bs: Node3D = s.fleet_patrols[0]["node"] if not s.fleet_patrols.is_empty() else null
 	var moved := false
 	var peace_ok := false

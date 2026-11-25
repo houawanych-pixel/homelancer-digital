@@ -1802,6 +1802,7 @@ func _fleet_patrols() -> void:
 		fleet_patrols.append(e)
 		if role == "battleship" and fac in Data.BOARDABLE: _boardable(e)   # v11.45
 		k += 1
+	_junction_guards(fac, fl)   # v13.318
 	# v11.41: now and then the rival's battleship raids here (its loop passes within sight of the home battleship's)
 	var rv := Factions.rival(fac)
 	var rfl: Dictionary = Data.FACTION_FLEET.get(rv, {})
@@ -1823,6 +1824,37 @@ func _fleet_patrols() -> void:
 	(re["node"] as Node3D).name = "%s Battleship (raiding)" % rv
 	_make_carrier(re)
 	fleet_patrols.append(re)
+
+## v13.318 (owner: "where the trade lanes come together, at that intersection, a battleship of the faction that controls
+## the star system, or a capital ship, something big, to patrol that area"): one of the owner's capital ships on a slow
+## loop over each choke point, lifted clear of the lanes (the system's battleship where its fleet has one to spare,
+## else its cruiser). Peaceful until provoked, like the other patrols.
+var junction_guards: Array = []
+func _junction_guards(fac: String, fl: Dictionary) -> void:
+	junction_guards = []
+	var js: Dictionary = sys.get("junctions", {})
+	var i := 0
+	for jn in js:
+		var role: String = Data.JUNCTION_GUARD_ROLES[i % Data.JUNCTION_GUARD_ROLES.size()]
+		if role == "battleship" and Boarding.sunk.has(sys_id): role = "cruiser"
+		var key := str(fl.get(role, fl.get("cruiser", "")))
+		i += 1
+		if key == "" or not ShipFactory.has_real_model(key): continue
+		var c: Vector3 = js[jn]
+		var hy := absi(hash(sys_id + str(jn)))
+		var home := c + Vector3(0.0, (1.0 if hy % 2 == 0 else -1.0) * Data.JUNCTION_GUARD_LIFT, 0.0)
+		var e := spawn_unit(key, home + Vector3(Data.JUNCTION_GUARD_LOOP, 0, 0), home)
+		e["faction"] = fac
+		e["fleet_patrol"] = true
+		e["junction_guard"] = str(jn)
+		e["loop_r"] = Data.JUNCTION_GUARD_LOOP
+		e["orbit"] = float(hy % 628) / 100.0
+		e["aggro"] = false
+		e["provoked"] = false
+		(e["node"] as Node3D).name = "%s %s (%s)" % [fac, str(e["def"]["name"]).trim_prefix(fac + " "), str(jn)]
+		_make_carrier(e)
+		fleet_patrols.append(e)
+		junction_guards.append(e)
 
 # ---------------------------------------------------------------- v11.45 BOARDING (owner: "go inside the battleship")
 ## Outside (v11.55 owner: "NO destructible top/front pieces on battleships: shield, then one hull"): a boardable
