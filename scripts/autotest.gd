@@ -1928,6 +1928,32 @@ func _run() -> void:
 		_check("v13.176: back to the docking bay: out to the station page (LAUNCH from there)", main.state == "hub" and main.hub.visible, main.state)
 		_finish_group()
 		return
+	if _flag("HL_CLOAKALL"):   # v13.315 (owner: "my stealth doesn't work anymore; it should work when I'm a mech or a human")
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var s := _sp()
+		var foe: Dictionary = s.spawn_unit("ph_unity", s.player.global_position + s.player.global_basis.z * 500.0 + s.player.global_basis.x * 200.0, s.player.global_position)   # (behind you: out of your guns' line)
+		var res := []
+		for who in ["ship", "mech", "foot"]:
+			s.set_cloak(false)
+			await _wait(0.6)
+			s.on_foot = who == "foot"
+			GS.form = "ship" if who == "ship" else "mech"
+			s.set_player_model()
+			GS.energy = Data.ENERGY_MAX
+			foe["aggro"] = true
+			var ok: bool = s.set_cloak(true)
+			await _wait(1.2)
+			var glass: bool = s._cloak_glass_on
+			var after_me: bool = foe["aggro"] and s._enemy_foe(foe, 0.0).is_empty()   # (it may be fighting one of your allies, not you)
+			res.append([who, ok and s.cloaked and glass and not after_me])
+		await _capture("cloak_foot")
+		s.set_cloak(false)
+		s.on_foot = false
+		_check("v13.315: CLOAK works as a ship, a mech and on foot: on, see-through, the enemy loses you (%s)" % str(res), res.all(func(r): return r[1]), "")
+		_finish_group()
+		return
 	if _flag("HL_BASEIN"):   # v13.314 (owner: "I was underneath the facility ... when I went inside, the screen is black")
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)

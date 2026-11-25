@@ -7503,6 +7503,7 @@ func _on_ship_pack(pk: String) -> void:
 
 func set_player_model() -> void:
 	if is_instance_valid(model): model.queue_free()
+	_cloak_glass_on = false   # v13.315: a new body (eject, enter, transform) goes see-through too while you're cloaked
 	if GS.form == "mech" and not Packs.is_ready("mechs") and not on_foot and not (escape_pilot and PilotRig.ready()): GS.form = "ship"
 	var mech := GS.form == "mech"
 	# v10.2 (owner, phone shots: "why does the game look like this"): a bought ship whose model comes in its own pack
@@ -8806,7 +8807,7 @@ func _update_player(dt: float) -> void:
 	_tick_cloak(dt)   # v10.6: the crackle and the glass look
 	if cloaked:   # v8.3 (owner): the cloak burns power; when it runs out you show again
 		GS.energy = maxf(0.0, GS.energy - Data.CLOAK_DRAIN * dt)
-		if GS.energy <= 0.0 or GS.form == "mech": set_cloak(false)
+		if GS.energy <= 0.0: set_cloak(false)
 	else: GS.energy = minf(Data.ENERGY_MAX, GS.energy + Data.ENERGY_REGEN * (1.0 + GS.mod("energy_regen")) * dt)   # (v1.9w: + Power Cell)
 	if GS.mod("repair") > 0.0 and shield_delay <= 0.0 and GS.hull < GS.max_hull(): GS.hull = minf(GS.max_hull(), GS.hull + GS.max_hull() * GS.mod("repair") * dt)   # v1.9w: Maintenance Port
 	for k in ["shield_cd", "energy_cd", "repair_cd", "missile_cd", "mine_cd"]: set(k, maxf(0.0, float(get(k)) - dt))
@@ -9246,8 +9247,8 @@ func lead_point(t: Node3D) -> Vector3:
 ## weapons, no warp. It burns power (CLOAK_DRAIN) and drops when the power runs out.
 var cloaked := false
 func set_cloak(on: bool) -> bool:
-	if on and (GS.form == "mech" or warp_state != "off"):
-		message.emit("Can't cloak in warp." if warp_state != "off" else "Mechs have no cloak.")
+	if on and warp_state != "off":   # v13.315 (owner: "it should work when I'm a mech or a human"): only not in warp
+		message.emit("Can't cloak in warp.")
 		return false
 	if on and GS.energy < 10.0:
 		message.emit("Not enough power to cloak.")
@@ -9260,7 +9261,7 @@ func set_cloak(on: bool) -> bool:
 		for e in enemies:
 			if not e.get("invasion", false): e["aggro"] = false
 	_cloak_look(on)
-	message.emit("CLOAKED. Fly only: weapons, thrust and warp are locked. Power and radar draining." if on else "Cloak off.")
+	message.emit(("CLOAKED. Fly only: weapons, thrust and warp are locked. Power and radar draining." if GS.form != "mech" else "CLOAKED. Move only: weapons are locked. Power draining.") if on else "Cloak off.")
 	Sfx.play("warp_go", -8.0, 0.7 if on else 1.3)
 	return true
 
