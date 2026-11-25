@@ -14,6 +14,15 @@ var pool: Array = []      # {node, kind, state: "off" | "drive", from, to, t, le
 var made := 0             # (tests) vehicles sent out so far
 var _lanes: Array = []    # [from (tile-local x, z), to, (v13.323: height over the street; none = on the street)] one way each
 var sky_lanes := 0        # (checks) lanes up on the skyways
+## v13.324 (owner: "traffic lights, futuristic: a set of circles, green bars for green and red, and cars stop and go"):
+## a light at every avenue crossing; the avenues along x and along z take turns (green, amber, then the other way).
+var _ave_x: Array = []    # [x, half width] of the avenues that run along z
+var _ave_z: Array = []    # [z, half width] of the avenues that run along x
+var light_t := 0.0        # the lights' clock (s)
+var lights: Array = []    # the light posts (Node3D)
+var stops := 0            # (checks) times a car held at a red light
+var _lamp_x: StandardMaterial3D   # the lamps that the traffic along x sees
+var _lamp_z: StandardMaterial3D
 var _spawn_t := 0.0
 var _rng := RandomNumberGenerator.new()
 var _g := 0.0
@@ -27,6 +36,7 @@ func setup(sp: Node, pid: String, t: int) -> void:
 	_g = CityPlan.ground(pid, t)
 	_build_lanes()
 	_build_pool()
+	_build_lights()
 
 ## The lanes: every avenue between and round the blocks and every alley through them, two lanes each way, keeping right.
 func _build_lanes() -> void:
@@ -76,6 +86,14 @@ func _build_lanes() -> void:
 							_lanes.append([Vector2(org.x, line + off), Vector2(org.x + size.x, line + off), yy])
 							_lanes.append([Vector2(org.x + size.x, line - off), Vector2(org.x, line - off), yy])
 	sky_lanes = _lanes.filter(func(l): return l.size() > 2).size()
+	# v13.324: the avenue lines (where the lights stand): [coordinate, half the road's width] on each axis
+	var lines := func(n_blocks: int, o: float) -> Array:
+		var out: Array = [[o + av * 0.5, av * 0.5]]
+		for b in range(1, n_blocks): out.append([o + b * S, av])
+		out.append([o + n_blocks * S - av * 0.5, av * 0.5])
+		return out
+	_ave_x = lines.call(cr.size.x, org.x)   # x of the avenues that run along z
+	_ave_z = lines.call(cr.size.y, org.y)   # z of the avenues that run along x
 
 func _build_pool() -> void:
 	var kinds: Array = []
@@ -248,8 +266,105 @@ func _vehicle(kind: String, i: int, model := "") -> Node3D:
 	root.set_meta("kind", kind)
 	return root
 
+## "go", "amber" or "stop" for the traffic running along x (along_x) or along z.
+func light(along_x: bool) -> String:
+	var G: float = Data.TRAFFIC_LIGHT_GREEN
+	var A: float = Data.TRAFFIC_LIGHT_AMBER
+	var ph := fposmod(light_t, (G + A) * 2.0)
+	if not along_x: ph = fposmod(ph + G + A, (G + A) * 2.0)
+	return "go" if ph < G else ("amber" if ph < G + A else "stop")
+
+func _build_lights() -> void:
+	if _ave_x.is_empty(): return
+	_lamp_x = StandardMaterial3D.new()
+	_lamp_z = StandardMaterial3D.new()
+	for m in [_lamp_x, _lamp_z]:
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	var frame := _mat("tl_frame", Color(0.1, 0.12, 0.16))
+	var trim := _mat("tl_trim", Data.CITY_TRIM, 1.5)
+	var pole := CylinderMesh.new()
+	pole.top_radius = 0.35
+	pole.bottom_radius = 0.45
+	pole.height = Data.TRAFFIC_LIGHT_H
+	var disc := CylinderMesh.new()   # the head: a round dark frame ...
+	disc.top_radius = 1.6
+	disc.bottom_radius = 1.6
+	disc.height = 0.4
+	var dot := CylinderMesh.new()    # ... a ring of round lamps ...
+	dot.top_radius = 0.28
+	dot.bottom_radius = 0.28
+	dot.height = 0.5
+	var bar_z := BoxMesh.new()       # ... and a glowing bar under it (laid along its face: one for each way the head turns)
+	bar_z.size = Vector3(2.4, 0.5, 0.4)
+	var bar_x := BoxMesh.new()
+	bar_x.size = Vector3(0.4, 0.5, 2.4)
+	for ax in _ave_x:
+		for az in _ave_z:
+			for sx in [-1.0, 1.0]:
+				for sz in [-1.0, 1.0]:
+					var post := Node3D.new()
+					post.name = "TrafficLight"
+					post.position = Vector3(float(ax[0]) + sx * (float(ax[1]) + 3.0), _g, float(az[0]) + sz * (float(az[1]) + 3.0))
+					add_child(post)
+					lights.append(post)
+					var pm := MeshInstance3D.new()
+					pm.mesh = pole
+					pm.material_override = frame
+					pm.position.y = Data.TRAFFIC_LIGHT_H * 0.5
+					post.add_child(pm)
+					for face_x in [true, false]:   # one head for each way through the crossing
+						var hd := Node3D.new()
+						hd.position = Vector3(0, Data.TRAFFIC_LIGHT_H - 1.0, 0)
+						hd.rotation = Vector3(PI * 0.5, 0.0, 0.0) if not face_x else Vector3(0.0, 0.0, PI * 0.5)   # its face toward the traffic
+						hd.position += (Vector3(-sx * 1.2, 0, 0) if face_x else Vector3(0, 0, -sz * 1.2))
+						post.add_child(hd)
+						var dm := MeshInstance3D.new()
+						dm.mesh = disc
+						dm.material_override = frame
+						hd.add_child(dm)
+						var lm: StandardMaterial3D = _lamp_x if face_x else _lamp_z
+						for k in 8:
+							var a := TAU * k / 8.0
+							var dd := MeshInstance3D.new()
+							dd.mesh = dot
+							dd.material_override = lm
+							dd.position = Vector3(cos(a) * 1.05, 0.0, sin(a) * 1.05)
+							hd.add_child(dd)
+						var rim := MeshInstance3D.new()
+						rim.mesh = dot
+						rim.material_override = trim
+						hd.add_child(rim)
+						var bm := MeshInstance3D.new()
+						bm.mesh = bar_x if face_x else bar_z
+						bm.material_override = lm
+						bm.position = Vector3(-2.2, 0.0, 0.0) if face_x else Vector3(0.0, 0.0, 2.2)
+						hd.add_child(bm)
+	_show_lights()
+
+func _show_lights() -> void:
+	if _lamp_x == null: return
+	for pr in [[_lamp_x, light(true)], [_lamp_z, light(false)]]:
+		(pr[0] as StandardMaterial3D).albedo_color = {"go": Color(0.25, 1.0, 0.45), "amber": Color(1.0, 0.75, 0.2), "stop": Color(1.0, 0.2, 0.2)}[pr[1]] * 1.6
+
+## Where along its lane a street car must stop before the next avenue crossing (INF: none ahead).
+func _next_stop(p: Dictionary) -> float:
+	var a: Vector2 = p["from"]
+	var b: Vector2 = p["to"]
+	var d := (b - a).normalized()
+	var along_x := absf(d.x) > absf(d.y)
+	var best := INF
+	for ln in (_ave_x if along_x else _ave_z):
+		var c: float = float(ln[0])
+		var hw: float = float(ln[1])
+		var edge := c - signf(d.x if along_x else d.y) * (hw + Data.TRAFFIC_STOP_GAP)   # the stop line before the crossing
+		var t := (edge - (a.x if along_x else a.y)) * signf(d.x if along_x else d.y)
+		if t >= float(p["t"]) - 0.5 and t < best: best = t
+	return best
+
 func tick(dt: float) -> void:
 	if _lanes.is_empty(): return
+	light_t += dt
+	_show_lights()
 	var pp: Vector3 = space.player.global_position
 	var near := _near_city(pp)
 	for p in pool:
@@ -259,7 +374,23 @@ func tick(dt: float) -> void:
 			_off(p)
 			continue
 		if bool(p.get("parked", false)): continue
-		p["t"] = float(p["t"]) + float(p["speed"]) * dt
+		var step := float(p["speed"]) * dt
+		if float(p.get("up", 0.0)) <= 0.0:   # v13.324: on the street: the lights, and the car in front
+			var limit := INF
+			var ts := _next_stop(p)
+			var d0 := ((p["to"] as Vector2) - (p["from"] as Vector2)).normalized()
+			if ts < INF and light(absf(d0.x) > absf(d0.y)) != "go" and ts - float(p["t"]) < Data.TRAFFIC_LIGHT_SEE:
+				limit = ts
+			for q in pool:   # keep a gap to the car ahead on the same lane
+				if q == p or q["state"] == "off" or q.get("lane", -1) != p.get("lane", -2): continue
+				var dt2 := float(q["t"]) - float(p["t"])
+				if dt2 > 0.0 and dt2 < Data.TRAFFIC_LIGHT_SEE: limit = minf(limit, float(q["t"]) - Data.TRAFFIC_CAR_GAP)
+			if float(p["t"]) + step > limit:
+				if not bool(p.get("held", false)) and limit == ts: stops += 1
+				p["held"] = true
+				step = maxf(0.0, limit - float(p["t"]))
+			else: p["held"] = false
+		p["t"] = float(p["t"]) + step
 		if float(p["t"]) >= float(p["len"]):
 			_off(p)
 			continue

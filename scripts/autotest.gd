@@ -8867,6 +8867,66 @@ func _run() -> void:
 		_check("v13.322: the ALARM at a planet dock (%s) runs, not a black screen (%d ms; %s)" % [str(main.hub.base.get("name", "")), Time.get_ticks_msec() - t0, str(seen[-1] if not seen.is_empty() else "")], main.state == "flight" and main.fx.fade < 0.05, "")
 		_finish_group()
 		return
+	if _flag("HL_LIGHTS"):   # v13.324 (owner: "traffic lights: a set of circles, green bars for green and red; cars stop and go")
+		var pid := "new_terra"
+		var tt := 4
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main._load_surface(pid, tt)
+		await _until(func(): return is_instance_valid(main.space) and main.space.surface_mode and main.space.tile == tt and main.space.city_traffic != null, 40.0)
+		await _wait(2.0)
+		var s := _sp()
+		var tr: CityTraffic = s.city_traffic
+		var g := CityPlan.ground(pid, tt)
+		# a car on a street lane along x, just short of a crossing, while the x way is red
+		var li := -1
+		for i in tr._lanes.size():
+			var ln: Array = tr._lanes[i]
+			if ln.size() > 2: continue
+			var dd: Vector2 = (ln[1] as Vector2) - (ln[0] as Vector2)
+			if absf(dd.x) > absf(dd.y) and dd.x > 0.0: li = i; break
+		var car: Dictionary = tr.pool[0]
+		for p in tr.pool: tr._off(p)
+		var ln2: Array = tr._lanes[li]
+		car["lane"] = li; car["from"] = ln2[0]; car["to"] = ln2[1]; car["len"] = ((ln2[1] as Vector2) - (ln2[0] as Vector2)).length(); car["up"] = 0.0
+		car["t"] = 0.0; car["speed"] = 20.0; car["state"] = "drive"; car["held"] = false
+		(car["node"] as Node3D).visible = true
+		var ts: float = tr._next_stop(car)
+		car["t"] = ts - 30.0
+		tr._place(car, 0.0)
+		tr.light_t = Data.TRAFFIC_LIGHT_GREEN + Data.TRAFFIC_LIGHT_AMBER + 0.5   # the x way: red
+		var red: String = tr.light(true)
+		var green_z: String = tr.light(false)
+		var p0: Vector3 = (car["node"] as Node3D).position
+		s.player.global_position = Vector3(p0.x + 40.0, g + 14.0, p0.z + 45.0)
+		var dv: Vector3 = (p0 + Vector3(25, 3, 0) - s.player.global_position).normalized()
+		s.yaw = atan2(-dv.x, -dv.z)
+		s.pitch = asin(clampf(dv.y, -1.0, 1.0))
+		s.player.basis = Basis.from_euler(Vector3(s.pitch, s.yaw, 0))
+		s._update_camera(1.0, true)
+		var held_ok := true
+		for k in 20:   # 4 s of red: it rolls up to the line and waits
+			await _wait(0.2)
+			if float(car["t"]) > ts + 0.5: held_ok = false
+			if tr.light(true) == "go": break
+		var at_line: bool = absf(float(car["t"]) - ts) < 1.0
+		await _capture("traffic_light_red")
+		tr.light_t = 0.2   # the x way: green
+		await _wait(2.0)
+		var went: bool = float(car["t"]) > ts + 10.0
+		var lp: Vector3 = (tr.lights[5] as Node3D).global_position
+		s.player.global_position = lp + Vector3(14.0, 6.0, 16.0)
+		var dv2: Vector3 = (lp + Vector3(0, Data.TRAFFIC_LIGHT_H - 1.0, 0) - s.player.global_position).normalized()
+		s.yaw = atan2(-dv2.x, -dv2.z)
+		s.pitch = asin(clampf(dv2.y, -1.0, 1.0))
+		s.player.basis = Basis.from_euler(Vector3(s.pitch, s.yaw, 0))
+		s._update_camera(1.0, true)
+		await _wait(0.6)
+		await _capture("traffic_light_green")
+		_check("v13.324: %d traffic lights at the crossings; at red (x %s, z %s) a car waits at the line (%s, %s, stops %d), at green it goes (%s)" % [tr.lights.size(), red, green_z, str(held_ok), str(at_line), tr.stops, str(went)], tr.lights.size() >= 16 and red == "stop" and green_z == "go" and held_ok and at_line and went, "")
+		_finish_group()
+		return
 	if _flag("HL_SKYCARS"):   # v13.323 (owner: "a track on the top to have cars running through there too")
 		var pid := "new_terra"
 		var tt := 4

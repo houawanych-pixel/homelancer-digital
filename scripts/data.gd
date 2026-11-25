@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.323"
+const VERSION := "v13.324"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -560,6 +560,12 @@ const TRAFFIC_SPEED := {"car": Vector2(18.0, 30.0), "bus": Vector2(10.0, 14.0), 
 const TRAFFIC_COLORS := [Color(0.85, 0.12, 0.15), Color(0.95, 0.75, 0.15), Color(0.15, 0.45, 0.9), Color(0.92, 0.93, 0.95), Color(0.12, 0.13, 0.15), Color(0.55, 0.2, 0.75), Color(0.1, 0.65, 0.55)]
 const TRAFFIC_HOVER := 1.2          # m over the street
 const TRAFFIC_LANE_W := 6.0         # m a lane
+const TRAFFIC_LIGHT_GREEN := 9.0     # v13.324 (owner: "traffic lights where cars stop and cars go"): s of green each way ...
+const TRAFFIC_LIGHT_AMBER := 2.0     # ... then amber, then the other way's turn
+const TRAFFIC_LIGHT_H := 8.0         # m: the light post
+const TRAFFIC_STOP_GAP := 4.0        # m: cars wait this far short of the crossing
+const TRAFFIC_LIGHT_SEE := 70.0      # m: how far ahead a car minds a red light or the car in front
+const TRAFFIC_CAR_GAP := 14.0        # m kept to the car in front in a queue
 const TRAFFIC_RANGE := 400.0        # m round you that has traffic
 const TRAFFIC_ALT := 250.0          # m over the street: higher than this, none
 const TRAFFIC_SPAWN_EVERY := 0.3    # s between new vehicles (until the pool is out)
