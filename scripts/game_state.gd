@@ -863,17 +863,31 @@ func buy_goods(id: String, kind: String, here: String, n := Data.TRADE_BUY_LOT) 
 	credits -= cost
 	changed.emit()
 	return "Bought %d %s for %d cr. Stations farther away pay more." % [n, str(goods_def(id)["name"]), cost]
-## SELL one stack of goods from the hold here.
-func sell_goods(i: int, kind: String, here: String) -> String:
+## SELL goods from one stack in the hold here: n of them (-1 = the whole stack). v13.309: the market's slider picks n.
+func sell_goods(i: int, kind: String, here: String, n := -1) -> String:
 	if i < 0 or i >= cargo.size() or cargo[i].get("kind", "") != "goods": return "Nothing to sell."
 	var c: Dictionary = cargo[i]
 	var each := goods_sell_price(str(c["id"]), str(c.get("from", here)), kind, here)
 	if each <= 0: return "Nobody here will touch that. Try a smugglers' base (Shroud)."
-	var tot := each * int(c["n"])
-	cargo.remove_at(i)
+	var have := int(c["n"])
+	var k := have if n < 0 else clampi(n, 1, have)
+	var tot := each * k
+	if k >= have: cargo.remove_at(i)
+	else:
+		c["n"] = have - k
+		changed.emit()
 	add_credits(tot)
 	save_game()
-	return "Sold %d %s for %d cr." % [int(c["n"]), str(c.get("name", "goods")), tot]
+	return "Sold %d %s for %d cr." % [k, str(c.get("name", "goods")), tot]
+## v13.309: how many of a good still fit in the hold (filling the part-full stack of the same good first).
+func goods_room(id: String, from_sys: String) -> int:
+	if hold_no_limit: return Data.TRADE_MAX_QTY
+	var part := 0
+	for c in cargo:
+		if c.get("kind", "") == "goods" and c.get("id", "") == id and c.get("from", "") == from_sys:
+			var r := int(c["n"]) % Data.CARGO_STACK
+			if r > 0: part = Data.CARGO_STACK - r
+	return mini(Data.TRADE_MAX_QTY, maxi(0, hold_free()) * Data.CARGO_STACK + part)
 func contraband_worth() -> int:
 	var t := 0
 	for c in cargo:

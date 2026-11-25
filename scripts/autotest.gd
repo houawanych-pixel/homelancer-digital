@@ -9051,6 +9051,20 @@ func _run() -> void:
 		var had_bw := bw != null
 		if bw != null: bw.pressed.emit()
 		await _wait(0.3)
+		# v13.309: tapping a good opens the trade panel; the slider picks how many, then BUY
+		var tp: Control = main.hub.content.find_child("TradePanel", true, false)
+		var tsl: HSlider = main.hub.content.find_child("TradeSlider", true, false)
+		var tgo: Button = main.hub.content.find_child("TradeGo", true, false)
+		var slid := tp != null and tsl != null and tgo != null and int(tsl.value) == Data.TRADE_BUY_LOT and tsl.max_value >= 37
+		var tmax: int = int(tsl.max_value) if tsl != null else -1
+		if tsl != null: tsl.value = 37
+		var said37: String = tgo.text if tgo != null else ""
+		if tsl != null: tsl.value = Data.TRADE_BUY_LOT
+		await _wait(0.2)
+		await _capture("trade_panel")
+		if tgo != null: tgo.pressed.emit()
+		await _wait(0.3)
+		_check("v13.309: tap a good: the trade panel opens with a slider (max %d); slide to 37 says '%s'; BUY buys the slider's amount" % [tmax, said37], slid and said37.begins_with("BUY 37\n") and main.hub.content.find_child("TradePanel", true, false) == null, "")
 		var got_water: bool = GS.cargo.any(func(c): return c.get("kind", "") == "goods" and c["id"] == "water" and int(c["n"]) == Data.TRADE_BUY_LOT)
 		var far := ""
 		var near := ""
@@ -9066,6 +9080,9 @@ func _run() -> void:
 		var ci := -1
 		for i in GS.cargo.size(): if GS.cargo[i].get("kind", "") == "goods": ci = i
 		var cr0: int = GS.credits
+		var part := GS.sell_goods(ci, "station", here, 2)
+		_check("v13.309: SELL part of a stack (%s): %d left" % [part, int(GS.cargo[ci]["n"])], int(GS.cargo[ci]["n"]) == Data.TRADE_BUY_LOT - 2 and GS.credits > cr0, "")
+		cr0 = GS.credits
 		var said := GS.sell_goods(ci, "station", here)
 		_check("v13.268: SELL the goods back (%s)" % said, GS.credits > cr0 and GS.cargo.is_empty(), "")
 		GS.add_goods("spice", here, 3)

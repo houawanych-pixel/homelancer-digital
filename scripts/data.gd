@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.308"
+const VERSION := "v13.309"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -1245,7 +1245,9 @@ const PLANET_SELL_K := 0.6      # what a base pays (x the base price), before th
 const STATION_SELL_K := 0.85
 const TRADE_JUMP_K := 0.35      # + this share for every jump from where it was bought
 const TRADE_JUMPS_MAX := 5
-const TRADE_BUY_LOT := 5        # BUY takes this many at a time
+const TRADE_BUY_LOT := 5        # the buy slider starts here
+const TRADE_MAX_QTY := 999      # v13.309: the most one slider can buy or sell at once
+const TRADE_KNOB := 34          # v13.309: the slider knob (px)
 const CONTRABAND_SCAN := 0.4    # chance a customs patrol scans you as you dock at a lawful base with contraband
 const CONTRABAND_FINE_K := 0.5  # fine: this share of what was found (and it's taken)
 # v13.270 (owner: "contraband: patrols scan you"): in flight too

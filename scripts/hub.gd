@@ -610,6 +610,7 @@ func open(station_or_planet: Dictionary) -> void:
 	_load_background()
 	calls = {"l": {}, "r": {}}
 	comms_view = ""
+	market_pick = ""   # v13.309
 	comms_big = false
 	typing = false
 	lockdown = lockdown_due()
@@ -2349,9 +2350,11 @@ func _market_page() -> void:
 	head.text = "%s  ·  hold %s\n%s" % ["SMUGGLERS' MARKET" if sh else ("PLANET MARKET: goods are cheap here" if bk == "planet" else "STATION MARKET"), GS.hold_text(),
 		"Buy low at planets, sell at stations: the farther (more jumps) from where you bought, the more they pay." + (" Contraband changes hands here, no questions." if sh else "")]
 	v.add_child(head)
+	_trade_panel(v, bk, here)   # v13.309
 	_sell_all_button(v, "market")   # v13.296
 	var bl := _label(17, GOLD)
-	bl.text = "BUY (%d at a time)" % Data.TRADE_BUY_LOT
+	bl.text = "BUY: tap one, slide how many"
+	bl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(bl)
 	var ids: Array = Data.TRADE_ORDER.duplicate()
 	if sh: ids.append_array(Data.CONTRABAND.keys())
@@ -2362,8 +2365,9 @@ func _market_page() -> void:
 		b.text = "%s%s\n%d cr each" % [str(GS.goods_def(str(id))["name"]).to_upper(), "  (CONTRABAND)" if GS.is_contraband(str(id)) else "", each]
 		b.custom_minimum_size = Vector2(0, 62)
 		b.clip_text = true
-		b.disabled = GS.credits < each * Data.TRADE_BUY_LOT
-		b.pressed.connect(func(): status.text = GS.buy_goods(str(id), bk, here); Sfx.play("pickup", -6.0); show_screen("market"))
+		b.disabled = GS.credits < each
+		if market_pick == "b:" + str(id): b.add_theme_color_override("font_color", GOLD)
+		b.pressed.connect(func(): market_pick = "b:" + str(id); market_qty = -1; show_screen("market"))
 		v.add_child(b)
 	var sl := _label(17, GOLD)
 	sl.text = "SELL FROM YOUR HOLD"
@@ -2382,7 +2386,8 @@ func _market_page() -> void:
 		sb.clip_text = true
 		sb.disabled = each2 <= 0
 		sb.add_theme_color_override("font_color", GOLD)
-		sb.pressed.connect(func(): status.text = GS.sell_goods(ci, bk, here); Sfx.play("pickup", -6.0); show_screen("market"))
+		if market_pick == "s:%d" % ci: sb.add_theme_color_override("font_color", Color(0.55, 1.0, 0.65))
+		sb.pressed.connect(func(): market_pick = "s:%d" % ci; market_qty = -1; show_screen("market"))
 		v.add_child(sb)
 	var worth: int = GS.ore_worth(str(base["name"]))
 	if worth > 0:
@@ -2400,6 +2405,160 @@ func _market_page() -> void:
 		e.text = "Nothing to sell. Valuables (gold, silver, diamond, orbs) are mined or looted, not bought."
 		e.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.add_child(e)
+
+## v13.309 (owner: "when I buy supplies it should be like Freelancer: you buy, then you move the little meter to show
+## how much you want"): the goods row you tapped opens this panel at the top of the market: its name and price, a
+## slider (with -, + and MAX) for how many, the total, and one BUY / SELL button. "b:<id>" buys, "s:<hold index>" sells.
+var market_pick := ""
+var market_qty := -1
+func _trade_panel(v: Container, bk: String, here: String) -> void:
+	if market_pick == "": return
+	var selling := market_pick.begins_with("s:")
+	var id := ""
+	var each := 0
+	var most := 0
+	var ci := -1
+	var title := ""
+	var note := ""
+	if selling:
+		ci = int(market_pick.substr(2))
+		if ci < 0 or ci >= GS.cargo.size() or GS.cargo[ci].get("kind", "") != "goods":
+			market_pick = ""
+			return
+		var c: Dictionary = GS.cargo[ci]
+		id = str(c["id"])
+		each = GS.goods_sell_price(id, str(c.get("from", here)), bk, here)
+		most = mini(int(c["n"]), Data.TRADE_MAX_QTY)
+		title = "SELL  %s" % str(c.get("name", id)).to_upper()
+		note = "You have %d · %d cr each" % [int(c["n"]), each]
+		if each <= 0: most = 0
+	else:
+		id = market_pick.substr(2)
+		if GS.goods_def(id).is_empty():
+			market_pick = ""
+			return
+		each = GS.goods_buy_price(id, bk)
+		var room: int = GS.goods_room(id, here)
+		most = mini(room, GS.credits / maxi(1, each))
+		title = "BUY  %s" % str(GS.goods_def(id)["name"]).to_upper()
+		note = "%d cr each · hold %s · you can afford %d" % [each, GS.hold_text(), GS.credits / maxi(1, each)]
+	var start := (mini(Data.TRADE_BUY_LOT, most) if not selling else most) if market_qty < 0 else clampi(market_qty, 0, most)
+	if most > 0: start = maxi(1, start)
+	market_qty = start
+	var card := PanelContainer.new()
+	card.name = "TradePanel"
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.03, 0.08, 0.15, 0.95)
+	sb.border_color = Color(0.55, 1.0, 0.65) if selling else GOLD
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(10)
+	sb.set_content_margin_all(12)
+	card.add_theme_stylebox_override("panel", sb)
+	v.add_child(card)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 8)
+	card.add_child(col)
+	var top := HBoxContainer.new()
+	col.add_child(top)
+	var tl := _label(20, GOLD if not selling else Color(0.55, 1.0, 0.65))
+	tl.text = title
+	tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	top.add_child(tl)
+	var x := Button.new()
+	x.name = "TradeClose"
+	x.text = "X"
+	x.custom_minimum_size = Vector2(48, 44)
+	x.pressed.connect(func(): market_pick = ""; show_screen("market"))
+	top.add_child(x)
+	var nl := _label(15, CYAN)
+	nl.text = note
+	nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	col.add_child(nl)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	col.add_child(row)
+	var minus := Button.new()
+	minus.text = "-"
+	minus.custom_minimum_size = Vector2(48, 52)
+	row.add_child(minus)
+	var sl := HSlider.new()
+	sl.name = "TradeSlider"
+	sl.min_value = mini(1, most)
+	sl.max_value = maxi(1, most)
+	sl.step = 1
+	sl.value = start
+	sl.editable = most > 0
+	sl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	sl.custom_minimum_size = Vector2(60, 52)
+	var track := StyleBoxFlat.new()
+	track.bg_color = Color(1, 1, 1, 0.15)
+	track.set_corner_radius_all(6)
+	track.content_margin_top = 6
+	track.content_margin_bottom = 6
+	sl.add_theme_stylebox_override("slider", track)
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = GOLD if not selling else Color(0.55, 1.0, 0.65)
+	fill.set_corner_radius_all(6)
+	fill.content_margin_top = 6
+	fill.content_margin_bottom = 6
+	sl.add_theme_stylebox_override("grabber_area", fill)
+	sl.add_theme_stylebox_override("grabber_area_highlight", fill)
+	var knob := _knob(GOLD if not selling else Color(0.55, 1.0, 0.65))
+	sl.add_theme_icon_override("grabber", knob)
+	sl.add_theme_icon_override("grabber_highlight", knob)
+	row.add_child(sl)
+	var plus := Button.new()
+	plus.text = "+"
+	plus.custom_minimum_size = Vector2(48, 52)
+	row.add_child(plus)
+	var row2 := HBoxContainer.new()
+	row2.add_theme_constant_override("separation", 6)
+	col.add_child(row2)
+	var mx := Button.new()
+	mx.name = "TradeMax"
+	mx.text = "MAX"
+	mx.custom_minimum_size = Vector2(72, 66)
+	row2.add_child(mx)
+	var go := Button.new()
+	go.name = "TradeGo"
+	go.custom_minimum_size = Vector2(0, 66)
+	go.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	go.clip_text = true
+	go.add_theme_font_size_override("font_size", Data.ts(18))
+	go.add_theme_color_override("font_color", GOLD if not selling else Color(0.55, 1.0, 0.65))
+	row2.add_child(go)
+	var show_n := func(n: float) -> void:
+		var k := int(n) if most > 0 else 0
+		market_qty = k
+		if selling: go.text = ("SELL %d\n+%s cr" % [k, _thousands(k * each)]) if most > 0 else "NOBODY\nBUYS IT"
+		else: go.text = ("BUY %d\n%s cr" % [k, _thousands(k * each)]) if most > 0 else ("HOLD FULL" if GS.goods_room(id, here) <= 0 else "NOT ENOUGH\nCREDITS")
+		go.disabled = k <= 0
+	show_n.call(start)
+	sl.value_changed.connect(show_n)
+	minus.pressed.connect(func(): sl.value = sl.value - 1)
+	plus.pressed.connect(func(): sl.value = sl.value + 1)
+	mx.pressed.connect(func(): sl.value = sl.max_value)
+	go.pressed.connect(func():
+		if market_qty <= 0: return
+		if selling: status.text = GS.sell_goods(ci, bk, here, market_qty)
+		else: status.text = GS.buy_goods(id, bk, here, market_qty)
+		Sfx.play("pickup", -6.0)
+		market_pick = ""
+		show_screen("market"))
+
+## A round slider knob big enough for a thumb.
+func _knob(col: Color) -> ImageTexture:
+	var r := Data.TRADE_KNOB
+	var img := Image.create(r, r, false, Image.FORMAT_RGBA8)
+	var c := (r - 1) * 0.5
+	for y in r:
+		for x in r:
+			var d := Vector2(x - c, y - c).length()
+			if d <= c - 3.0: img.set_pixel(x, y, Color.WHITE)
+			elif d <= c: img.set_pixel(x, y, col)
+	return ImageTexture.create_from_image(img)
 
 ## v13.269: a weapon's picture: its painted icon at once, then the photo of its 3D model from the side once it's
 ## taken (all cards framed the same: mech parts from the front, ship parts from the top, weapons from the side).
