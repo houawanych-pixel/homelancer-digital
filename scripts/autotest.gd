@@ -8716,6 +8716,38 @@ func _run() -> void:
 		_check("v13.305: the lane rings are the new dark ring (metal, green and red glow: %d surfaces); each row faces the way it runs, so green shows on your right-hand row from either end (%s)" % [m.get_surface_count() if m else 0, faces_ok], m != null and m.get_surface_count() == 3 and faces_ok, "")
 		_finish_group()
 		return
+	if _flag("HL_CITY2"):   # v13.316 (owner: "another city in the centre ... same size, same kind of build"; B3 Forest)
+		var pid := "new_terra"
+		var cts: Dictionary = CityPlan.city_tiles(pid)
+		var cr: Rect2i = CityPlan.rect(pid, 5)
+		var on_city := 0
+		for st in Surface.facility_sites(pid): if CityPlan.in_city(pid, int(st["tile"]), st["spot"] as Vector2, 100.0): on_city += 1
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main._load_surface(pid, 5)
+		await _until(func(): return is_instance_valid(main.space) and main.space.surface_mode and main.space.planet_id == pid and main.space.tile == 5, 40.0)
+		await _wait(4.0)
+		var s := _sp()
+		var org := Vector2(-Surface.EDGE, -Surface.EDGE) + Vector2(cr.position) * Data.BLOCK_REGION
+		var mid := org + Vector2(cr.size) * Data.BLOCK_REGION * 0.5
+		var g := CityPlan.ground(pid, 5)
+		for shot in [[Vector3(mid.x, g + 520.0, mid.y + 1500.0), "city2_far"], [Vector3(mid.x + 300.0, g + 160.0, mid.y + 700.0), "city2_near"]]:
+			s.player.global_position = shot[0]
+			var dv: Vector3 = (Vector3(mid.x, g + 120.0, mid.y) - s.player.global_position).normalized()
+			s.yaw = atan2(-dv.x, -dv.z)
+			s.pitch = asin(clampf(dv.y, -1.0, 1.0))
+			s.player.basis = Basis.from_euler(Vector3(s.pitch, s.yaw, 0))
+			s.vel = Vector3.ZERO
+			s._update_camera(1.0, true)
+			await _wait(4.0)
+			await _capture(shot[1])
+		var towers := 0
+		for rz in range(cr.position.y, cr.end.y):
+			for rx in range(cr.position.x, cr.end.x): towers += CityPlan.towers(pid, 5, Vector2i(rx, rz)).size()
+		_check("v13.316: New Terra's B3 Forest has a second big city like the capital (tiles %s, %dx%d blocks, %d towers), no facility on it (%d)" % [str(cts), cr.size.x, cr.size.y, towers, on_city], int(cts.get(5, 0)) == 3 and cr.size == Vector2i(3, 3) and towers >= 9 and on_city == 0 and int(cts.get(4, 0)) == 3, "")
+		_finish_group()
+		return
 	if _flag("HL_MEGACITY"):   # v13.302 (owner's concept art: "look at the shapes, the colours, the size; build this city")
 		var pid := "new_terra"
 		var cts: Dictionary = CityPlan.city_tiles(pid)
@@ -8933,7 +8965,7 @@ func _run() -> void:
 		_check("v13.275: the land eases into the city: at its edge %.0f m (street %.0f, bare land there %.0f), steepest step every 5 m on the way in %.1f m" % [at_edge, g0, bare, worst],
 			absf(at_edge - (g0 - Data.BLOCK_MARGIN)) < 2.0 and worst < 6.0, "")
 		_check("v13.274: cities only on green land (New Terra: %s on %s), %s gets one block (%s), and no base or mission point lands on a city square (%d did)" % [str(nt), str(nt.keys().map(func(t): return tl[t])), harsh_pid, str(harsh), on_city],
-			green_only and nt.size() == 2 and nt.has(4) and harsh_ok and on_city == 0, "")
+			green_only and nt.size() == 2 + (Data.CITY_FORCE.get(pid, {}) as Dictionary).size() and nt.has(4) and harsh_ok and on_city == 0, "")
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
 		await _wait(1.0)

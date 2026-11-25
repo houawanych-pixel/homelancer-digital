@@ -37,6 +37,8 @@ static func city_tiles(pid: String) -> Dictionary:
 		cands.sort_custom(func(x, y): return x[0] > y[0] or (x[0] == y[0] and (x[1] > y[1] or (x[1] == y[1] and x[2] < y[2]))))
 		var most: int = Data.CITY_TILES_BIG if g >= 3 else 1
 		for c in cands.slice(0, most): out[int(c[2])] = int(c[0])
+		var force: Dictionary = Data.CITY_FORCE.get(pid, {})   # v13.316 (owner picks): a big city on this tile too
+		for t in force: if int(t) < mini(tl.size(), g * g): out[int(t)] = int(force[t])
 		if out.is_empty():   # a harsh world (Mars-like): one block on its first dry tile
 			for t in mini(tl.size(), g * g):
 				if not (str(tl[t]) in Data.CITY_NO_OUTPOST):
