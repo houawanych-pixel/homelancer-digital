@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.302"
+const VERSION := "v13.303"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -613,7 +613,7 @@ const TOWER_H_MAIN := Vector2(450.0, 760.0)       # each other block's giant
 const TOWER_H_SLIM := Vector2(130.0, 280.0)       # the slim towers in the lots' far corners
 const TOWER_MEGA_R := 135.0             # m: a block giant's foot (corner to middle), over its four main buildings
 const TOWER_SLIM_GROW := 1.15           # a slim tower a little wider than its podium's outline
-const TOWER_STYLES := ["cathedral", "tiered", "saucer", "tiered"]   # the shapes from the owner's art
+const TOWER_STYLES := ["cluster", "twin", "slab", "cluster"]   # v13.303: how a giant's kit parts are put together (one glass core, two linked, a long slab)
 const TOWER_INSET := 0.9                # the tower's footprint inside the podium's outline
 const TOWER_CHAMFER := 0.2              # each corner cut back this share of its edges
 const TOWER_LEDGE := 1.08               # a tier-top ledge this much wider than the tier
@@ -639,6 +639,12 @@ const TOWER_BRIDGE_H := 8.0             # m tall
 const TOWER_WHITE := Color(0.86, 0.88, 0.9)       # the armour panels
 const TOWER_SPINE := Color(0.13, 0.14, 0.17)      # the dark spine
 const TOWER_GOLD := Color(1.0, 0.72, 0.3)         # gold accents (pad edges)
+const KIT_BAND := 2.5                   # v13.303 (owner's modular-building photos): m, a dark floor band between core blocks
+const KIT_JOINT := 1.5                  # m, the dark joint between a white pillar's pieces
+const KIT_PLANTER := 3.0                # m, a planter's height
+const KIT_BEVEL_WHITE := 0.1            # a white box's edges rounded this share of its width (the HyperNURBS look)
+const KIT_GLASS := Color(0.08, 0.1, 0.12)   # the glass blocks
+const KIT_GREEN := Color(0.3, 0.5, 0.2)     # the planters
 const TOWER_PAD_R_FOOT := 1.0           # m a person on foot keeps off a tower's wall (a ship: RETOPO_BOX_PAD)
 const CITY_FLOOR_LAYERS := 2        # layers (5 m) a floor: 1 of room (5 m: people, not mechs), 1 of slab (v13.273: was 3)
 const MODULE := 10                  # v13.273: cells a building module is across: a 3 x 3 grid of 2 x 2-cell rooms (10 m) in 1-cell walls, the middle room the lift

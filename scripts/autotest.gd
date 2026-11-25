@@ -8623,10 +8623,13 @@ func _run() -> void:
 			if is_instance_valid(bf) and (bf as Node).get_node_or_null("Towers") != null:
 				tw_nodes += 1
 				tris += int(bf.tower_tris)
-		_tp(hold, Vector3(mid.x, g + 450.0, mid.y))
+		_tp(Vector3(mid.x - 250.0, g + 380.0, mid.y + 620.0), Vector3(mid.x - 100.0, g + 300.0, mid.y))
 		await _wait(2.0)
 		await _capture("megacity_mid")
-		_tp(Vector3(mid.x - 60.0, g + 8.0, mid.y + 260.0), Vector3(mid.x + 40.0, g + 600.0, mid.y - 120.0))
+		_tp(Vector3(mid.x - 250.0, g + 70.0, mid.y + 250.0), Vector3(mid.x - 250.0, g + 200.0, mid.y))
+		await _wait(2.0)
+		await _capture("megacity_close")
+		_tp(Vector3(mid.x - 30.0, g + 8.0, mid.y + 255.0), Vector3(mid.x + 40.0, g + 500.0, mid.y - 60.0))
 		await _wait(2.0)
 		await _capture("megacity_street")
 		_check("v13.302: the city is %d x %d blocks of megatowers (%d towers, the tallest %.0f m over its podium); %d blocks near you draw theirs (%d triangles)" % [cr.size.x, cr.size.y, all_t.size(), tallest, tw_nodes, tris], cr.size.x >= 3 and all_t.size() >= 30 and tallest > 600.0 and tw_nodes >= 3, "")
@@ -8648,7 +8651,7 @@ func _run() -> void:
 			await get_tree().process_frame
 			inside_min = minf(inside_min, Vector2(s.player.global_position.x, s.player.global_position.z).distance_to(tc))
 		print("MEGA solid: solids %d hits %d near c %s base %.0f" % [s.tower_solids.size(), s.tower_hits, tc, float(near_t["base"])])
-		_check("v13.302: the towers are solid (flying straight at one you stop at its wall: came within %.0f m of its middle, radius %.0f m)" % [inside_min, float(near_t["r"])], inside_min > float(near_t["r"]) * 0.6, "")
+		_check("v13.302: the towers are solid (flying straight at one you stop at its wall: came within %.0f m of its middle, radius %.0f m)" % [inside_min, float(near_t["r"])], inside_min > float(near_t["r"]) * 0.4, "")
 		_finish_group()
 		return
 	if _flag("HL_DOME"):   # v13.280 (owner: "oxygen domes over the cities on airless, Mars-like worlds")

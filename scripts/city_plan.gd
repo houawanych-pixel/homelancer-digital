@@ -307,12 +307,12 @@ static func towers(pid: String, tile: int, r: Vector2i) -> Array:
 	var styles: Array = Data.TOWER_STYLES
 	out.append({"c": org + Vector2(Data.BLOCK_REGION, Data.BLOCK_REGION) * 0.5, "r": Data.TOWER_MEGA_R * rng.randf_range(0.88, 1.08), "sides": 8,
 		"rot": PI / 8.0 + (rng.randi() % 2) * PI / 8.0, "base": roof(g, Data.CITY_PODIUM_FLOORS), "ground": g, "h": rng.randf_range(hr.x, hr.y), "main": true,
-		"style": "cathedral" if downtown else str(styles[rng.randi() % styles.size()]), "seed": absi(hash(key + "|mega|t"))})
+		"style": "twin" if downtown else str(styles[rng.randi() % styles.size()]), "seed": absi(hash(key + "|mega|t"))})
 	for b in plan["buildings"]:
 		if not b.has("poly") or bool(b.get("main", false)): continue
 		var t := CityTowers.spec(b, org, roof(g, int(b["floors"])), downtown, key)
 		t["r"] = float(t["r"]) * Data.TOWER_SLIM_GROW
-		t["style"] = "saucer" if int(t["sides"]) > 8 else "tiered"
+		t["style"] = "cluster"
 		t["ground"] = g
 		out.append(t)
 	return out
