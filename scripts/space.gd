@@ -914,7 +914,42 @@ func _bump_box(body: Node3D) -> void:
 ## past a wall's middle, so the old push (out by the nearest face) threw you out on the FAR side. Now, with where you
 ## were last frame (prev), you're always put back on the side you came from, and a step that jumped right over a wall
 ## is caught too.
+## v13.330 (owner: "that needs to be applied everywhere, all maps"): every box wall in the game (ship and station
+## interiors, planet bases and buildings, city towers, skyways, station props) uses the same rule: you're put back on
+## the side of the wall you came from, and a step that went clean over a wall is caught. _step_prev() is where you
+## were at the start of this frame, or INF after a teleport (a warp, a dock, a lift: a jump no step could make).
+var _step_from := Vector3.INF
+var _step_dt := 0.016
+func _step_prev() -> Vector3:
+	if _step_from == Vector3.INF or not is_instance_valid(player): return Vector3.INF
+	var d := _step_from.distance_to(player.global_position)
+	if d < 0.001 or d > maxf(40.0, vel.length() * _step_dt * 3.0 + 5.0): return Vector3.INF
+	return _step_from
+
+## The box face (0 -x, 1 +x, 2 -y, 3 +y, 4 -z, 5 +z) to push q out by, coming from qp (INF: unknown), or -1 = not
+## touching. Inside: the face on the side you came from (else the nearest). Outside: the face the step went in by,
+## if it crossed the whole box (then crossed = true in out).
+static func _wall_face(q: Vector3, qp: Vector3, lo: Vector3, hi: Vector3, out: Dictionary = {}) -> int:
+	var best := -1
+	if q.x <= lo.x or q.x >= hi.x or q.y <= lo.y or q.y >= hi.y or q.z <= lo.z or q.z >= hi.z:
+		if qp == Vector3.INF: return -1
+		best = _seg_box_face(qp, q, lo, hi)
+		if best >= 0: out["crossed"] = true
+		return best
+	if qp != Vector3.INF:
+		var bp := INF
+		for i in 3:
+			if qp[i] <= lo[i] and q[i] - lo[i] < bp: bp = q[i] - lo[i]; best = i * 2
+			elif qp[i] >= hi[i] and hi[i] - q[i] < bp: bp = hi[i] - q[i]; best = i * 2 + 1
+	if best < 0:
+		var pens := [q.x - lo.x, hi.x - q.x, q.y - lo.y, hi.y - q.y, q.z - lo.z, hi.z - q.z]
+		best = 0
+		for i in 6:
+			if pens[i] < pens[best]: best = i
+	return best
+
 func _push_out_box(hd: Node3D, bb: AABB, kind: String, prev := Vector3.INF) -> bool:
+	if prev == Vector3.INF: prev = _step_prev()
 	var xf := hd.global_transform
 	var k := maxf(xf.basis.get_scale().x, 0.001)
 	var pad := (Data.BOARD_PILOT_PAD if boarding and (escape_pilot or on_foot) else Data.RETOPO_BOX_PAD) / k   # v13.156 (owner: "I can't fit in the door as a pilot"): the pilot's own size, not the ship's
@@ -923,23 +958,12 @@ func _push_out_box(hd: Node3D, bb: AABB, kind: String, prev := Vector3.INF) -> b
 	var lo := bb.position - Vector3.ONE * pad
 	var hi := bb.end + Vector3.ONE * pad
 	var qp := inv * prev if prev != Vector3.INF else Vector3.INF
-	var best := -1
-	if q.x <= lo.x or q.x >= hi.x or q.y <= lo.y or q.y >= hi.y or q.z <= lo.z or q.z >= hi.z:
-		if qp == Vector3.INF: return false
-		best = _seg_box_face(qp, q, lo, hi)   # (did this step cross the whole box?)
-		if best < 0: return false
+	var wo := {}
+	var best := _wall_face(q, qp, lo, hi, wo)
+	if best < 0: return false
+	if wo.has("crossed"):
 		walls_crossed += 1
 		q = qp   # (back where you were: just short of the face you hit)
-	elif qp != Vector3.INF:
-		var bp := INF
-		for i in 3:   # the face on the side you came from (an axis you were outside the box on, last frame)
-			if qp[i] <= lo[i] and q[i] - lo[i] < bp: bp = q[i] - lo[i]; best = i * 2
-			elif qp[i] >= hi[i] and hi[i] - q[i] < bp: bp = hi[i] - q[i]; best = i * 2 + 1
-	if best < 0:
-		var pens := [q.x - lo.x, hi.x - q.x, q.y - lo.y, hi.y - q.y, q.z - lo.z, hi.z - q.z]
-		best = 0
-		for i in 6:
-			if pens[i] < pens[best]: best = i
 	var axis := best / 2
 	q[axis] = lo[axis] if best % 2 == 0 else hi[axis]
 	var local_n := Vector3.ZERO
@@ -1412,15 +1436,16 @@ func _tower_push(_dt: float) -> void:
 	if tower_solids.is_empty(): return
 	var pad: float = Data.TOWER_PAD_R_FOOT if (on_foot or escape_pilot) else Data.RETOPO_BOX_PAD
 	var p := player.global_position
+	var pv := _step_prev()
 	for bx: AABB in tower_solids:
 		var lo := bx.position - Vector3(pad, pad, pad)
 		var hi := bx.end + Vector3(pad, pad, pad)
-		if p.x <= lo.x or p.x >= hi.x or p.y <= lo.y or p.y >= hi.y or p.z <= lo.z or p.z >= hi.z: continue
-		# out by the shortest way
-		var outs := [p.x - lo.x, hi.x - p.x, p.y - lo.y, hi.y - p.y, p.z - lo.z, hi.z - p.z]
-		var best := 0
-		for k in 6:
-			if float(outs[k]) < float(outs[best]): best = k
+		var wo := {}
+		var best := _wall_face(p, pv, lo, hi, wo)   # v13.330: back out the side you came in
+		if best < 0: continue
+		if wo.has("crossed"):
+			walls_crossed += 1
+			p = pv
 		var nrm: Vector3 = [Vector3.LEFT, Vector3.RIGHT, Vector3.DOWN, Vector3.UP, Vector3.FORWARD, Vector3.BACK][best]
 		match best:
 			0: p.x = lo.x
@@ -2282,7 +2307,7 @@ func _board_update(dt: float) -> void:
 	for bx: Array in surf_boxes: _push_out_box(bx[0], bx[1], "ground", _board_prev)
 	_fleet_mech_bounds(dt)
 	if life != null:
-		var pq := life.push_out(player.global_position, 5.0)
+		var pq := life.push_out(player.global_position, 5.0, _step_prev())
 		if Vector2(pq.x - player.global_position.x, pq.z - player.global_position.z).length() > 0.01:
 			player.global_position = pq
 			vel = Vector3(vel.x * 0.3, vel.y, vel.z * 0.3)
@@ -8736,6 +8761,8 @@ func _process(dt: float) -> void:
 		_mem_reported = true
 		if OS.has_feature("web") or OS.get_environment("HL_PROFILE") != "": print(memory_report())
 	if not is_instance_valid(player): return
+	_step_from = player.global_position   # v13.330: where this frame's step starts (walls everywhere push you back this side)
+	_step_dt = dt
 	_update_heat(dt)   # v13.284
 	_update_player(dt)
 	_update_nacelles(dt)   # v9.8

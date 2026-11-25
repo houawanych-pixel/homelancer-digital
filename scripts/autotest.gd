@@ -2282,6 +2282,22 @@ func _run() -> void:
 		var x3: float = s.player.global_position.x - w.global_position.x
 		_check("v13.329: a wall never lets you through: past its middle -> back on your side (x %.1f), jumped over -> back (x %.1f), walking into it -> stopped (x %.1f)" % [x1, x2, x3], x1 < -2.0 and x2 < -2.0 and x3 < -2.0)
 		w.queue_free()
+		# v13.330: everywhere: with no prev given, a box uses where you were at the start of the frame; the city's tower walls too
+		s.vel = Vector3.ZERO
+		s._step_dt = 0.016
+		s._step_from = w.global_position + Vector3(-12, 5, 0)
+		s.player.global_position = w.global_position + Vector3(0.8, 5, 0)
+		s._push_out_box(w, bb, "ground")
+		var x4: float = s.player.global_position.x - w.global_position.x
+		var keep: Array = s.tower_solids
+		s._tower_tile = "%s|%d" % [s.planet_id, s.tile]
+		s.tower_solids = [AABB(w.global_position + Vector3(-2, -10, -50), Vector3(4, 40, 100))]
+		s._step_from = w.global_position + Vector3(-12, 5, 0)
+		s.player.global_position = w.global_position + Vector3(14, 5, 0)
+		s._tower_push(0.016)
+		var x5: float = s.player.global_position.x - w.global_position.x
+		s.tower_solids = keep
+		_check("v13.330: everywhere (no prev passed): a wall box -> your side (x %.1f); a city tower wall jumped over -> back (x %.1f)" % [x4, x5], x4 < -2.0 and x5 < -2.0)
 		_finish_group()
 		return
 	if _flag("HL_CAPBOOM"):   # v13.327 (owner: "blew up a huge fleet ship ... there should have been a huge explosion as well as multiple drops")

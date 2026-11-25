@@ -387,7 +387,8 @@ func _update_chunks(dt: float) -> void:
 	chunks = chunks.filter(func(c): return float(c["life"]) > 0.0 and is_instance_valid(c["node"]))
 
 ## keep a body (the player) out of the props: returns the pushed-out position
-func push_out(p: Vector3, r: float) -> Vector3:
+## (v13.330: prev = where the body was at the start of the frame: it goes back out the side it came in, never through)
+func push_out(p: Vector3, r: float, prev := Vector3.INF) -> Vector3:
 	for pr in props:
 		if pr["broken"]: continue
 		var bb: AABB = (pr["aabb"] as AABB).grow(r)
@@ -398,6 +399,13 @@ func push_out(p: Vector3, r: float) -> Vector3:
 			var dz0 := p.z - bb.position.z
 			var dz1 := bb.end.z - p.z
 			var m := minf(minf(dx0, dx1), minf(dz0, dz1))
+			if prev != Vector3.INF:   # the side it came from
+				var bm := INF
+				if prev.x <= bb.position.x and dx0 < bm: bm = dx0
+				if prev.x >= bb.end.x and dx1 < bm: bm = dx1
+				if prev.z <= bb.position.z and dz0 < bm: bm = dz0
+				if prev.z >= bb.end.z and dz1 < bm: bm = dz1
+				if bm < INF: m = bm
 			if m == dx0: p.x = bb.position.x
 			elif m == dx1: p.x = bb.end.x
 			elif m == dz0: p.z = bb.position.z
