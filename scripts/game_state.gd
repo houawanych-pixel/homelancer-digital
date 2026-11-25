@@ -709,11 +709,11 @@ func hold_size() -> int:
 	if str(s.get("class", "")).to_lower().find("cargo") >= 0: return Data.HOLD_CARGO_SHIP
 	var pr := int(s.get("price", 0))
 	return int(Data.HOLD_BY_LEVEL[2 if pr >= Data.HOLD_L3_PRICE else (1 if pr >= Data.HOLD_L2_PRICE else 0)])
-## Space one hold item takes: a part or crate 1, a stack 1 per CARGO_STACK pieces, a prisoner none (the brig).
+## Space one hold item takes (units): a part, weapon or crate 1, ore and goods 1 a piece, a prisoner none (the brig).
 static func hold_slots(c: Dictionary) -> int:
 	if c.get("kind", "") == "pilot": return 0
 	if c.has("crates"): return int(c["crates"])
-	if c.has("n"): return maxi(1, ceili(float(c["n"]) / float(Data.CARGO_STACK)))
+	if c.has("n"): return maxi(1, ceili(float(c["n"]) / float(Data.CARGO_STACK)))   # (CARGO_STACK 1: one unit a piece)
 	return 1
 func hold_used() -> int:
 	var n := 0

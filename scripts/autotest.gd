@@ -9116,6 +9116,7 @@ func _run() -> void:
 		get_tree().quit()
 		return
 	if _flag("HL_SELLALL"):   # v13.296 (owner: "no limit inventory; at any station a SELL ALL option")
+		GS.hold_no_limit = true   # (v13.310 put the ship-level limit back; this still checks the no-limit switch)
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
 		await _wait(1.0)
@@ -9163,7 +9164,7 @@ func _run() -> void:
 		var s: Node = main.space
 		GS.owned_weapons.erase("ion")
 		GS.cargo = [{"kind": "weapon", "id": "ion", "name": "Ion Repeater", "note": "salvaged weapon"}, {"kind": "ore", "id": "gold", "n": 12}, {"kind": "pilot", "id": "x", "name": "Vex Morrow", "note": "bounty prisoner"}]
-		while GS.hold_free() > 0: GS.add_goods("rations", GS.system_id, 10)
+		while GS.hold_free() > 0: GS.add_goods("rations", GS.system_id, mini(10, GS.hold_free()))
 		var full0: bool = GS.hold_free() <= 0
 		var tabs_ok: bool = main.hud.FL_TABS.has("hold")
 		await _shot("inventory_hud", 0.3)
@@ -9267,7 +9268,7 @@ func _run() -> void:
 			GS.ship_id = sid
 			sizes.append(GS.hold_size())
 		GS.ship_id = "cadet"
-		_check("v13.266: the hold by ship level: Level 1 / 2 / 3 / cargo ship = %s" % str(sizes), sizes == [8, 12, 16, 24], "")
+		_check("v13.266: the hold by ship level: Level 1 / 2 / 3 / cargo ship = %s" % str(sizes), sizes == [100, 200, 300, 500], "")
 		main.dock(_sp().station)
 		await _until(func(): return main.state == "hub", 15.0)
 		var fr: Array = []
@@ -9292,11 +9293,11 @@ func _run() -> void:
 		if sb != null: sb.pressed.emit()
 		await _wait(0.5)
 		var cl: Label = main.hub.content.find_child("Cargo", true, false)
-		_check("v13.266: SELL a spare part from the hold (+%d cr, hold %d, page: %s)" % [GS.credits - cr0, GS.hold_used(), cl.text.split("\n")[0] if cl != null else "?"], had_btn and GS.credits > cr0 and GS.hold_used() == 1 and cl != null and cl.text.begins_with("CARGO HOLD  1 / 8"), "")
+		_check("v13.266: SELL a spare part from the hold (+%d cr, hold %d, page: %s)" % [GS.credits - cr0, GS.hold_used(), cl.text.split("\n")[0] if cl != null else "?"], had_btn and GS.credits > cr0 and GS.hold_used() == 1 and cl != null and cl.text.begins_with("CARGO HOLD  1 / %d" % GS.hold_size()), "")
 		var got := 0
 		for k in 120:
 			if GS.add_ore("diamond") > 0: got += 1
-		_check("v13.266: ore stacks %d a slot and stops when the hold is full (%d pieces in, hold %d / %d)" % [Data.CARGO_STACK, got, GS.hold_used(), GS.hold_size()], got == 7 * Data.CARGO_STACK and GS.hold_used() == GS.hold_size(), "")
+		_check("v13.310: each piece of ore takes 1 unit and it stops when the hold is full (%d pieces in, hold %d / %d)" % [got, GS.hold_used(), GS.hold_size()], got == GS.hold_size() - 1 and GS.hold_used() == GS.hold_size(), "")
 		GS.cargo.append({"kind": "pilot", "id": "x", "name": "Prisoner", "note": "bounty prisoner"})
 		main.launch()
 		await _until(func(): return main.state == "flight", 15.0)

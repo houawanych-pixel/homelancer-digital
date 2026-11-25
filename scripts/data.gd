@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.309"
+const VERSION := "v13.310"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -1208,14 +1208,14 @@ const BOUNTY_ALIVE_RANK := 1                    # named pilots of this rank and 
 const REP_MISSION := 3.0                        # standing gained with the giver's faction per job done
 const CARGO_HOLD := 8                           # pods and crates a ship carries
 # v13.266 (owner: "the cargo hold scales with your ship's level; swapped-out parts go in; you lose it if destroyed")
-const HOLD_BY_LEVEL := [8, 12, 16]   # Level 1 / 2 / 3 ships (by price below)
+const HOLD_BY_LEVEL := [100, 200, 300]   # v13.310 (owner: "level one holds a hundred, two two hundred, three three hundred"): units
 const HOLD_L2_PRICE := 6000
 const HOLD_L3_PRICE := 10000
-const HOLD_CARGO_SHIP := 24          # a cargo ship (the Hauler)
-const CARGO_STACK := 10              # ore and goods: pieces per hold slot
+const HOLD_CARGO_SHIP := 500         # a cargo ship (the Hauler)
+const CARGO_STACK := 1               # v13.310: every piece of ore or goods takes 1 unit
 const PART_SELL_K := 0.5             # a spare part sells for half its price
 const CARGO_LOST_ON_DEATH := true    # shot down: the hold goes with the ship (prisoners are kept in the brig pod)
-const HOLD_NO_LIMIT := true          # v13.296 (owner: "no limit inventory"): the hold never fills
+const HOLD_NO_LIMIT := false         # v13.296 had no limit; v13.310 (owner): a limit by ship level again, but a big one
 const HOLD_ROOM_NO_LIMIT := 1000000  # (hold_free with no limit)
 const JETTISON_COLOR := Color(0.45, 0.42, 0.4)   # v13.295: a crate you threw out (dull, no glow: the tractor leaves it)
 const JETTISON_BACK := 8.0           # m behind the ship it appears

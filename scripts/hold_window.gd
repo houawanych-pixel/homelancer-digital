@@ -196,7 +196,7 @@ func _name(c: Dictionary) -> String:
 func _sub(c: Dictionary) -> String:
 	var kind := str(c.get("kind", ""))
 	var slots := GS.hold_slots(c)
-	var room := "%d slot%s" % [slots, "" if slots == 1 else "s"]
+	var room := "%d unit%s" % [slots, "" if slots == 1 else "s"]
 	match kind:
 		"weapon":
 			var w: Dictionary = Data.WEAPONS.get(str(c.get("id", "")), {})

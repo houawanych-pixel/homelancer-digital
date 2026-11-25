@@ -164,7 +164,7 @@ static func _all_offers(sys_id: String, station_id: String, owner: String, pid: 
 		var dst: Dictionary = Data.SYSTEMS[dd]["station"]
 		out.append({"kind": "delivery", "faction": "", "slot": 2, "pay": Data.DELIVERY_PAY_PER_JUMP * hops + 150 * crates, "crates": crates,
 			"title": "Deliver %d crates to %s" % [crates, dst["name"]], "giver": station_id, "giver_sys": sys_id, "sys": dd, "dest": str(dst["id"]), "dest_sys": dd,
-			"brief": "%d crates of supplies for %s in the %s system, %d jump%s away. They go in your hold (%d slots). Get them there and you're paid on docking. Lose your ship and the crates are gone." % [crates, dst["name"], Data.SYSTEMS[dd]["name"], hops, "" if hops == 1 else "s", crates],
+			"brief": "%d crates of supplies for %s in the %s system, %d jump%s away. They go in your hold (%d units). Get them there and you're paid on docking. Lose your ship and the crates are gone." % [crates, dst["name"], Data.SYSTEMS[dd]["name"], hops, "" if hops == 1 else "s", crates],
 			"points": []})
 	return out
 
