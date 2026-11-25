@@ -39,6 +39,8 @@ static func city_tiles(pid: String) -> Dictionary:
 		for c in cands.slice(0, most): out[int(c[2])] = int(c[0])
 		var force: Dictionary = Data.CITY_FORCE.get(pid, {})   # v13.316 (owner picks): a big city on this tile too
 		for t in force: if int(t) < mini(tl.size(), g * g): out[int(t)] = int(force[t])
+		var towns: Dictionary = Data.CITY_TOWNS.get(pid, {})   # v13.319 (owner picks): a small town (low buildings)
+		for t in towns: if int(t) < mini(tl.size(), g * g): out[int(t)] = int(towns[t])
 		if out.is_empty():   # a harsh world (Mars-like): one block on its first dry tile
 			for t in mini(tl.size(), g * g):
 				if not (str(tl[t]) in Data.CITY_NO_OUTPOST):
@@ -159,6 +161,11 @@ static func safehouse(pid: String, tile: int) -> Dictionary:
 	return {}
 
 ## Is there a city on this tile?
+## v13.319 (owner: "a small town, something that doesn't have huge skyscrapers, using the same good structure, the
+## same look, smaller"): a town tile is built like a city, but its towers stay low.
+static func is_town(pid: String, tile: int) -> bool:
+	return (Data.CITY_TOWNS.get(pid, {}) as Dictionary).has(tile)
+
 static func is_city_tile(pid: String, tile: int) -> bool:
 	return rect(pid, tile).size.x > 0
 
@@ -321,6 +328,15 @@ static func towers(pid: String, tile: int, r: Vector2i) -> Array:
 		t["style"] = "cluster"
 		t["ground"] = g
 		out.append(t)
+	if is_town(pid, tile):   # v13.319: the same towers, a town's height (the middle one a little taller)
+		var trng := RandomNumberGenerator.new()
+		trng.seed = absi(hash(key + "|town"))
+		for i in out.size():
+			var hr2: Vector2 = Data.TOWN_TOWER_H_MAIN if i == 0 else Data.TOWN_TOWER_H
+			out[i]["h"] = trng.randf_range(hr2.x, hr2.y)
+			if i == 0:
+				out[i]["r"] = float(out[i]["r"]) * Data.TOWN_MAIN_R
+				out[i]["style"] = "cluster"
 	return out
 
 ## v13.280 (owner: "futuristic buildings: hexagons, pentagons, round towers, domes, glowing trim, clean angled walls,

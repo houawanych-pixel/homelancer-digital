@@ -378,7 +378,7 @@ static func city_links(pid: String, tile: int) -> Array:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = absi(hash("%s|%d|links" % [pid, tile]))
 	# skyways along the inner avenues (each way), level 1 everywhere, level 2 on the first
-	for ax in 2:
+	for ax in (0 if CityPlan.is_town(pid, tile) else 2):   # (v13.319: a town has none)
 		for k in range(1, (cr.size.x if ax == 0 else cr.size.y)):
 			var line := (org.x if ax == 0 else org.y) + k * Data.BLOCK_REGION
 			var levels: Array = [Data.SKYWAY_Y] if k > 1 else [Data.SKYWAY_Y, Data.SKYWAY_Y2]
