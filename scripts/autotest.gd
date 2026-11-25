@@ -9129,23 +9129,25 @@ func _run() -> void:
 		for r2 in results: print("[route] ", r2)
 		get_tree().quit()
 		return
-	if _flag("HL_NUKEKILL"):   # v13.312 (owner: "the nuke's blast should destroy most fighters and bombers inside it; Level 3 ships and fleet ships withstand it")
+	if _flag("HL_NUKEKILL"):   # v13.313 (owner: "the nuke is pretty strong: they shouldn't live; the splash damages the fleet too, but they live through it")
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
 		await _wait(1.0)
 		var s: Node = main.space
-		var c: Vector3 = s.player.global_position - s.player.global_basis.z * 400.0
+		var c: Vector3 = s.player.global_position - s.player.global_basis.z * 900.0
 		var lo: Dictionary = s.spawn_unit("ph_unity", c + Vector3(40, 0, 0), c)
 		var lo2: Dictionary = s.spawn_unit("ph_unity", c + Vector3(0, 0, 70), c)
 		var hi: Dictionary = s.spawn_unit("unity_fighter_l3", c + Vector3(-40, 0, 0), c)
-		var far: Dictionary = s.spawn_unit("ph_unity", c + Vector3(0, 0, 600), c)
-		var hi0: float = float(hi["hp"]) + float(hi["sh"])
-		s.nuke_log.clear()
+		var cr: Dictionary = s.spawn_unit("unity_cruiser", c + Vector3(0, 50, 0), c)
+		var far: Dictionary = s.spawn_unit("ph_unity", c + Vector3(0, 0, 800), c)
+		var cr0: float = float(cr["hp"]) + float(cr["sh"])
 		s.missile_blast(c, {"heavy": true, "nuke": true}, null)
 		await _wait(float(Data.NUKE_SECOND[0]) + 0.5)
 		var gone := func(e: Dictionary) -> bool: return not s.enemies.has(e) or float(e["hp"]) <= 0.0
-		var hi1: float = float(hi["hp"]) + float(hi["sh"])
-		_check("v13.312: a nuke destroys the Level 1-2 ships inside its blast (%s, %s), a Level 3 lives badly hurt (%d -> %d), one outside is untouched (%s)" % [str(gone.call(lo)), str(gone.call(lo2)), int(hi0), int(hi1), str(not gone.call(far))], gone.call(lo) and gone.call(lo2) and not gone.call(hi) and hi1 < hi0 * 0.5 and not gone.call(far) and float(far["hp"]) == float(far["max"]), "")
+		var cr1: float = float(cr["hp"]) + float(cr["sh"])
+		var one_hit: float = s.fleet_nuke_damage(cr)
+		_check("v13.313: a nuke destroys every fighter inside its blast, Level 3 too (%s, %s, L3 %s); a fleet cruiser takes splash damage and lives (%d -> %d, about %.2f direct hits); one outside is untouched (%s)" % [str(gone.call(lo)), str(gone.call(lo2)), str(gone.call(hi)), int(cr0), int(cr1), (cr0 - cr1) / one_hit, str(not gone.call(far))],
+			gone.call(lo) and gone.call(lo2) and gone.call(hi) and not gone.call(cr) and cr1 < cr0 and cr0 - cr1 <= one_hit * 0.8 and not gone.call(far) and float(far["hp"]) == float(far["max"]), "")
 		for r2 in results: print("[route] ", r2)
 		get_tree().quit()
 		return
