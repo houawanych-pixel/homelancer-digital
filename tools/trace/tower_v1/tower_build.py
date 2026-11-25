@@ -37,8 +37,8 @@ HUBS = {0: "Grand Lobby", 3: "Sky Lobby", 6: "Sky Lobby", -1: "Penthouse"}
 OTHER = ["Trading Floor", "Atrium", "Executive Suite", "Data Center", "Conference Hall", "Gallery", "Sky Garden", "Club Lounge"]
 WORDS = ["Offices", "Residences", "Commerce", "Labs", "Suites", "Hotel", "Clinic", "Studios"]
 SIZE = {0: 2}                                 # (junctions out from the core: per axis, from the footprint)
-KEEP = 0.9                                    # a tower is full: most of the grid is built on every floor
-LOOPS = 0.3
+KEEP = 0.0                                    # a tower is full: most of the grid is built on every floor
+LOOPS = 0.0
 CAVES = {0: 0}
 
 def floors(n):
@@ -48,10 +48,11 @@ def floors(n):
         out.append((DECK_KEYS[i], role, i))
     return out
 
+FOOT = 880.0   # (v2, owner: one building, ~10-20 small rooms a floor, loaded alone: about 70 x 65 m)
 def footprint(style, rng):
     """The tower's glass core (CityTowers.parts): cluster = about 1.2 R x 1.1 R, slab = 1.75 R x 0.75 R (R ~ 135 m),
     in px (10 px = 1 m), as a hull with cut corners."""
-    R = 1350.0 * rng.uniform(0.92, 1.0)
+    R = FOOT * rng.uniform(0.92, 1.0)
     if style == "slab": w, h = R * 1.75, R * 0.8
     else: w, h = R * rng.uniform(1.12, 1.25), R * rng.uniform(1.0, 1.12)
     w, h = min(w, NPX - 300), min(h, NPX - 300)
@@ -82,19 +83,13 @@ def shafts(fid, n, NX, NY):
     round the hall grid, the same shaft on every floor it serves."""
     rng = random.Random(int(hashlib.md5(("%s|shafts" % fid).encode()).hexdigest(), 16) % (2 ** 31))
     K = DECK_KEYS
-    plan = [("LIFT L", K[0:4]), ("LIFT M", K[3:7]), ("LIFT H", K[6:n]), ("LIFT X", [K[0], K[3], K[6]])]
-    corners = [(1, 1), (-1, -1), (1, -1), (-1, 1)]; rng.shuffle(corners)   # (the four corners: room for all four shafts)
-    rest = [(i, j) for i in range(-NX, NX + 1) for j in range(-NY, NY + 1) if max(abs(i), abs(j)) >= 1 and (i, j) not in corners]
-    rng.shuffle(rest)
-    cells = corners + rest
-    out, used = [], []
-    for label, decks in plan:
-        for c in cells:
-            if c in used or any(abs(c[0] - u[0]) + abs(c[1] - u[1]) < 2 for u in used) or (label != "LIFT X" and c == (0, NY)): continue
-            dirs = [(dx, dy) for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)) if abs(c[0] + dx) <= NX and abs(c[1] + dy) <= NY and (c[0] + dx, c[1] + dy) != (0, 0)]
-            if not dirs: continue
-            used.append(c); out.append({"label": label, "decks": decks, "cell": c, "dir": rng.choice(dirs), "side": rng.choice((-1, 1))})
-            break
+    plan = [("LIFT A", K[0:n]), ("STAIRS S", K[0:n])]   # (owner: "elevators or walk": a lift and a stairwell through every floor)
+    # (v2: a small tower is its core ring and the cross; the lift and the stairs sit off the east and west arms,
+    # the street lobby and the roof dock off the south and north ones)
+    sides = [(1, 0), (-1, 0)]; rng.shuffle(sides)
+    out = []
+    for (label, decks), c in zip(plan, sides):
+        out.append({"label": label, "decks": decks, "cell": c, "dir": (0, rng.choice((-1, 1))), "side": rng.choice((-1, 1))})
     return out
 
 def lift_box(c, du, side):
@@ -137,7 +132,7 @@ def build_floor(fid, d, role, here, src, entry_floor, dname="main", SH=(), HULLP
     R[hubname] = octo(C, C, A_HUB, A_HUB, A_HUB * 0.414)
     # ---- the junction grid and its random tree (+ loops)
     cells = [(i, j) for i in range(-NX, NX + 1) for j in range(-NY, NY + 1) if max(abs(i), abs(j)) >= 1]
-    must = {(0, -1), (0, 1), (1, 0), (-1, 0)} | ({(0, NY)} if entry_floor else set())
+    must = {(0, -1), (0, 1), (1, 0), (-1, 0)} | ({(0, NY)} if entry_floor else set()) | ({(0, -NY)} if lvl == nfl - 1 else set())
     kept = {c for c in cells if c in must or rng.random() < KEEP}
     mine = [sh for sh in SH if dname in sh["decks"]]
     for sh in mine: kept.add(sh["cell"])
@@ -183,7 +178,7 @@ def build_floor(fid, d, role, here, src, entry_floor, dname="main", SH=(), HULLP
     LIFTS_HERE = []
     for sh in mine:   # the lift cars (before anything else is placed: they must be the same on every floor they serve)
         lb, ld = lift_box(sh["cell"], sh["dir"], sh["side"])
-        nm = "Lift %s" % sh["label"][-1]
+        nm = ("Stairs" if sh["label"].startswith("STAIRS") else "Lift %s" % sh["label"][-1])
         R[nm] = lb; DOORS.append((round(ld[0], 1), round(ld[1], 1), ld[2])); LIFTS_HERE.append(nm)
     # ---- dead ends (out at the edge): the entry and the way out, then caverns
     ends = sorted([c for c in kept if deg[c] + (1 if c in must else 0) == 1 and max(abs(c[0]), abs(c[1])) >= 2], key=lambda c: -(abs(c[0]) + abs(c[1])))
@@ -205,16 +200,17 @@ def build_floor(fid, d, role, here, src, entry_floor, dname="main", SH=(), HULLP
         b = max(far, key=lambda c: abs(c[0] - a[0]) + abs(c[1] - a[1]), default=None)
         special = [(a, "Street Lobby")]
     if entry_floor: special = [((0, NY), "Street Lobby")]
+    if lvl == nfl - 1: special = [((0, -NY), "Roof Dock")]   # (owner: "a dock on top of each building ... you eject from the top and enter")
     for c, nm in special:
-        u = (0, 1) if nm == "Street Lobby" else outward(c)
+        u = (0, 1) if nm == "Street Lobby" else ((0, -1) if nm == "Roof Dock" else outward(c))
         if not u: continue
         hw = 62.0
         p = P(c); cx, cy = p[0] + u[0] * (G * 0.55 + hw), p[1] + u[1] * (G * 0.55 + hw)
-        if nm == "Street Lobby":   # (on the footprint's south edge: the door in from the street)
-            edge = HULL.bounds[3] - 8; cy = min(cy, edge - hw)
+        if nm in ("Street Lobby", "Roof Dock"):   # (right at the end of the cross arm: the door in from the street / the roof)
+            cx, cy = p[0] + u[0] * (MW / 2 + hw + 30), p[1] + u[1] * (MW / 2 + hw + 30)
         e = (cx - u[0] * hw, cy - u[1] * hw)
         g = octo(cx, cy, hw, hw, hw * 0.3)
-        if not HULL.contains(g) or any(box(*g.bounds).buffer(20).intersects(h) for h in HALLS) or any(box(*g.bounds).buffer(30).intersects(box(*q.bounds)) for q in R.values()): continue
+        if (nm not in ("Street Lobby", "Roof Dock") and not HULL.contains(g)) or any(box(*g.bounds).buffer(20).intersects(h) for h in HALLS[:-0 or None] if not h.equals(HALLS[-1]) or True) and nm not in ("Street Lobby", "Roof Dock") or any(box(*g.bounds).buffer(30).intersects(box(*q.bounds)) for q in R.values()): continue
         seg(p, e); R[nm] = g; DOORS.append((round(e[0], 1), round(e[1], 1), "h" if u[0] == 0 else "v")); PADS.append(nm); taken.append(c)
     n_cave = 0
     for c in ends:
@@ -309,7 +305,7 @@ def build_floor(fid, d, role, here, src, entry_floor, dname="main", SH=(), HULLP
     n_back = 0
     while queue:
         nm, lvl = queue.pop(0)
-        if rnd(nm, "go") % 100 >= (92, 70, 45, 25)[lvl]: continue
+        if rnd(nm, "go") % 100 >= (40, 15, 0, 0)[lvl]: continue   # (v2: a small tower: few back rooms)
         want = 2 if lvl == 0 and rnd(nm, "two") % 100 < 55 else 1
         x0, y0, x1, y1 = BXS[nm].bounds; dr = DOOR_AT[nm]
         dside = ("N" if abs(dr[1] - y0) < 1 else "S") if dr[2] == "h" else ("W" if abs(dr[0] - x0) < 1 else "E")
@@ -418,7 +414,7 @@ def main():
         draw(os.path.join(dk, "%s_plan.jpg" % dname), P, kinds, "%s  -  %s  (%s)" % (name.upper(), role, hub.upper()))
         if dname == "main":
             json.dump({"hull": mapping(HULLP), "centre": [C, C], "model": "", "meta": {"tower": True, "style": style, "floors": nfl}}, open(os.path.join(root, "hull.json"), "w"))
-            entry = "Street Lobby" if "Street Lobby" in P["rooms"] else hub
+            entry = "Street Lobby" if "Street Lobby" in P["rooms"] else hub   # (the game enters at the Roof Dock: set when it goes in)
             ov = {"entry": entry, "C": hub, "kinds": kinds}
             json.dump(ov, open(os.path.join(eng, "overrides.json"), "w"), indent=1)
             pt = lambda k: [int(shape(P["rooms"][k]).representative_point().x), int(shape(P["rooms"][k]).representative_point().y)]
@@ -437,7 +433,7 @@ def main():
             if k in P["rooms"]: shaft_at.setdefault(k, list(shape(P["rooms"][k]).centroid.coords[0]))
         print("%-7s %-12s %-16s junctions %d links %d rooms %d (back %d, room doors %d, kit shapes %d) lifts %s unreachable %s" % (
             dname, role, hub, info["junctions"], info["links"], info["rooms"], info["back"], info["doors"], info["kit_shapes"], info["lifts"], bad))
-    json.dump([{"label": sh["label"], "decks": sh["decks"], "at": shaft_at.get("Lift %s" % sh["label"][-1])} for sh in SH], open(os.path.join(eng, "shafts.json"), "w"), indent=1)
+    json.dump([{"label": sh["label"], "decks": sh["decks"], "at": shaft_at.get("Stairs" if sh["label"].startswith("STAIRS") else "Lift %s" % sh["label"][-1])} for sh in SH], open(os.path.join(eng, "shafts.json"), "w"), indent=1)
     json.dump({"floors": nfl, "style": style, "names": {k: r for k, r, _ in FL}}, open(os.path.join(eng, "tower.json"), "w"), indent=1)
     sys.exit(1 if any(bad_all.values()) else 0)
 
