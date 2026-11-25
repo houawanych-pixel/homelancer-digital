@@ -1137,6 +1137,7 @@ func _shield_base(h: Node3D, site: Dictionary, pieces: Array, guards: int) -> Di
 	e["hp"] = float(Data.RAID_HP[lv]); e["max"] = e["hp"]
 	e["sh"] = float(Data.RAID_SHIELD[lv]); e["sh_max"] = e["sh"]
 	e["raid_base"] = true
+	e["site"] = site   # (v13.314)
 	e["walker"] = false
 	(e["node"] as Node3D).name = "%s shield generator" % str(site["name"])
 	var shells: Array = [_shield_shell(h, Data.SHELL_GROW_BASE)]   # v13.256: the shield, the shape of the base's own buildings
@@ -1154,6 +1155,17 @@ func _raid_open(e: Dictionary) -> void:
 	_spark((e["node"] as Node3D).global_position, Color(0.4, 0.85, 1.0), 60.0, 0.6)
 	Sfx.play("explosion", -2.0, 0.7)
 	message.emit("SHIELD GENERATOR DOWN! Land by the base and INFILTRATE it.")
+	_prefetch_facility(e.get("site", {}))
+
+## v13.314: start downloading what going inside needs (shield down, or close to a base), so INFILTRATE is quick.
+var _prefetched := {}
+func _prefetch_facility(site: Dictionary) -> void:
+	var p := get_parent()
+	if p == null or not p.has_method("facility_packs"): return
+	var key := str(site.get("name", "?"))
+	if _prefetched.has(key): return
+	_prefetched[key] = true
+	for n in p.facility_packs(site, str(site.get("faction", ""))): Packs.request(str(n))
 
 ## v13.241: where a facility's base stands on this tile (its main building), and how big; Vector3.INF if not here.
 func facility_base_at(site_name: String) -> Array:
@@ -1394,8 +1406,33 @@ func _surf_push(bx: Array) -> void:
 			if h.has_meta("hull_body"): surf_hulls += 1
 		if h.has_meta("hull_body"):
 			_push_out_hull(h, "ground")
+			if h.has_meta("facility"): _out_of_base(h, bx[1])
 			return
 	_push_out_box(h, bx[1], "ground")
+
+## v13.314 (owner: "I went to the facility on the planet and I was underneath it"): a base's real shape has gaps a ship
+## can slip through (into the dome, under its floor). Deep inside its footprint, you're put back outside it, by the
+## side you were nearest, on the ground. (INFILTRATE is how you go in.)
+var base_rescues := 0   # (checks)
+func _out_of_base(h: Node3D, bb: AABB) -> void:
+	var q := h.global_transform.affine_inverse() * player.global_position
+	var c := bb.get_center()
+	var k: float = Data.BASE_INSIDE_K
+	if absf(q.x - c.x) > bb.size.x * 0.5 * k or absf(q.z - c.z) > bb.size.z * 0.5 * k or q.y > bb.end.y: return
+	var sb: StaticBody3D = h.get_meta("hull_body")   # under its roof (inside or below it), not flying over a low part of it
+	if not is_instance_valid(sb): return
+	var top := (h.global_transform * Vector3(c.x, bb.end.y, c.z)).y + 20.0
+	var rq := PhysicsRayQueryParameters3D.create(player.global_position, Vector3(player.global_position.x, top, player.global_position.z), HULL_LAYER)
+	var rh := get_world_3d().direct_space_state.intersect_ray(rq)
+	if rh.is_empty() or rh["collider"] != sb: return
+	var hc := h.global_transform * c
+	var away := Vector2(player.global_position.x - hc.x, player.global_position.z - hc.z)
+	if away.length() < 0.5: away = Vector2(0, 1)
+	var out := Vector2(hc.x, hc.z) + away.normalized() * (float(h.get_meta("half", 80.0)) + Data.BASE_OUT_GAP)
+	player.global_position = Vector3(out.x, _ground(out.x, out.y) + Data.BASE_OUT_GAP * 0.5, out.y)
+	vel = Vector3.ZERO
+	base_rescues += 1
+	message.emit("You can't get inside the base that way: land by it and INFILTRATE.")
 
 func _ground_prop(path: String, width: float, want: Vector2, exact := false, rot := 0.0, stretch := Vector3.ONE) -> Node3D:
 	if not ResourceLoader.exists(path): return null
@@ -1901,6 +1938,7 @@ func facility_candidate() -> Dictionary:
 					_raid_hint_ms = Time.get_ticks_msec()
 					message.emit("The base's shield is up: shoot the base till its shield generator goes down, then INFILTRATE.")
 				continue
+			_prefetch_facility(h.get_meta("facility"))
 			return h.get_meta("facility")
 	return {}
 

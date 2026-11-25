@@ -1928,6 +1928,47 @@ func _run() -> void:
 		_check("v13.176: back to the docking bay: out to the station page (LAUNCH from there)", main.state == "hub" and main.hub.visible, main.state)
 		_finish_group()
 		return
+	if _flag("HL_BASEIN"):   # v13.314 (owner: "I was underneath the facility ... when I went inside, the screen is black")
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main._load_surface("new_terra", 4)
+		await _until(func(): return is_instance_valid(main.space) and main.space.surface_mode and not main.space.planet_bases.is_empty(), 60.0)
+		await _wait(2.0)
+		var s := _sp()
+		var h: Node3D = s.planet_bases[0]
+		var p: Vector3 = h.global_position
+		var half: float = float(h.get_meta("half", 80.0))
+		var g: float = s._ground(p.x, p.z)
+		s.player.global_position = p + Vector3(0, 30.0, 0)   # flown inside the dome
+		s.vel = Vector3.ZERO
+		var r0: int = s.base_rescues
+		await _wait(1.0)
+		var q: Vector3 = s.player.global_position
+		var out_d: float = Vector2(q.x - p.x, q.z - p.z).length()
+		var rescued: bool = s.base_rescues > r0 and out_d > half * 0.9 and q.y >= s._ground(q.x, q.z) - 1.0
+		var sb: StaticBody3D = h.get_meta("hull_body")
+		var down := PhysicsRayQueryParameters3D.create(p + Vector3(0, 2000, 0), p + Vector3(0, -50, 0), s.HULL_LAYER)
+		var rh: Dictionary = s.get_world_3d().direct_space_state.intersect_ray(down)
+		var top: float = (rh["position"] as Vector3).y if not rh.is_empty() and rh["collider"] == sb else p.y + half
+		s.player.global_position = Vector3(p.x, top + 40.0, p.z)   # over its roof: left alone
+		s.vel = Vector3.ZERO
+		var r1: int = s.base_rescues
+		await _wait(0.6)
+		var over_ok: bool = s.base_rescues == r1 and Vector2(s.player.global_position.x - p.x, s.player.global_position.z - p.z).length() < 5.0
+		_check("v13.314: flown inside a base, you're put back outside it on the ground (%.0f m out, half %.0f, rescues %d); over its roof (%.0f m up) you're left alone (%s)" % [out_d, half, s.base_rescues, top - g, str(over_ok)], rescued and over_ok and not rh.is_empty(), "")
+		var site: Dictionary = h.get_meta("facility")
+		GS.form = "mech"
+		s.player.global_position = Vector3(p.x + half + 30.0, g + 5.0, p.z)
+		main.enter_facility(site)
+		await _wait(0.3)
+		var loading: bool = main.fx.caption == "FACILITY"
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding, 120.0)
+		await _wait(1.0)
+		await _capture("base_inside")
+		_check("v13.314: INFILTRATE shows the FACILITY loading screen (%s), then you're inside (%s), the screen clear (fade %.2f)" % [str(loading), str(main.space.boarding), main.fx.fade], loading and main.space.boarding and main.fx.fade < 0.05 and main.hud.visible, "")
+		_finish_group()
+		return
 	if _flag("HL_RAID"):   # v13.241 (owner: "a base should spawn when you take on a mission ... a good distance from the docking hub ... a shield like the ship ... enemy mechs protect it")
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)

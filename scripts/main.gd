@@ -2534,40 +2534,41 @@ func facility_deck(site: Dictionary) -> String:
 
 func _enter_facility_deck(site: Dictionary, path: String) -> void:
 	state = "boarding"
-	var fpk := "facilities_l%d" % clampi(int(site.get("difficulty", 1)), 1, 5)   # v13.244: one download per level
-	if not Packs.is_ready(fpk):   # v13.242: the facilities' floors are their own download
-		hud.flash_message("Loading the facility...")
-		Packs.request(fpk)
-		await Packs.wait(fpk, 90.0)
-	var L := Boarding.fleet_layout(path) if FileAccess.file_exists(path) else {}
-	if L.is_empty():
-		state = "flight"
-		hud.flash_message("That facility's map didn't load: try again in a moment.")
-		return
 	var fac := str(Data.SYSTEMS.get(space.sys_id, {}).get("faction", "Enemy"))
 	if Factions.rival(fac) != "": fac = Factions.rival(fac)
 	if not Factions.has(fac): fac = "Savagers"
 	var nm := str(site["name"])
+	# v13.314 (owner: "when I went inside, the screen is black"): everything it needs comes down together BEFORE the
+	# screen goes dark, with the progress showing, instead of one after another behind a black screen
+	var need := facility_packs(site, fac)
+	space.controls = false
+	hud.visible = false
+	fx.caption = "FACILITY"
+	fx.sub = "%s  ·  LOADING" % nm.to_upper()
+	var tw0 := create_tween()
+	tw0.tween_property(fx, "fade", 1.0, 0.5)
+	await tw0.finished
+	var got := await _wait_packs_shown(need, nm, Data.FACILITY_LOAD_WAIT)
+	var fpk := "facilities_l%d" % clampi(int(site.get("difficulty", 1)), 1, 5)
+	var L := Boarding.fleet_layout(path) if Packs.is_ready(fpk) and FileAccess.file_exists(path) else {}
+	if L.is_empty() or not got:   # (it didn't come down: back to the world, never a stuck black screen)
+		fx.caption = ""
+		fx.sub = ""
+		var twb := create_tween()
+		twb.tween_property(fx, "fade", 0.0, 0.4)
+		await twb.finished
+		if is_instance_valid(space): space.controls = true
+		hud.visible = true
+		state = "flight"
+		hud.flash_message("The facility didn't load (slow connection?). Press INFILTRATE to try again.")
+		return
 	var kind: String = ["sabotage", "capture", "rescue"][absi(hash("mission:%s:%s" % [str(site.get("planet", "")), nm])) % 3]   # (the same three missions: each site has its own)
 	board_from = {"sys": space.sys_id, "pos": space.player.global_position, "ship_at": Vector3.ZERO, "name": nm, "faction": fac, "facility": true,
 		"planet": str(space.planet_id), "tile": int(space.tile), "difficulty": int(site.get("difficulty", 1)), "form": GS.form,
 		"fleet_deck": "facility:" + path.get_file().get_basename(), "job": false, "kind": kind, "from": "facility"}
-	space.controls = false
-	hud.visible = false
-	fx.caption = "FACILITY"
 	fx.sub = "%s  ·  LEVEL %d" % [nm.to_upper(), int(site.get("difficulty", 1))]
 	Sfx.play("whoosh", -2.0, 0.7)
-	var tw := create_tween()
-	tw.tween_property(fx, "fade", 1.0, 0.5)
-	await tw.finished
-	await Packs.wait(PilotRig.PACK, 60.0)
-	var gpk := "crowd3d_orion" if fac.to_lower().begins_with("orion") else "crowd3d"
-	Packs.request(gpk)
-	await Packs.wait(gpk, 30.0)
 	GS.form = "mech"
-	if Data.FLEET_MECH:
-		Packs.request("mechs")
-		await Packs.wait("mechs", 60.0)
 	Boarding.use(L)
 	Boarding.INFO["name"] = nm
 	var dm := {}
@@ -2588,6 +2589,28 @@ func _enter_facility_deck(site: Dictionary, path: String) -> void:
 	space.controls = true
 	hud.visible = true
 	state = "flight"
+
+## v13.314: the downloads going into a facility needs: its floors, your pilot, their soldiers, the mechs.
+func facility_packs(site: Dictionary, fac := "") -> Array:
+	var out: Array = ["facilities_l%d" % clampi(int(site.get("difficulty", 1)), 1, 5), PilotRig.PACK, "crowd3d_orion" if fac.to_lower().begins_with("orion") else "crowd3d"]
+	if Data.FLEET_MECH: out.append("mechs")
+	return out
+
+## Waits for packs with "LOADING 45%" under the caption. False if the first (the must-have) didn't come in time.
+func _wait_packs_shown(names: Array, title: String, timeout: float) -> bool:
+	for n in names: Packs.request(str(n))
+	var t := 0.0
+	while t < timeout:
+		var done := 0
+		var frac := 0.0
+		for n in names:
+			if Packs.is_ready(str(n)) or str(Packs.state.get(str(n), "")) == "failed": done += 1   # (only the floors are a must)
+			frac += 1.0 if Packs.is_ready(str(n)) else Packs.progress(str(n))
+		if done == names.size(): return Packs.is_ready(str(names[0]))
+		fx.sub = "%s  ·  LOADING %d%%" % [title.to_upper(), int(100.0 * frac / maxf(1.0, names.size()))]
+		await get_tree().process_frame
+		t += get_process_delta_time()
+	return false
 
 func enter_facility(site: Dictionary) -> void:
 	if state != "flight" or not is_instance_valid(space) or not space.surface_mode or site.is_empty(): return

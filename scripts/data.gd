@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.313"
+const VERSION := "v13.314"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -2516,6 +2516,9 @@ const BUNKER_WIDTH := 120.0     # v11.96: m: a bunker entrance (a facility witho
 ## [file in assets/bases3d, width x BUNKER_WIDTH]: the bunker tower or one of the three Tripo garages (HL_MECH_* files
 ## that were not mechs: tools/tripo_import.py, then shipkit repack to ~20-34k tris and 1024 px textures).
 const FACILITY_MAIN := [["HL_Asset_BunkerPillar", 1.0], ["HL_FAC_Garage_ArticulatedLegs", 1.5], ["HL_FAC_Garage_HeavyRectangular", 1.7], ["HL_FAC_Garage_WarframeBlock", 1.4]]
+const FACILITY_LOAD_WAIT := 150.0  # v13.314: s the INFILTRATE loading screen waits for the downloads before giving up (back to the world)
+const BASE_INSIDE_K := 0.8         # v13.314: this deep inside a base's box (x/z share) and you're put back outside
+const BASE_OUT_GAP := 30.0         # m outside its edge, and half that above the ground
 const FACILITY_NEAR := 140.0    # m from a facility: INFILTRATE shows (v12.33 owner: "close to the facility, standing next to it"; was 420)
 const FACILITY_HIGH := 70.0     # m above it at most
 # v12.2 (owner): the super's colours: primary when few hostiles are on you, primary and secondary when many
