@@ -10047,42 +10047,69 @@ void fragment() {
 """
 
 ## One ring: four metal brackets round a circle with a light strip on each (unit radius; scaled per ring).
+## v13.305 (owner's reference: a dark, chunky mechanical ring with a glowing inner rim and a big boxy section on one
+## side; "green to go, red to stop: on one side it lights up green, on the other red; green always on your right"):
+## a unit ring across local Z (the lane runs along -Z): a dark gunmetal ring of chunky segments, inner plates with gaps,
+## clutter on the rim, a big block of machinery on the left (-X), a mount on top and cables hanging below. Its glow:
+## the inner rim's half on the +Z side and a lit edge round the +Z face are GREEN, the -Z half and face RED. Each row's
+## rings face the way it runs, so flying either way you see green on the row to your right, red on the left (oncoming).
 func _lane_ring_mesh() -> ArrayMesh:
 	var metal := SurfaceTool.new()
 	metal.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var light := SurfaceTool.new()
-	light.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var green := SurfaceTool.new()
+	green.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var red := SurfaceTool.new()
+	red.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var box := BoxMesh.new()
-	for sgi in 24:   # v11.99 (owner: "shouldn't look like that", a row of lights in the fog): a whole metal ring now
-		var a2: float = TAU * sgi / 24.0
-		box.size = Vector3(0.12, 0.27, 0.16)
-		metal.append_from(box, 0, Transform3D(Basis(Vector3.BACK, a2), Vector3(cos(a2), sin(a2), 0.0)))
-	for b in 4:
-		var mid := TAU * b / 4.0 + TAU / 8.0
-		for part in [-1, 0, 1]:
-			var a: float = mid + part * 0.3
-			var xf := Transform3D(Basis(Vector3.BACK, a), Vector3(cos(a), sin(a), 0.0))
-			box.size = Vector3(0.16, 0.34, 0.22)      # a slab of the bracket, lying along the circle
-			metal.append_from(box, 0, xf)
-			if part == 0:
-				box.size = Vector3(0.03, 0.2, 0.06)   # its light strip, on the inside face (fewer: they read as dots far off)
-				light.append_from(box, 0, xf * Transform3D(Basis.IDENTITY, Vector3(-0.09, 0, 0)))
-		var xo := Transform3D(Basis(Vector3.BACK, mid), Vector3(cos(mid), sin(mid), 0.0) * 1.16)
-		box.size = Vector3(0.22, 0.12, 0.3)           # the claw on the outside
-		metal.append_from(box, 0, xo)
+	var rot := func(a: float, r: float, z: float) -> Transform3D: return Transform3D(Basis(Vector3.BACK, a), Vector3(cos(a) * r, sin(a) * r, z))
+	var n := 36
+	for i in n:   # the main ring: chunky segments, every third a little thicker
+		var a := TAU * (i + 0.5) / n
+		var thick := 0.24 if i % 3 != 0 else 0.3
+		box.size = Vector3(thick, TAU / n * 1.04, 0.34 if i % 3 != 0 else 0.42)
+		metal.append_from(box, 0, rot.call(a, 1.0 + thick * 0.5 - 0.12, 0.0))
+	for i in 12:   # inner plates, with gaps between
+		var a := TAU * (i + 0.5) / 12.0
+		box.size = Vector3(0.06, TAU / 12.0 * 0.78, 0.22)
+		metal.append_from(box, 0, rot.call(a, 0.88, 0.0))
+	var clutter := [[0.35, 0.12, 0.16, 0.2], [0.9, 0.1, 0.22, 0.14], [1.45, 0.16, 0.12, 0.26], [2.2, 0.09, 0.2, 0.18], [4.1, 0.14, 0.16, 0.22], [4.7, 0.11, 0.26, 0.16], [5.4, 0.15, 0.14, 0.3], [5.9, 0.1, 0.18, 0.2]]
+	for c in clutter:   # machinery on the rim
+		box.size = Vector3(float(c[1]), float(c[2]), float(c[3]))
+		metal.append_from(box, 0, rot.call(float(c[0]), 1.22 + float(c[1]) * 0.5, 0.0))
+	for blk in [[0.0, 0.42, 0.62, 0.5, 1.38], [0.32, 0.3, 0.36, 0.44, 1.3], [-0.3, 0.28, 0.4, 0.4, 1.32], [0.08, 0.2, 0.3, 0.6, 1.62]]:   # the big block on the left (-X)
+		box.size = Vector3(float(blk[1]), float(blk[2]), float(blk[3]))
+		metal.append_from(box, 0, rot.call(PI + float(blk[0]), float(blk[4]), 0.0))
+	box.size = Vector3(0.3, 0.22, 0.36)   # the mount on top
+	metal.append_from(box, 0, rot.call(PI * 0.5, 1.32, 0.0))
+	for k in 5:   # cables hanging under it
+		box.size = Vector3(0.025, 0.28 + 0.05 * k, 0.025)
+		metal.append_from(box, 0, Transform3D(Basis.IDENTITY, Vector3(-0.08 + k * 0.04, -1.36 - (0.14 + 0.025 * k), 0.06 * (k % 2))))
+	box.size = Vector3(0.22, 0.12, 0.18)
+	metal.append_from(box, 0, rot.call(-PI * 0.5, 1.3, 0.0))
+	for i in 48:   # the glow: the inner rim in two halves, and a lit edge round each face
+		var a := TAU * (i + 0.5) / 48.0
+		box.size = Vector3(0.03, TAU / 48.0 * 1.02, 0.16)
+		green.append_from(box, 0, rot.call(a, 0.84, 0.08))
+		red.append_from(box, 0, rot.call(a, 0.84, -0.08))
+		box.size = Vector3(0.05, TAU / 48.0 * 1.02, 0.02)
+		green.append_from(box, 0, rot.call(a, 0.93, 0.18))
+		red.append_from(box, 0, rot.call(a, 0.93, -0.18))
 	metal.generate_normals()
-	light.generate_normals()
+	green.generate_normals()
+	red.generate_normals()
 	var mesh: ArrayMesh = metal.commit()
-	light.commit(mesh)
+	green.commit(mesh)
+	red.commit(mesh)
 	var mm := StandardMaterial3D.new()
-	mm.albedo_color = Color(0.36, 0.4, 0.46)
-	mm.metallic = 0.6
-	mm.roughness = 0.45
+	mm.albedo_color = Data.LANE_RING_METAL
+	mm.metallic = 0.75
+	mm.roughness = 0.4
 	mesh.surface_set_material(0, mm)
-	var lm := StandardMaterial3D.new()
-	lm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	lm.albedo_color = Data.LANE_TINT
-	mesh.surface_set_material(1, lm)
+	for si in [1, 2]:
+		var lm := StandardMaterial3D.new()
+		lm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		lm.albedo_color = Data.LANE_GO if si == 1 else Data.LANE_STOP
+		mesh.surface_set_material(si, lm)
 	return mesh
 
 ## Is the straight run a -> b clear of the sun, the planet and the station (other than its own two ends)?
@@ -10263,6 +10290,7 @@ func _build_lanes() -> void:
 		var side := _lane_side(dir)
 		var ln := {"a": str(a.get_meta("label", a.name)), "b": str(b.get_meta("label", b.name)), "up": [], "down": [], "dir": dir, "side": side}
 		var basis := Basis.looking_at(dir, up).scaled(Vector3.ONE * Data.LANE_RING_RADIUS)
+		var basis_back := Basis.looking_at(-dir, up).scaled(Vector3.ONE * Data.LANE_RING_RADIUS)
 		var mine: Array = []
 		for k in n:
 			var c := p0.lerp(p1, float(k) / float(n - 1))
@@ -10270,7 +10298,7 @@ func _build_lanes() -> void:
 			ln["down"].append(c - side * Data.LANE_STACK * 0.5)
 			if k > 0 and k < n - 1 and _ring_crowded(c, side, placed): continue   # (no ring drawn through another lane's ring)
 			xfs.append(Transform3D(basis, ln["up"][k]))
-			xfs.append(Transform3D(basis, ln["down"][k]))
+			xfs.append(Transform3D(basis_back, ln["down"][k]))   # v13.305: each row faces the way it runs (green toward you, on your right)
 			_ring_pts.append([ln["up"][k], dir])
 			_ring_pts.append([ln["down"][k], dir])
 			mine.append(ln["up"][k]); mine.append(ln["down"][k])
@@ -10282,7 +10310,7 @@ func _build_lanes() -> void:
 				lights_r.append(Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * 6.0), o - up * 15.0))
 		placed.append_array(mine)
 		lanes.append(ln)
-	_lane_light_mm([lights_g, lights_y, lights_r])
+	if Data.LANE_RING_LIGHTS: _lane_light_mm([lights_g, lights_y, lights_r])   # (v13.305: the rings light green / red themselves)
 	if xfs.is_empty(): return
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
