@@ -1,84 +1,100 @@
 {
  "ship": "tower_nt_1",
  "rooms": {
-  "Grand Lobby": "pilot",
+  "Penthouse": "pilot",
   "Lift A": "lift",
   "Stairs": "pilot",
-  "Street Lobby": "mech",
-  "Commerce East Lobby 1": "pilot",
-  "Commerce East Clinic 1": "pilot",
-  "Commerce South Lounge 1": "pilot",
-  "Commerce South Lounge 2": "pilot",
-  "Commerce South Cabin 1": "pilot",
-  "Commerce South Lobby 1": "pilot",
-  "Commerce West Store 1": "pilot",
-  "Commerce West Control 1": "pilot",
-  "Commerce West Clinic 1": "pilot",
-  "Commerce North Cabin 1": "pilot",
-  "Commerce North Quarters 1": "pilot",
-  "Commerce North Lobby 1": "pilot",
-  "Commerce North Control 1": "pilot",
-  "Commerce East Clinic 2": "pilot",
-  "Commerce West Clinic 2": "pilot",
-  "Commerce West Bay 1": "pilot",
-  "Commerce West Canteen 1": "pilot",
-  "Commerce West Clinic 3": "pilot",
-  "Commerce West Store 2": "pilot",
-  "Commerce West Canteen 2": "pilot",
-  "Commerce West Armoury 1": "pilot",
-  "Commerce North Clinic 1": "pilot",
-  "Commerce East Lobby 2": "pilot",
-  "Commerce East Cargo Bay 1": "pilot",
-  "Commerce East Cabin 1": "pilot",
-  "Commerce East Machine Shop 1": "pilot",
-  "Commerce East Cabin 2": "pilot",
-  "Commerce East Clinic 3": "pilot",
-  "Commerce East Clinic 4": "pilot",
-  "Commerce South Canteen 1": "pilot",
-  "Commerce South Quarters 1": "pilot",
-  "Commerce South Control 1": "pilot",
-  "Commerce North Store 1": "pilot",
-  "Commerce West Quarters 1": "pilot"
+  "Roof Dock": "mech",
+  "Sky Exit": "pilot",
+  "Hotel East Office 1": "pilot",
+  "Hotel East Office 2": "pilot",
+  "Hotel South Store 1": "pilot",
+  "Hotel South Clinic 1": "pilot",
+  "Hotel South Control 1": "pilot",
+  "Hotel South Cabin 1": "pilot",
+  "Hotel West Cabin 1": "pilot",
+  "Hotel West Office 1": "pilot",
+  "Hotel West Quarters 1": "pilot",
+  "Hotel North Lounge 1": "pilot",
+  "Hotel North Store 1": "pilot",
+  "Hotel North Lounge 2": "pilot",
+  "Hotel North Store 2": "pilot",
+  "Hotel East Control 1": "pilot",
+  "Hotel West Quarters 2": "pilot",
+  "Hotel West Lounge 1": "pilot",
+  "Hotel West Cargo Bay 1": "pilot",
+  "Hotel West Canteen 1": "pilot",
+  "Hotel West Clinic 1": "pilot",
+  "Hotel West Armoury 1": "pilot",
+  "Hotel West Clinic 2": "pilot",
+  "Hotel North Clinic 1": "pilot",
+  "Hotel East Cargo Bay 1": "pilot",
+  "Hotel East Store 1": "pilot",
+  "Hotel East Clinic 1": "pilot",
+  "Hotel East Clinic 2": "pilot",
+  "Hotel East Loading Bay 1": "pilot",
+  "Hotel East Lounge 1": "pilot",
+  "Hotel South Quarters 1": "pilot",
+  "Hotel West Lounge 2": "pilot",
+  "Hotel South Lobby 1": "pilot",
+  "Hotel North Store 3": "pilot",
+  "Hotel North Lounge 3": "pilot",
+  "Hotel East Canteen 1": "pilot",
+  "Hotel West Control 1": "pilot",
+  "Hotel West Clinic 3": "pilot",
+  "Hotel North Control 1": "pilot",
+  "Hotel North Quarters 1": "pilot",
+  "Hotel South Lobby 2": "pilot",
+  "Hotel North Store 4": "pilot",
+  "Hotel North Canteen 1": "pilot"
  },
  "rooms_base": {
-  "Grand Lobby": "pilot",
+  "Penthouse": "pilot",
   "Lift A": "lift",
   "Stairs": "pilot",
-  "Street Lobby": "pilot",
-  "Commerce East Lobby 1": "pilot",
-  "Commerce East Clinic 1": "pilot",
-  "Commerce South Lounge 1": "pilot",
-  "Commerce South Lounge 2": "pilot",
-  "Commerce South Cabin 1": "pilot",
-  "Commerce South Lobby 1": "pilot",
-  "Commerce West Store 1": "pilot",
-  "Commerce West Control 1": "pilot",
-  "Commerce West Clinic 1": "pilot",
-  "Commerce North Cabin 1": "pilot",
-  "Commerce North Quarters 1": "pilot",
-  "Commerce North Lobby 1": "pilot",
-  "Commerce North Control 1": "pilot",
-  "Commerce East Clinic 2": "pilot",
-  "Commerce West Clinic 2": "pilot",
-  "Commerce West Bay 1": "pilot",
-  "Commerce West Canteen 1": "pilot",
-  "Commerce West Clinic 3": "pilot",
-  "Commerce West Store 2": "pilot",
-  "Commerce West Canteen 2": "pilot",
-  "Commerce West Armoury 1": "pilot",
-  "Commerce North Clinic 1": "pilot",
-  "Commerce East Lobby 2": "pilot",
-  "Commerce East Cargo Bay 1": "pilot",
-  "Commerce East Cabin 1": "pilot",
-  "Commerce East Machine Shop 1": "pilot",
-  "Commerce East Cabin 2": "pilot",
-  "Commerce East Clinic 3": "pilot",
-  "Commerce East Clinic 4": "pilot",
-  "Commerce South Canteen 1": "pilot",
-  "Commerce South Quarters 1": "pilot",
-  "Commerce South Control 1": "pilot",
-  "Commerce North Store 1": "pilot",
-  "Commerce West Quarters 1": "pilot"
+  "Roof Dock": "pilot",
+  "Sky Exit": "pilot",
+  "Hotel East Office 1": "pilot",
+  "Hotel East Office 2": "pilot",
+  "Hotel South Store 1": "pilot",
+  "Hotel South Clinic 1": "pilot",
+  "Hotel South Control 1": "pilot",
+  "Hotel South Cabin 1": "pilot",
+  "Hotel West Cabin 1": "pilot",
+  "Hotel West Office 1": "pilot",
+  "Hotel West Quarters 1": "pilot",
+  "Hotel North Lounge 1": "pilot",
+  "Hotel North Store 1": "pilot",
+  "Hotel North Lounge 2": "pilot",
+  "Hotel North Store 2": "pilot",
+  "Hotel East Control 1": "pilot",
+  "Hotel West Quarters 2": "pilot",
+  "Hotel West Lounge 1": "pilot",
+  "Hotel West Cargo Bay 1": "pilot",
+  "Hotel West Canteen 1": "pilot",
+  "Hotel West Clinic 1": "pilot",
+  "Hotel West Armoury 1": "pilot",
+  "Hotel West Clinic 2": "pilot",
+  "Hotel North Clinic 1": "pilot",
+  "Hotel East Cargo Bay 1": "pilot",
+  "Hotel East Store 1": "pilot",
+  "Hotel East Clinic 1": "pilot",
+  "Hotel East Clinic 2": "pilot",
+  "Hotel East Loading Bay 1": "pilot",
+  "Hotel East Lounge 1": "pilot",
+  "Hotel South Quarters 1": "pilot",
+  "Hotel West Lounge 2": "pilot",
+  "Hotel South Lobby 1": "pilot",
+  "Hotel North Store 3": "pilot",
+  "Hotel North Lounge 3": "pilot",
+  "Hotel East Canteen 1": "pilot",
+  "Hotel West Control 1": "pilot",
+  "Hotel West Clinic 3": "pilot",
+  "Hotel North Control 1": "pilot",
+  "Hotel North Quarters 1": "pilot",
+  "Hotel South Lobby 2": "pilot",
+  "Hotel North Store 4": "pilot",
+  "Hotel North Canteen 1": "pilot"
  },
  "cut_off_red": [],
  "doors": [
@@ -89,7 +105,7 @@
    ],
    "o": "h",
    "rooms": [
-    "Grand Lobby"
+    "Penthouse"
    ],
    "type": "pilot",
    "key": 0
@@ -101,7 +117,7 @@
    ],
    "o": "h",
    "rooms": [
-    "Grand Lobby"
+    "Penthouse"
    ],
    "type": "pilot",
    "key": 0
@@ -113,7 +129,7 @@
    ],
    "o": "v",
    "rooms": [
-    "Grand Lobby"
+    "Penthouse"
    ],
    "type": "pilot",
    "key": 0
@@ -125,7 +141,7 @@
    ],
    "o": "v",
    "rooms": [
-    "Grand Lobby"
+    "Penthouse"
    ],
    "type": "pilot",
    "key": 0
@@ -157,13 +173,25 @@
   {
    "at": [
     1650.0,
+    1247.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Roof Dock"
+   ],
+   "type": "mech",
+   "key": 0
+  },
+  {
+   "at": [
+    1650.0,
     2053.0
    ],
    "o": "h",
    "rooms": [
-    "Street Lobby"
+    "Sky Exit"
    ],
-   "type": "mech",
+   "type": "pilot",
    "key": 0
   },
   {
@@ -173,7 +201,7 @@
    ],
    "o": "v",
    "rooms": [
-    "Commerce East Lobby 1"
+    "Hotel East Office 1"
    ],
    "type": "pilot",
    "key": 0
@@ -185,7 +213,7 @@
    ],
    "o": "v",
    "rooms": [
-    "Commerce East Clinic 1"
+    "Hotel East Office 2"
    ],
    "type": "pilot",
    "key": 0
@@ -197,7 +225,7 @@
    ],
    "o": "h",
    "rooms": [
-    "Commerce South Lounge 1"
+    "Hotel South Store 1"
    ],
    "type": "pilot",
    "key": 0
@@ -209,7 +237,7 @@
    ],
    "o": "h",
    "rooms": [
-    "Commerce South Lounge 2"
+    "Hotel South Clinic 1"
    ],
    "type": "pilot",
    "key": 0
@@ -221,7 +249,7 @@
    ],
    "o": "h",
    "rooms": [
-    "Commerce South Cabin 1"
+    "Hotel South Control 1"
    ],
    "type": "pilot",
    "key": 0
@@ -233,7 +261,7 @@
    ],
    "o": "h",
    "rooms": [
-    "Commerce South Lobby 1"
+    "Hotel South Cabin 1"
    ],
    "type": "pilot",
    "key": 0
@@ -245,7 +273,7 @@
    ],
    "o": "v",
    "rooms": [
-    "Commerce West Store 1"
+    "Hotel West Cabin 1"
    ],
    "type": "pilot",
    "key": 0
@@ -257,7 +285,7 @@
    ],
    "o": "v",
    "rooms": [
-    "Commerce West Control 1"
+    "Hotel West Office 1"
    ],
    "type": "pilot",
    "key": 0
@@ -269,7 +297,7 @@
    ],
    "o": "v",
    "rooms": [
-    "Commerce West Clinic 1"
+    "Hotel West Quarters 1"
    ],
    "type": "pilot",
    "key": 0
@@ -281,7 +309,7 @@
    ],
    "o": "h",
    "rooms": [
-    "Commerce North Cabin 1"
+    "Hotel North Lounge 1"
    ],
    "type": "pilot",
    "key": 0
@@ -293,7 +321,7 @@
    ],
    "o": "h",
    "rooms": [
-    "Commerce North Quarters 1"
+    "Hotel North Store 1"
    ],
    "type": "pilot",
    "key": 0
@@ -305,7 +333,7 @@
    ],
    "o": "h",
    "rooms": [
-    "Commerce North Lobby 1"
+    "Hotel North Lounge 2"
    ],
    "type": "pilot",
    "key": 0
@@ -317,7 +345,7 @@
    ],
    "o": "h",
    "rooms": [
-    "Commerce North Control 1"
+    "Hotel North Store 2"
    ],
    "type": "pilot",
    "key": 0
@@ -329,7 +357,7 @@
    ],
    "o": "h",
    "rooms": [
-    "Commerce East Clinic 2"
+    "Hotel East Control 1"
    ],
    "type": "pilot",
    "key": 0
@@ -341,7 +369,7 @@
    ],
    "o": "h",
    "rooms": [
-    "Commerce West Clinic 2"
+    "Hotel West Quarters 2"
    ],
    "type": "pilot",
    "key": 0
@@ -349,11 +377,11 @@
   {
    "at": [
     1277.0,
-    1796.0
+    1783.0
    ],
    "o": "v",
    "rooms": [
-    "Commerce West Bay 1"
+    "Hotel West Lounge 1"
    ],
    "type": "pilot",
    "key": 0
@@ -361,11 +389,11 @@
   {
    "at": [
     1277.0,
-    1887.0
+    1874.0
    ],
    "o": "v",
    "rooms": [
-    "Commerce West Canteen 1"
+    "Hotel West Cargo Bay 1"
    ],
    "type": "pilot",
    "key": 0
@@ -377,7 +405,7 @@
    ],
    "o": "v",
    "rooms": [
-    "Commerce West Clinic 3"
+    "Hotel West Canteen 1"
    ],
    "type": "pilot",
    "key": 0
@@ -389,7 +417,7 @@
    ],
    "o": "v",
    "rooms": [
-    "Commerce West Store 2"
+    "Hotel West Clinic 1"
    ],
    "type": "pilot",
    "key": 0
@@ -397,11 +425,11 @@
   {
    "at": [
     1303.0,
-    1861.0
+    1874.0
    ],
    "o": "v",
    "rooms": [
-    "Commerce West Canteen 2"
+    "Hotel West Armoury 1"
    ],
    "type": "pilot",
    "key": 0
@@ -409,11 +437,11 @@
   {
    "at": [
     1303.0,
-    1952.0
+    1965.0
    ],
    "o": "v",
    "rooms": [
-    "Commerce West Armoury 1"
+    "Hotel West Clinic 2"
    ],
    "type": "pilot",
    "key": 0
@@ -425,7 +453,7 @@
    ],
    "o": "v",
    "rooms": [
-    "Commerce North Clinic 1"
+    "Hotel North Clinic 1"
    ],
    "type": "pilot",
    "key": 0
@@ -433,47 +461,23 @@
   {
    "at": [
     1997.0,
-    1411.0
-   ],
-   "o": "v",
-   "rooms": [
-    "Commerce East Lobby 2"
-   ],
-   "type": "pilot",
-   "key": 0
-  },
-  {
-   "at": [
-    1997.0,
-    1502.0
-   ],
-   "o": "v",
-   "rooms": [
-    "Commerce East Cargo Bay 1"
-   ],
-   "type": "pilot",
-   "key": 0
-  },
-  {
-   "at": [
-    2023.0,
-    1333.0
-   ],
-   "o": "v",
-   "rooms": [
-    "Commerce East Cabin 1"
-   ],
-   "type": "pilot",
-   "key": 0
-  },
-  {
-   "at": [
-    2023.0,
     1424.0
    ],
    "o": "v",
    "rooms": [
-    "Commerce East Machine Shop 1"
+    "Hotel East Cargo Bay 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1997.0,
+    1515.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Hotel East Store 1"
    ],
    "type": "pilot",
    "key": 0
@@ -481,11 +485,35 @@
   {
    "at": [
     2023.0,
-    1515.0
+    1333.0
    ],
    "o": "v",
    "rooms": [
-    "Commerce East Cabin 2"
+    "Hotel East Clinic 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2023.0,
+    1411.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Hotel East Clinic 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    2023.0,
+    1502.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Hotel East Loading Bay 1"
    ],
    "type": "pilot",
    "key": 0
@@ -497,72 +525,20 @@
    ],
    "o": "v",
    "rooms": [
-    "Commerce East Clinic 3"
+    "Hotel East Lounge 1"
    ],
    "type": "pilot",
    "key": 0
   },
   {
    "at": [
-    1935.0,
-    1411.0
-   ],
-   "o": "v",
-   "rooms": [
-    "Commerce East Lobby 2",
-    "Commerce East Clinic 4"
-   ],
-   "type": "pilot",
-   "key": 0
-  },
-  {
-   "at": [
-    1561.9,
-    1932.2
-   ],
-   "o": "v",
-   "rooms": [
-    "Commerce South Cabin 1",
-    "Commerce South Canteen 1"
-   ],
-   "type": "pilot",
-   "key": 0
-  },
-  {
-   "at": [
-    1596.9,
-    1957.0
-   ],
-   "o": "h",
-   "rooms": [
-    "Commerce South Cabin 1",
-    "Commerce South Quarters 1"
-   ],
-   "type": "pilot",
-   "key": 0
-  },
-  {
-   "at": [
-    1347.0,
+    1334.0,
     2000.0
    ],
    "o": "h",
    "rooms": [
-    "Commerce West Armoury 1",
-    "Commerce South Control 1"
-   ],
-   "type": "pilot",
-   "key": 0
-  },
-  {
-   "at": [
-    1596.9,
-    1343.0
-   ],
-   "o": "h",
-   "rooms": [
-    "Commerce North Cabin 1",
-    "Commerce North Store 1"
+    "Hotel West Clinic 2",
+    "Hotel South Quarters 1"
    ],
    "type": "pilot",
    "key": 0
@@ -574,8 +550,151 @@
    ],
    "o": "v",
    "rooms": [
-    "Commerce West Store 2",
-    "Commerce West Quarters 1"
+    "Hotel West Clinic 1",
+    "Hotel West Lounge 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1704.9,
+    1957.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Hotel South Cabin 1",
+    "Hotel South Lobby 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1561.9,
+    1367.8
+   ],
+   "o": "v",
+   "rooms": [
+    "Hotel North Lounge 1",
+    "Hotel North Store 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1596.9,
+    1343.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Hotel North Lounge 1",
+    "Hotel North Lounge 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1957.0,
+    1696.9
+   ],
+   "o": "v",
+   "rooms": [
+    "Hotel East Office 2",
+    "Hotel East Canteen 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1215.0,
+    1783.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Hotel West Lounge 1",
+    "Hotel West Control 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1487.0,
+    1575.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Hotel West Quarters 2",
+    "Hotel West Clinic 3"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1966.0,
+    1298.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Hotel North Clinic 1",
+    "Hotel North Control 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1935.0,
+    1333.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Hotel North Clinic 1",
+    "Hotel North Quarters 1"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1365.0,
+    2025.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Hotel South Quarters 1",
+    "Hotel South Lobby 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1499.9,
+    1367.8
+   ],
+   "o": "v",
+   "rooms": [
+    "Hotel North Store 3",
+    "Hotel North Store 4"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1568.9,
+    1312.0
+   ],
+   "o": "v",
+   "rooms": [
+    "Hotel North Lounge 3",
+    "Hotel North Canteen 1"
    ],
    "type": "pilot",
    "key": 0
@@ -583,12 +702,12 @@
   {
    "at": [
     1246.0,
-    1852.0
+    1930.0
    ],
    "o": "h",
    "rooms": [
-    "Commerce West Bay 1",
-    "Commerce West Canteen 1"
+    "Hotel West Cargo Bay 1",
+    "Hotel West Canteen 1"
    ],
    "type": "pilot",
    "key": 0
@@ -596,12 +715,25 @@
   {
    "at": [
     1334.0,
-    1904.0
+    1930.0
    ],
    "o": "h",
    "rooms": [
-    "Commerce West Canteen 2",
-    "Commerce West Armoury 1"
+    "Hotel West Armoury 1",
+    "Hotel West Clinic 2"
+   ],
+   "type": "pilot",
+   "key": 0
+  },
+  {
+   "at": [
+    1966.0,
+    1480.0
+   ],
+   "o": "h",
+   "rooms": [
+    "Hotel East Cargo Bay 1",
+    "Hotel East Store 1"
    ],
    "type": "pilot",
    "key": 0
@@ -609,26 +741,26 @@
   {
    "at": [
     2054.0,
-    1480.0
+    1376.0
    ],
    "o": "h",
    "rooms": [
-    "Commerce East Machine Shop 1",
-    "Commerce East Cabin 2"
+    "Hotel East Clinic 1",
+    "Hotel East Clinic 2"
    ],
    "type": "pilot",
    "key": 0
   }
  ],
- "entry": "Street Lobby",
+ "entry": "Roof Dock",
  "mech_rooms_unreached": [],
  "counts": {
   "mech_rooms": 1,
-  "pilot_rooms": 36,
+  "pilot_rooms": 44,
   "mech_doors": 2,
-  "pilot_doors": 42,
+  "pilot_doors": 51,
   "locked": {
-   "OPEN": 44,
+   "OPEN": 53,
    "YELLOW": 0,
    "ORANGE": 0,
    "RED": 0

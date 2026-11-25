@@ -2208,6 +2208,77 @@ func _run() -> void:
 		GS.save_enabled = false
 		_finish_group()
 		return
+	if _flag("HL_TOWER"):   # v13.315 (owner: "a dock on top of each building ... eject from the top and enter; one building loaded at a time")
+		var pid := "new_terra"
+		var cts: Dictionary = CityPlan.city_tiles(pid)
+		var tile := -1
+		for t0 in cts:
+			if tile < 0 or int(cts[t0]) > int(cts[tile]): tile = int(t0)
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var all_ok := true
+		for tp in Data.TOWER_DECKS: all_ok = all_ok and FileAccess.file_exists(str(tp))
+		_check("v13.315: %d city tower maps" % Data.TOWER_DECKS.size(), all_ok and Data.TOWER_DECKS.size() == 6)
+		main._load_surface(pid, tile)
+		await _until(func(): return is_instance_valid(main.space) and main.space.surface_mode and main.space.planet_id == pid, 40.0)
+		await _wait(2.0)
+		var s: Node = _sp()
+		GS.form = "mech"
+		s.tower_candidate()   # (fills the roofs)
+		_check("v13.315: the city's megatowers have roofs to land on (%d)" % s._tower_roofs.size(), s._tower_roofs.size() >= 9)
+		var roof: AABB = s._tower_roofs[0][0]
+		var rp := roof.get_center(); rp.y = roof.end.y + 8.0
+		_tp(rp, rp + Vector3(0, -5, -40))
+		s.vel = Vector3.ZERO
+		await _wait(0.5)
+		var site: Dictionary = s.tower_candidate()
+		_check("v13.315: on a tower's roof INFILTRATE shows (%s)" % str(site.get("name", "")), not site.is_empty() and s.prompt() == "board", s.prompt())
+		await _capture("tower_roof")
+		main.enter_facility(site)
+		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding and Boarding.INFO.has("fleet"), 120.0)
+		await _wait(2.0)
+		s = _sp()
+		var names: Array = (Boarding.INFO.get("deck_names", []) as Array).map(func(x): return str(x[1]))
+		var here: String = Boarding.room_at(s.player.global_position)
+		_check("v13.315: inside the tower: ten floors (%s), in at the ROOF DOCK (%s), %s" % [", ".join(names), here, str(s.board.get("fleet", {}).get("kind", ""))],
+			bool(Boarding.INFO.get("tower", false)) and names.size() == 10 and here.ends_with("roof_dock") and str(s.board.get("fleet", {}).get("kind", "")) in ["capture", "rescue"], here)
+		await _capture("tower_in_mech")
+		# eject, then the pilot fits every pilot door: wide (3+ pilots) and tall (4+ pilots)
+		s._fleet_eject()
+		await _wait(0.6)
+		var ph: float = s.esc_h()
+		var narrow := 0
+		var low := 0
+		var n_d := 0
+		for k in Boarding.ROOMS:
+			var r: Dictionary = Boarding.ROOMS[k]
+			if str(r.get("label", "")) != "PILOT DOOR": continue
+			n_d += 1
+			var rr: Array = r["r"]
+			var wd: float = (rr[1] - rr[0]) if str(r.get("axis", "x")) == "z" else (rr[3] - rr[2])
+			if wd < ph * 1.5: narrow += 1
+			if float(r.get("h", 0.0)) < ph * 3.0: low += 1
+		_check("v13.315: the pilot (%.1f tall) fits all %d pilot doors (narrow %d, low %d)" % [ph, n_d, narrow, low], n_d > 100 and narrow == 0 and low == 0)
+		# walk through one: stand in a pilot door on the roof floor, it holds you (no push-out)
+		var dk := ""
+		for k in Boarding.ROOMS:
+			if str(Boarding.ROOMS[k].get("label", "")) == "PILOT DOOR" and not str(k).begins_with("l"): dk = k; break
+		var dr: Array = Boarding.ROOMS[dk]["r"]
+		var dp := Vector3((dr[0] + dr[1]) * 0.5, float(Boarding.ROOMS[dk]["y"][0]) + 1.0, (dr[2] + dr[3]) * 0.5)
+		s.player.global_position = dp
+		s.vel = Vector3.ZERO
+		await _wait(1.0)
+		var moved: float = Vector2(s.player.global_position.x - dp.x, s.player.global_position.z - dp.z).length()
+		_check("v13.315: standing in a pilot doorway the pilot stays (moved %.1f)" % moved, moved < ph, dk)
+		s.player.global_position = Vector3(dp.x, dp.y, dp.z)
+		await _capture("tower_pilot_door")
+		main.hud.planet_map = true
+		await _wait(0.6)
+		await _capture("tower_map")
+		main.hud.planet_map = false
+		_finish_group()
+		return
 	if _flag("HL_FACILITY"):   # v13.239 (owner: "planetary maps ... randomizer using the library ... 3 to 4 key method"): a facility's own three floors
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)

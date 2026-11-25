@@ -32,7 +32,9 @@ from shapely import affinity
 from shapely.ops import unary_union
 
 G = 360.0                                     # junction spacing (px; 10 px = 1 m): the cross ends at 360 like a station
-DECK_KEYS = ["main", "upper", "upper2", "upper3", "upper4", "upper5", "upper6", "upper7", "upper8", "upper9"]
+# (v3: you come in at the ROOF: the top floor is the main deck and the floors go DOWN, like a facility)
+DECK_KEYS = ["main", "lower", "lower2", "lower3", "lower4", "lower5", "lower6", "lower7", "lower8", "lower9"]
+def deck_of(lvl, n): return DECK_KEYS[n - 1 - lvl]   # (lvl 0 = the ground floor)
 HUBS = {0: "Grand Lobby", 3: "Sky Lobby", 6: "Sky Lobby", -1: "Penthouse"}
 OTHER = ["Trading Floor", "Atrium", "Executive Suite", "Data Center", "Conference Hall", "Gallery", "Sky Garden", "Club Lounge"]
 WORDS = ["Offices", "Residences", "Commerce", "Labs", "Suites", "Hotel", "Clinic", "Studios"]
@@ -45,7 +47,7 @@ def floors(n):
     out = []
     for i in range(n):
         role = "GROUND FLOOR" if i == 0 else ("FLOOR %d" % (i + 1))
-        out.append((DECK_KEYS[i], role, i))
+        out.append((deck_of(i, n), role, i))
     return out
 
 FOOT = 880.0   # (v2, owner: one building, ~10-20 small rooms a floor, loaded alone: about 70 x 65 m)
@@ -83,7 +85,7 @@ def shafts(fid, n, NX, NY):
     round the hall grid, the same shaft on every floor it serves."""
     rng = random.Random(int(hashlib.md5(("%s|shafts" % fid).encode()).hexdigest(), 16) % (2 ** 31))
     K = DECK_KEYS
-    plan = [("LIFT A", K[0:n]), ("STAIRS S", K[0:n])]   # (owner: "elevators or walk": a lift and a stairwell through every floor)
+    plan = [("LIFT A", K[0:n]), ("STAIRS S", K[0:n])]   # (every floor, top to bottom)   # (owner: "elevators or walk": a lift and a stairwell through every floor)
     # (v2: a small tower is its core ring and the cross; the lift and the stairs sit off the east and west arms,
     # the street lobby and the roof dock off the south and north ones)
     sides = [(1, 0), (-1, 0)]; rng.shuffle(sides)
@@ -132,7 +134,7 @@ def build_floor(fid, d, role, here, src, entry_floor, dname="main", SH=(), HULLP
     R[hubname] = octo(C, C, A_HUB, A_HUB, A_HUB * 0.414)
     # ---- the junction grid and its random tree (+ loops)
     cells = [(i, j) for i in range(-NX, NX + 1) for j in range(-NY, NY + 1) if max(abs(i), abs(j)) >= 1]
-    must = {(0, -1), (0, 1), (1, 0), (-1, 0)} | ({(0, NY)} if entry_floor else set()) | ({(0, -NY)} if lvl == nfl - 1 else set())
+    must = {(0, -1), (0, 1), (1, 0), (-1, 0)}
     kept = {c for c in cells if c in must or rng.random() < KEEP}
     mine = [sh for sh in SH if dname in sh["decks"]]
     for sh in mine: kept.add(sh["cell"])
@@ -199,18 +201,18 @@ def build_floor(fid, d, role, here, src, entry_floor, dname="main", SH=(), HULLP
         far = [c for c in kept if c != a and outward(c) and max(abs(c[0]), abs(c[1])) >= 2]   # (the way out: always, on the far side)
         b = max(far, key=lambda c: abs(c[0] - a[0]) + abs(c[1] - a[1]), default=None)
         special = [(a, "Street Lobby")]
-    if entry_floor: special = [((0, NY), "Street Lobby")]
-    if lvl == nfl - 1: special = [((0, -NY), "Roof Dock")]   # (owner: "a dock on top of each building ... you eject from the top and enter")
+    special = [((0, NY), "Street Lobby")] if lvl == 0 else []
+    if lvl == nfl - 1: special = [((0, -NY), "Roof Dock"), ((0, NY), "Sky Exit")]   # (the way in, and the way out on the far side: you leave differently)   # (owner: "a dock on top of each building ... you eject from the top and enter")
     for c, nm in special:
-        u = (0, 1) if nm == "Street Lobby" else ((0, -1) if nm == "Roof Dock" else outward(c))
+        u = (0, 1) if nm in ("Street Lobby", "Sky Exit") else ((0, -1) if nm == "Roof Dock" else outward(c))
         if not u: continue
         hw = 62.0
         p = P(c); cx, cy = p[0] + u[0] * (G * 0.55 + hw), p[1] + u[1] * (G * 0.55 + hw)
-        if nm in ("Street Lobby", "Roof Dock"):   # (right at the end of the cross arm: the door in from the street / the roof)
+        if nm in ("Street Lobby", "Roof Dock", "Sky Exit"):   # (right at the end of the cross arm: the door in from the street / the roof)
             cx, cy = p[0] + u[0] * (MW / 2 + hw + 30), p[1] + u[1] * (MW / 2 + hw + 30)
         e = (cx - u[0] * hw, cy - u[1] * hw)
         g = octo(cx, cy, hw, hw, hw * 0.3)
-        if (nm not in ("Street Lobby", "Roof Dock") and not HULL.contains(g)) or any(box(*g.bounds).buffer(20).intersects(h) for h in HALLS[:-0 or None] if not h.equals(HALLS[-1]) or True) and nm not in ("Street Lobby", "Roof Dock") or any(box(*g.bounds).buffer(30).intersects(box(*q.bounds)) for q in R.values()): continue
+        if (nm not in ("Street Lobby", "Roof Dock", "Sky Exit") and not HULL.contains(g)) or any(box(*g.bounds).buffer(20).intersects(h) for h in HALLS[:-0 or None] if not h.equals(HALLS[-1]) or True) and nm not in ("Street Lobby", "Roof Dock", "Sky Exit") or any(box(*g.bounds).buffer(30).intersects(box(*q.bounds)) for q in R.values()): continue
         seg(p, e); R[nm] = g; DOORS.append((round(e[0], 1), round(e[1], 1), "h" if u[0] == 0 else "v")); PADS.append(nm); taken.append(c)
     n_cave = 0
     for c in ends:
@@ -414,13 +416,14 @@ def main():
         draw(os.path.join(dk, "%s_plan.jpg" % dname), P, kinds, "%s  -  %s  (%s)" % (name.upper(), role, hub.upper()))
         if dname == "main":
             json.dump({"hull": mapping(HULLP), "centre": [C, C], "model": "", "meta": {"tower": True, "style": style, "floors": nfl}}, open(os.path.join(root, "hull.json"), "w"))
-            entry = "Street Lobby" if "Street Lobby" in P["rooms"] else hub   # (the game enters at the Roof Dock: set when it goes in)
+            entry = "Roof Dock" if "Roof Dock" in P["rooms"] else hub
             ov = {"entry": entry, "C": hub, "kinds": kinds}
+            if "Sky Exit" in P["rooms"]: ov["exit"] = "Sky Exit"
             json.dump(ov, open(os.path.join(eng, "overrides.json"), "w"), indent=1)
             pt = lambda k: [int(shape(P["rooms"][k]).representative_point().x), int(shape(P["rooms"][k]).representative_point().y)]
             Gp = {"entry": {"room": entry, "at": pt(entry)}, "locks": [], "guards": [], "wreck": [], "patrols": [], "targets": {},
                   "lifts": [{"room": k, "at": pt(k)} for k in info["lifts"]], "room_guards": {k: 1 for k in kinds if kinds[k] != "lift"},
-                  "note": "%s GROUND FLOOR (tower_v1/tower_build.py, %d floors, %s)" % (name, nfl, style)}
+                  "note": "%s TOP FLOOR (tower_v1/tower_build.py, %d floors, %s)" % (name, nfl, style)}
             json.dump(Gp, open(os.path.join(eng, "gameplay.json"), "w"), indent=1)
             json.dump(Gp, open(os.path.join(eng, "gameplay_v1.json"), "w"), indent=1)
         else:

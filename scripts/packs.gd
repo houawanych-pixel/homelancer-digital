@@ -443,6 +443,7 @@ const PACKS := {
 	"pilot": {"folders": ["res://assets/pilot"], "probe": "res://assets/pilot/hl_hova.glb"},   # v12.34: the owner's pilot (on foot in the station escape) and his rifle (the mech's gun)
 	"kaijurai_fleet": {"folders": ["res://assets/ships/kaijurai"], "probe": "res://assets/ships/kaijurai/kaijurai_fang.glb"},   # v6.2: the second Kaijurai set
 	"faction_fleet": {"folders": ["res://assets/ships/fleet"], "probe": "res://assets/ships/fleet/elyza_battleship.glb"},
+	"towers": {"folders": ["res://assets/facilities"], "match": "tower_", "probe": "res://assets/facilities/tower_nt_1_map.jpg"},   # v13.315: the city towers' floors
 	"facilities_l1": {"folders": ["res://assets/facilities"], "match": "facility_d1_", "probe": "res://assets/facilities/facility_d1_a_map.jpg"},   # v13.244: the planet facilities' floors, one pack per level (only the level you go into is fetched)
 	"facilities_l2": {"folders": ["res://assets/facilities"], "match": "facility_d2_", "probe": "res://assets/facilities/facility_d2_a_map.jpg"},
 	"facilities_l3": {"folders": ["res://assets/facilities"], "match": "facility_d3_", "probe": "res://assets/facilities/facility_d3_a_map.jpg"},

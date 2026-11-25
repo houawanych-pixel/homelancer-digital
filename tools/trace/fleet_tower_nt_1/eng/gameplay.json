@@ -1,16 +1,6 @@
 {
- "entry": {
-  "room": "Street Lobby",
-  "at": [
-   1650,
-   2115
-  ]
- },
- "locks": [],
- "guards": [],
  "wreck": [],
  "patrols": [],
- "targets": {},
  "lifts": [
   {
    "room": "Lift A",
@@ -28,43 +18,293 @@
   }
  ],
  "room_guards": {
-  "Grand Lobby": 1,
-  "Stairs": 1,
-  "Street Lobby": 1,
-  "Commerce East Lobby 1": 1,
-  "Commerce East Clinic 1": 1,
-  "Commerce South Lounge 1": 1,
-  "Commerce South Lounge 2": 1,
-  "Commerce South Cabin 1": 1,
-  "Commerce South Lobby 1": 1,
-  "Commerce West Store 1": 1,
-  "Commerce West Control 1": 1,
-  "Commerce West Clinic 1": 1,
-  "Commerce North Cabin 1": 1,
-  "Commerce North Quarters 1": 1,
-  "Commerce North Lobby 1": 1,
-  "Commerce North Control 1": 1,
-  "Commerce East Clinic 2": 1,
-  "Commerce West Clinic 2": 1,
-  "Commerce West Bay 1": 1,
-  "Commerce West Canteen 1": 1,
-  "Commerce West Clinic 3": 1,
-  "Commerce West Store 2": 1,
-  "Commerce West Canteen 2": 1,
-  "Commerce West Armoury 1": 1,
-  "Commerce North Clinic 1": 1,
-  "Commerce East Lobby 2": 1,
-  "Commerce East Cargo Bay 1": 1,
-  "Commerce East Cabin 1": 1,
-  "Commerce East Machine Shop 1": 1,
-  "Commerce East Cabin 2": 1,
-  "Commerce East Clinic 3": 1,
-  "Commerce East Clinic 4": 1,
-  "Commerce South Canteen 1": 1,
-  "Commerce South Quarters 1": 1,
-  "Commerce South Control 1": 1,
-  "Commerce North Store 1": 1,
-  "Commerce West Quarters 1": 1
+  "Penthouse": 2,
+  "Stairs": 2,
+  "Roof Dock": 1,
+  "Sky Exit": 1,
+  "Hotel East Office 1": 1,
+  "Hotel East Office 2": 1,
+  "Hotel South Store 1": 1,
+  "Hotel South Clinic 1": 1,
+  "Hotel South Control 1": 1,
+  "Hotel South Cabin 1": 1,
+  "Hotel West Cabin 1": 1,
+  "Hotel West Office 1": 1,
+  "Hotel West Quarters 1": 1,
+  "Hotel North Lounge 1": 1,
+  "Hotel North Store 1": 1,
+  "Hotel North Lounge 2": 1,
+  "Hotel North Store 2": 1,
+  "Hotel East Control 1": 1,
+  "Hotel West Quarters 2": 1,
+  "Hotel West Lounge 1": 1,
+  "Hotel West Cargo Bay 1": 1,
+  "Hotel West Canteen 1": 1,
+  "Hotel West Clinic 1": 1,
+  "Hotel West Armoury 1": 1,
+  "Hotel West Clinic 2": 1,
+  "Hotel North Clinic 1": 1,
+  "Hotel East Cargo Bay 1": 1,
+  "Hotel East Store 1": 1,
+  "Hotel East Clinic 1": 1,
+  "Hotel East Clinic 2": 1,
+  "Hotel East Loading Bay 1": 1,
+  "Hotel East Lounge 1": 1,
+  "Hotel South Quarters 1": 2,
+  "Hotel West Lounge 2": 1,
+  "Hotel South Lobby 1": 1,
+  "Hotel North Store 3": 1,
+  "Hotel North Lounge 3": 1,
+  "Hotel East Canteen 1": 1,
+  "Hotel West Control 1": 1,
+  "Hotel West Clinic 3": 1,
+  "Hotel North Control 1": 1,
+  "Hotel North Quarters 1": 1,
+  "Hotel South Lobby 2": 1,
+  "Hotel North Store 4": 1,
+  "Hotel North Canteen 1": 1
  },
- "note": "Capital City Tower GROUND FLOOR (tower_v1/tower_build.py, 10 floors, cluster)"
+ "note": "Capital City Tower 1 TOP FLOOR (tower_v1/tower_build.py, 10 floors, cluster)",
+ "formula": {
+  "C": "Penthouse",
+  "A_gate": "Stairs",
+  "card_yellow": "Hotel East Office 2",
+  "card_red": "Hotel South Quarters 1",
+  "entry": "Roof Dock",
+  "way_out": "Sky Exit",
+  "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
+ },
+ "entry": {
+  "room": "Roof Dock",
+  "at": [
+   1650,
+   1184
+  ]
+ },
+ "exit": {
+  "room": "Sky Exit",
+  "at": [
+   1650,
+   2115
+  ]
+ },
+ "locks": [
+  {
+   "door": [
+    1650.0,
+    1522.0
+   ],
+   "key": 3,
+   "why": "the objective (Penthouse)"
+  },
+  {
+   "door": [
+    1650.0,
+    1778.0
+   ],
+   "key": 3,
+   "why": "the objective (Penthouse)"
+  },
+  {
+   "door": [
+    1778.0,
+    1650.0
+   ],
+   "key": 3,
+   "why": "the objective (Penthouse)"
+  },
+  {
+   "door": [
+    1522.0,
+    1650.0
+   ],
+   "key": 3,
+   "why": "the objective (Penthouse)"
+  },
+  {
+   "door": [
+    1334.0,
+    2000.0
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    1365.0,
+    2025.0
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    1650.0,
+    2053.0
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    1277.0,
+    1710.0
+   ],
+   "key": 1,
+   "why": "the orange card's room (Stairs)"
+  }
+ ],
+ "guards": [
+  {
+   "key": 1,
+   "room": "Hotel East Office 2",
+   "at": [
+    1925,
+    1696
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Stairs",
+   "at": [
+    1242,
+    1710
+   ]
+  },
+  {
+   "key": 3,
+   "room": "Hotel South Quarters 1",
+   "at": [
+    1332,
+    2025
+   ]
+  }
+ ],
+ "targets": {
+  "sabotage": {
+   "room": "Penthouse",
+   "at": [
+    1650,
+    1650
+   ],
+   "key": 3
+  },
+  "capture": {
+   "room": "Penthouse",
+   "at": [
+    1650,
+    1650
+   ],
+   "key": 3
+  },
+  "rescue": {
+   "room": "Penthouse",
+   "at": [
+    1650,
+    1650
+   ],
+   "key": 3
+  }
+ },
+ "room_level": {
+  "Penthouse": 3,
+  "Stairs": 1,
+  "Roof Dock": 0,
+  "Sky Exit": 2,
+  "Hotel East Office 1": 0,
+  "Hotel East Office 2": 0,
+  "Hotel South Store 1": 0,
+  "Hotel South Clinic 1": 0,
+  "Hotel South Control 1": 0,
+  "Hotel South Cabin 1": 0,
+  "Hotel West Cabin 1": 0,
+  "Hotel West Office 1": 0,
+  "Hotel West Quarters 1": 0,
+  "Hotel North Lounge 1": 0,
+  "Hotel North Store 1": 0,
+  "Hotel North Lounge 2": 0,
+  "Hotel North Store 2": 0,
+  "Hotel East Control 1": 0,
+  "Hotel West Quarters 2": 0,
+  "Hotel West Lounge 1": 0,
+  "Hotel West Cargo Bay 1": 0,
+  "Hotel West Canteen 1": 0,
+  "Hotel West Clinic 1": 0,
+  "Hotel West Armoury 1": 0,
+  "Hotel West Clinic 2": 0,
+  "Hotel North Clinic 1": 0,
+  "Hotel East Cargo Bay 1": 0,
+  "Hotel East Store 1": 0,
+  "Hotel East Clinic 1": 0,
+  "Hotel East Clinic 2": 0,
+  "Hotel East Loading Bay 1": 0,
+  "Hotel East Lounge 1": 0,
+  "Hotel South Quarters 1": 2,
+  "Hotel West Lounge 2": 0,
+  "Hotel South Lobby 1": 0,
+  "Hotel North Store 3": 0,
+  "Hotel North Lounge 3": 0,
+  "Hotel East Canteen 1": 0,
+  "Hotel West Control 1": 0,
+  "Hotel West Clinic 3": 0,
+  "Hotel North Control 1": 0,
+  "Hotel North Quarters 1": 0,
+  "Hotel South Lobby 2": 2,
+  "Hotel North Store 4": 0,
+  "Hotel North Canteen 1": 0
+ },
+ "elevators": [
+  {
+   "decks": [
+    "main",
+    "lower",
+    "lower2",
+    "lower3",
+    "lower4",
+    "lower5",
+    "lower6",
+    "lower7",
+    "lower8",
+    "lower9"
+   ],
+   "at": [
+    1962.0,
+    1590.0
+   ],
+   "label": "LIFT A",
+   "need": {}
+  },
+  {
+   "decks": [
+    "main",
+    "lower",
+    "lower2",
+    "lower3",
+    "lower4",
+    "lower5",
+    "lower6",
+    "lower7",
+    "lower8",
+    "lower9"
+   ],
+   "at": [
+    1242.0,
+    1710.0
+   ],
+   "label": "STAIRS S",
+   "need": {}
+  }
+ ],
+ "deck_names": {
+  "lower9": "GROUND FLOOR",
+  "lower8": "FLOOR 2",
+  "lower7": "FLOOR 3",
+  "lower6": "FLOOR 4",
+  "lower5": "FLOOR 5",
+  "lower4": "FLOOR 6",
+  "lower3": "FLOOR 7",
+  "lower2": "FLOOR 8",
+  "lower": "FLOOR 9",
+  "main": "FLOOR 10"
+ }
 }

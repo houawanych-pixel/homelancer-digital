@@ -1,0 +1,18 @@
+{
+ "pilot_h": 16.0,
+ "door_w_u": 22.4,
+ "floors": 10,
+ "style": "twin",
+ "names": {
+  "lower9": "GROUND FLOOR",
+  "lower8": "FLOOR 2",
+  "lower7": "FLOOR 3",
+  "lower6": "FLOOR 4",
+  "lower5": "FLOOR 5",
+  "lower4": "FLOOR 6",
+  "lower3": "FLOOR 7",
+  "lower2": "FLOOR 8",
+  "lower": "FLOOR 9",
+  "main": "FLOOR 10"
+ }
+}

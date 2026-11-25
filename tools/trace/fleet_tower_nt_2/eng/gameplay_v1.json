@@ -1,0 +1,72 @@
+{
+ "entry": {
+  "room": "Roof Dock",
+  "at": [
+   1650,
+   1185
+  ]
+ },
+ "locks": [],
+ "guards": [],
+ "wreck": [],
+ "patrols": [],
+ "targets": {},
+ "lifts": [
+  {
+   "room": "Lift A",
+   "at": [
+    2058,
+    1590
+   ]
+  },
+  {
+   "room": "Stairs",
+   "at": [
+    1242,
+    1590
+   ]
+  }
+ ],
+ "room_guards": {
+  "Penthouse": 1,
+  "Stairs": 1,
+  "Roof Dock": 1,
+  "Sky Exit": 1,
+  "Hotel East Office 1": 1,
+  "Hotel East Lobby 1": 1,
+  "Hotel East Quarters 1": 1,
+  "Hotel South Clinic 1": 1,
+  "Hotel South Control 1": 1,
+  "Hotel South Quarters 1": 1,
+  "Hotel South Lounge 1": 1,
+  "Hotel West Lounge 1": 1,
+  "Hotel West Clinic 1": 1,
+  "Hotel West Control 1": 1,
+  "Hotel North Control 1": 1,
+  "Hotel North Store 1": 1,
+  "Hotel North Store 2": 1,
+  "Hotel North Lobby 1": 1,
+  "Hotel East Control 1": 1,
+  "Hotel West Control 2": 1,
+  "Hotel West Cargo Bay 1": 1,
+  "Hotel West Bay 1": 1,
+  "Hotel West Clinic 2": 1,
+  "Hotel West Quarters 1": 1,
+  "Hotel West Store 1": 1,
+  "Hotel East Control 2": 1,
+  "Hotel East Quarters 2": 1,
+  "Hotel East Canteen 1": 1,
+  "Hotel East Quarters 3": 1,
+  "Hotel East Bay 1": 1,
+  "Hotel East Control 3": 1,
+  "Hotel South Cabin 1": 1,
+  "Hotel East Control 4": 1,
+  "Hotel East Lobby 2": 1,
+  "Hotel West Armoury 1": 1,
+  "Hotel East Lobby 3": 1,
+  "Hotel East Control 5": 1,
+  "Hotel North Lobby 2": 1,
+  "Hotel West Machine Shop 1": 1
+ },
+ "note": "Capital City Tower 2 TOP FLOOR (tower_v1/tower_build.py, 10 floors, slab)"
+}

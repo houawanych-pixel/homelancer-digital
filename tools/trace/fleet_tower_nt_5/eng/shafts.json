@@ -1,0 +1,40 @@
+[
+ {
+  "label": "LIFT A",
+  "decks": [
+   "main",
+   "lower",
+   "lower2",
+   "lower3",
+   "lower4",
+   "lower5",
+   "lower6",
+   "lower7",
+   "lower8",
+   "lower9"
+  ],
+  "at": [
+   1338.0,
+   1710.0
+  ]
+ },
+ {
+  "label": "STAIRS S",
+  "decks": [
+   "main",
+   "lower",
+   "lower2",
+   "lower3",
+   "lower4",
+   "lower5",
+   "lower6",
+   "lower7",
+   "lower8",
+   "lower9"
+  ],
+  "at": [
+   1962.0,
+   1590.0
+  ]
+ }
+]

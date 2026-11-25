@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.319"
+const VERSION := "v13.320"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -2625,6 +2625,12 @@ const BORDER_MARGIN := 0.25   # v12.3: map squares kept clear inside the border 
 const UNKNOWN_KAIJU_MULT := 3.0   # v12.3 (owner: "high level areas ... like level 3 fighters"): Kaijurai in the uncharted areas are 3x as tough
 const STATION_INFIL_LEVEL := 3   # v11.99: an alien station is infiltrated as a level 3 facility
 ## v13.239: the facilities' own three floors (tools/trace/facility_v1), by difficulty; a site picks one by its name
+# v13.315 (owner: "Capital City: the towers ... a dock on top of each building, you eject from the top and enter; one
+# building loaded at a time, any building you enter could be a different one"): the city towers' ten floors
+# (tools/trace/tower_v1), one picked per tower; you land on its roof and INFILTRATE (pack "towers")
+const TOWER_DECKS := ["res://assets/facilities/tower_nt_1.json", "res://assets/facilities/tower_nt_2.json", "res://assets/facilities/tower_nt_3.json",
+	"res://assets/facilities/tower_nt_4.json", "res://assets/facilities/tower_nt_5.json", "res://assets/facilities/tower_nt_6.json"]
+const TOWER_ROOF_HIGH := 60.0   # m over a tower's roof at most to INFILTRATE it
 const FACILITY_DECKS := {1: ["res://assets/facilities/facility_d1_a.json", "res://assets/facilities/facility_d1_b.json", "res://assets/facilities/facility_d1_c.json", "res://assets/facilities/facility_d1_d.json", "res://assets/facilities/facility_d1_e.json"], 2: ["res://assets/facilities/facility_d2_a.json", "res://assets/facilities/facility_d2_b.json", "res://assets/facilities/facility_d2_c.json", "res://assets/facilities/facility_d2_d.json", "res://assets/facilities/facility_d2_e.json"], 3: ["res://assets/facilities/facility_d3_a.json", "res://assets/facilities/facility_d3_b.json", "res://assets/facilities/facility_d3_c.json", "res://assets/facilities/facility_d3_d.json", "res://assets/facilities/facility_d3_e.json"], 4: ["res://assets/facilities/facility_d4_a.json", "res://assets/facilities/facility_d4_b.json", "res://assets/facilities/facility_d4_c.json", "res://assets/facilities/facility_d4_d.json", "res://assets/facilities/facility_d4_e.json"], 5: ["res://assets/facilities/facility_d5_b.json", "res://assets/facilities/facility_d5_c.json", "res://assets/facilities/facility_d5_d.json", "res://assets/facilities/facility_d5_f.json", "res://assets/facilities/facility_d5_h.json", "res://assets/facilities/facility_d5_k.json", "res://assets/facilities/facility_d5_l.json", "res://assets/facilities/facility_d5_m.json", "res://assets/facilities/facility_d5_n.json", "res://assets/facilities/facility_d5_p.json"]}   # (v13.244: the facility maps built so far (30 of 30); a download pack per level)
 const NUKE_FILM_S := 10.0          # v13.241: the mushroom cloud film over a blown base (s)
 const NUKE_FILM_HEIGHT := 4.5      # its column: this many base half-widths high

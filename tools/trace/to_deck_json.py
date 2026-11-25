@@ -33,7 +33,8 @@ PILOT_DOOR_K = 0.35    # a pilot door is this share of a mech door's width (16 u
 SLOPE_ROOMS = {"hangar": 14.0, "cargo hold": 12.0, "vehicle": 12.0, "troop bay": 12.0, "loader": 12.0, "launch bay": 14.0, "deploy": 10.0}   # (under 15 u: the deck name reads by height)
 DECK_DY = 170.0        # boarding units between deck floors (a room is 100 u tall: slab and service space between)
 DECKS = {"main": ("", 0.0), "upper": ("u_", DECK_DY), "lower": ("l_", -DECK_DY), "upper2": ("u2_", 2 * DECK_DY), "lower2": ("l2_", -2 * DECK_DY),
-         "lower3": ("l3_", -3 * DECK_DY), "lower4": ("l4_", -4 * DECK_DY)}   # (v13.248: a facility goes five floors down)   # (v13.192: five for a station)   # deck -> (room key prefix, floor y)
+         "lower3": ("l3_", -3 * DECK_DY), "lower4": ("l4_", -4 * DECK_DY),
+         **{"lower%d" % i: ("l%d_" % i, -i * DECK_DY) for i in range(5, 10)}}   # (v13.315: a city tower goes ten floors down from its roof)   # (v13.248: a facility goes five floors down)   # (v13.192: five for a station)   # deck -> (room key prefix, floor y)
 
 def board_layout(plan, play, src_w, src_h, pre="", y0=0.0, ways=None):
     """The same deck as a Boarding layout (scripts/boarding.gd schema): axis-aligned rects (rooms keep their real
@@ -388,7 +389,7 @@ def main():
     # v13.96 (owner: "compose it, do top and bottom floor"): the composed upper / lower decks (eng/deck_<name>.json),
     # stacked over / under the main deck, joined by the lifts (gameplay "elevators": a car on each of its two decks)
     decks_done = {"main": rep}
-    for dname in ("upper", "lower", "upper2", "lower2", "lower3", "lower4"):
+    for dname in ("upper", "lower", "upper2", "lower2", "lower3", "lower4", "lower5", "lower6", "lower7", "lower8", "lower9"):
         dpath = os.path.join(eng, "deck_%s.json" % dname)
         if not a.decks or not os.path.exists(dpath): continue
         dplan = json.load(open(dpath))

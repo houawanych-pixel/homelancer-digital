@@ -3,15 +3,15 @@
   "label": "LIFT A",
   "decks": [
    "main",
-   "upper",
-   "upper2",
-   "upper3",
-   "upper4",
-   "upper5",
-   "upper6",
-   "upper7",
-   "upper8",
-   "upper9"
+   "lower",
+   "lower2",
+   "lower3",
+   "lower4",
+   "lower5",
+   "lower6",
+   "lower7",
+   "lower8",
+   "lower9"
   ],
   "at": [
    1962.0,
@@ -22,15 +22,15 @@
   "label": "STAIRS S",
   "decks": [
    "main",
-   "upper",
-   "upper2",
-   "upper3",
-   "upper4",
-   "upper5",
-   "upper6",
-   "upper7",
-   "upper8",
-   "upper9"
+   "lower",
+   "lower2",
+   "lower3",
+   "lower4",
+   "lower5",
+   "lower6",
+   "lower7",
+   "lower8",
+   "lower9"
   ],
   "at": [
    1242.0,

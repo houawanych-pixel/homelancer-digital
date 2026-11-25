@@ -1,0 +1,290 @@
+{
+ "wreck": [],
+ "patrols": [],
+ "lifts": [
+  {
+   "room": "Lift A",
+   "at": [
+    1962,
+    1590
+   ]
+  },
+  {
+   "room": "Stairs",
+   "at": [
+    1242,
+    1590
+   ]
+  }
+ ],
+ "room_guards": {
+  "Penthouse": 2,
+  "Stairs": 1,
+  "Roof Dock": 1,
+  "Sky Exit": 1,
+  "Hotel East Lounge 1": 1,
+  "Hotel East Lounge 2": 2,
+  "Hotel South Store 1": 1,
+  "Hotel South Store 2": 1,
+  "Hotel South Office 1": 1,
+  "Hotel South Quarters 1": 1,
+  "Hotel West Clinic 1": 1,
+  "Hotel West Lobby 1": 1,
+  "Hotel West Clinic 2": 1,
+  "Hotel North Cabin 1": 1,
+  "Hotel North Lobby 1": 1,
+  "Hotel North Quarters 1": 1,
+  "Hotel North Quarters 2": 1,
+  "Hotel East Clinic 1": 1,
+  "Hotel West Lobby 2": 1,
+  "Hotel West Loading Bay 1": 1,
+  "Hotel West Armoury 1": 1,
+  "Hotel North Loading Bay 1": 1,
+  "Hotel West Plant 1": 1,
+  "Hotel North Lounge 1": 1,
+  "Hotel East Cabin 1": 1,
+  "Hotel East Loading Bay 1": 1,
+  "Hotel East Plant 1": 1,
+  "Hotel East Machine Shop 1": 1,
+  "Hotel East Plant 2": 1,
+  "Hotel West Machine Shop 1": 1,
+  "Hotel South Lobby 1": 1,
+  "Hotel South Office 2": 2,
+  "Hotel North Armoury 1": 1,
+  "Hotel North Bay 1": 1,
+  "Hotel West Quarters 1": 1,
+  "Hotel East Clinic 2": 1,
+  "Hotel East Office 1": 1,
+  "Hotel West Armoury 2": 1,
+  "Hotel North Machine Shop 1": 1
+ },
+ "note": "Capital City Tower 4 TOP FLOOR (tower_v1/tower_build.py, 10 floors, twin)",
+ "formula": {
+  "C": "Penthouse",
+  "A_gate": "Hotel East Lounge 2",
+  "card_yellow": "Stairs",
+  "card_red": "Hotel South Office 2",
+  "entry": "Roof Dock",
+  "way_out": "Sky Exit",
+  "note": "owner's boarding formula (tools/trace/fleet_formula.py)"
+ },
+ "entry": {
+  "room": "Roof Dock",
+  "at": [
+   1650,
+   1184
+  ]
+ },
+ "exit": {
+  "room": "Sky Exit",
+  "at": [
+   1650,
+   2115
+  ]
+ },
+ "locks": [
+  {
+   "door": [
+    1650.0,
+    1522.0
+   ],
+   "key": 3,
+   "why": "the objective (Penthouse)"
+  },
+  {
+   "door": [
+    1650.0,
+    1778.0
+   ],
+   "key": 3,
+   "why": "the objective (Penthouse)"
+  },
+  {
+   "door": [
+    1778.0,
+    1650.0
+   ],
+   "key": 3,
+   "why": "the objective (Penthouse)"
+  },
+  {
+   "door": [
+    1522.0,
+    1650.0
+   ],
+   "key": 3,
+   "why": "the objective (Penthouse)"
+  },
+  {
+   "door": [
+    1596.9,
+    1957.0
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    1650.0,
+    2053.0
+   ],
+   "key": 2,
+   "why": "the red card / the way out"
+  },
+  {
+   "door": [
+    1895.0,
+    1696.9
+   ],
+   "key": 1,
+   "why": "the orange card's room (Hotel East Lounge 2)"
+  }
+ ],
+ "guards": [
+  {
+   "key": 1,
+   "room": "Stairs",
+   "at": [
+    1242,
+    1590
+   ]
+  },
+  {
+   "key": 2,
+   "room": "Hotel East Lounge 2",
+   "at": [
+    1927,
+    1694
+   ]
+  },
+  {
+   "key": 3,
+   "room": "Hotel South Office 2",
+   "at": [
+    1596,
+    1984
+   ]
+  }
+ ],
+ "targets": {
+  "sabotage": {
+   "room": "Penthouse",
+   "at": [
+    1650,
+    1650
+   ],
+   "key": 3
+  },
+  "capture": {
+   "room": "Penthouse",
+   "at": [
+    1650,
+    1650
+   ],
+   "key": 3
+  },
+  "rescue": {
+   "room": "Penthouse",
+   "at": [
+    1650,
+    1650
+   ],
+   "key": 3
+  }
+ },
+ "room_level": {
+  "Penthouse": 3,
+  "Stairs": 0,
+  "Roof Dock": 0,
+  "Sky Exit": 2,
+  "Hotel East Lounge 1": 0,
+  "Hotel East Lounge 2": 1,
+  "Hotel South Store 1": 0,
+  "Hotel South Store 2": 0,
+  "Hotel South Office 1": 0,
+  "Hotel South Quarters 1": 0,
+  "Hotel West Clinic 1": 0,
+  "Hotel West Lobby 1": 0,
+  "Hotel West Clinic 2": 0,
+  "Hotel North Cabin 1": 0,
+  "Hotel North Lobby 1": 0,
+  "Hotel North Quarters 1": 0,
+  "Hotel North Quarters 2": 0,
+  "Hotel East Clinic 1": 0,
+  "Hotel West Lobby 2": 0,
+  "Hotel West Loading Bay 1": 0,
+  "Hotel West Armoury 1": 0,
+  "Hotel North Loading Bay 1": 0,
+  "Hotel West Plant 1": 0,
+  "Hotel North Lounge 1": 0,
+  "Hotel East Cabin 1": 0,
+  "Hotel East Loading Bay 1": 0,
+  "Hotel East Plant 1": 0,
+  "Hotel East Machine Shop 1": 0,
+  "Hotel East Plant 2": 0,
+  "Hotel West Machine Shop 1": 0,
+  "Hotel South Lobby 1": 0,
+  "Hotel South Office 2": 2,
+  "Hotel North Armoury 1": 0,
+  "Hotel North Bay 1": 0,
+  "Hotel West Quarters 1": 0,
+  "Hotel East Clinic 2": 0,
+  "Hotel East Office 1": 0,
+  "Hotel West Armoury 2": 0,
+  "Hotel North Machine Shop 1": 0
+ },
+ "elevators": [
+  {
+   "decks": [
+    "main",
+    "lower",
+    "lower2",
+    "lower3",
+    "lower4",
+    "lower5",
+    "lower6",
+    "lower7",
+    "lower8",
+    "lower9"
+   ],
+   "at": [
+    1962.0,
+    1590.0
+   ],
+   "label": "LIFT A",
+   "need": {}
+  },
+  {
+   "decks": [
+    "main",
+    "lower",
+    "lower2",
+    "lower3",
+    "lower4",
+    "lower5",
+    "lower6",
+    "lower7",
+    "lower8",
+    "lower9"
+   ],
+   "at": [
+    1242.0,
+    1590.0
+   ],
+   "label": "STAIRS S",
+   "need": {}
+  }
+ ],
+ "deck_names": {
+  "lower9": "GROUND FLOOR",
+  "lower8": "FLOOR 2",
+  "lower7": "FLOOR 3",
+  "lower6": "FLOOR 4",
+  "lower5": "FLOOR 5",
+  "lower4": "FLOOR 6",
+  "lower3": "FLOOR 7",
+  "lower2": "FLOOR 8",
+  "lower": "FLOOR 9",
+  "main": "FLOOR 10"
+ }
+}

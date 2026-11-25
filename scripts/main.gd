@@ -2527,6 +2527,9 @@ func infiltrate_station(n: Node3D) -> void:
 ## = none (the older generated maze).
 var facility_decks_on := true   # (the older facility tests turn it off)
 func facility_deck(site: Dictionary) -> String:
+	if bool(site.get("tower", false)):   # v13.315: a city tower: one of the tower maps, picked by the tower
+		var ta: Array = Data.TOWER_DECKS
+		return "" if ta.is_empty() else str(ta[absi(hash("%s:%d:%d" % [str(site.get("planet", "")), int(site.get("tile", 0)), int(site.get("index", 0))])) % ta.size()])
 	if not facility_decks_on: return ""
 	var arr: Array = Data.FACILITY_DECKS.get(clampi(int(site.get("difficulty", 1)), 1, 5), [])
 	if arr.is_empty(): return ""
@@ -2543,13 +2546,13 @@ func _enter_facility_deck(site: Dictionary, path: String) -> void:
 	var need := facility_packs(site, fac)
 	space.controls = false
 	hud.visible = false
-	fx.caption = "FACILITY"
+	fx.caption = "TOWER" if bool(site.get("tower", false)) else "FACILITY"
 	fx.sub = "%s  ·  LOADING" % nm.to_upper()
 	var tw0 := create_tween()
 	tw0.tween_property(fx, "fade", 1.0, 0.5)
 	await tw0.finished
 	var got := await _wait_packs_shown(need, nm, Data.FACILITY_LOAD_WAIT)
-	var fpk := "facilities_l%d" % clampi(int(site.get("difficulty", 1)), 1, 5)
+	var fpk := "towers" if bool(site.get("tower", false)) else "facilities_l%d" % clampi(int(site.get("difficulty", 1)), 1, 5)
 	var L := Boarding.fleet_layout(path) if Packs.is_ready(fpk) and FileAccess.file_exists(path) else {}
 	if L.is_empty() or not got:   # (it didn't come down: back to the world, never a stuck black screen)
 		fx.caption = ""
@@ -2562,11 +2565,13 @@ func _enter_facility_deck(site: Dictionary, path: String) -> void:
 		state = "flight"
 		hud.flash_message("The facility didn't load (slow connection?). Press INFILTRATE to try again.")
 		return
-	var kind: String = ["sabotage", "capture", "rescue"][absi(hash("mission:%s:%s" % [str(site.get("planet", "")), nm])) % 3]   # (the same three missions: each site has its own)
+	var kind: String = ["sabotage", "capture", "rescue"][absi(hash("mission:%s:%s" % [str(site.get("planet", "")), nm])) % 3]
+	if bool(site.get("tower", false)): kind = ["capture", "rescue"][absi(hash("tower:" + nm)) % 2]   # v13.315 (owner: "looking for someone in a certain room, a target")   # (the same three missions: each site has its own)
 	board_from = {"sys": space.sys_id, "pos": space.player.global_position, "ship_at": Vector3.ZERO, "name": nm, "faction": fac, "facility": true,
 		"planet": str(space.planet_id), "tile": int(space.tile), "difficulty": int(site.get("difficulty", 1)), "form": GS.form,
 		"fleet_deck": "facility:" + path.get_file().get_basename(), "job": false, "kind": kind, "from": "facility"}
-	fx.sub = "%s  ·  LEVEL %d" % [nm.to_upper(), int(site.get("difficulty", 1))]
+	fx.sub = ("%s  ·  ROOF DOCK" % nm.to_upper()) if bool(site.get("tower", false)) else "%s  ·  LEVEL %d" % [nm.to_upper(), int(site.get("difficulty", 1))]
+	if bool(site.get("tower", false)): board_from["tower"] = true
 	Sfx.play("whoosh", -2.0, 0.7)
 	GS.form = "mech"
 	Boarding.use(L)
@@ -2592,7 +2597,7 @@ func _enter_facility_deck(site: Dictionary, path: String) -> void:
 
 ## v13.314: the downloads going into a facility needs: its floors, your pilot, their soldiers, the mechs.
 func facility_packs(site: Dictionary, fac := "") -> Array:
-	var out: Array = ["facilities_l%d" % clampi(int(site.get("difficulty", 1)), 1, 5), PilotRig.PACK, "crowd3d_orion" if fac.to_lower().begins_with("orion") else "crowd3d"]
+	var out: Array = ["towers" if bool(site.get("tower", false)) else "facilities_l%d" % clampi(int(site.get("difficulty", 1)), 1, 5), PilotRig.PACK, "crowd3d_orion" if fac.to_lower().begins_with("orion") else "crowd3d"]
 	if Data.FLEET_MECH: out.append("mechs")
 	return out
 

@@ -1974,6 +1974,39 @@ func facility_candidate() -> Dictionary:
 			return h.get_meta("facility")
 	return {}
 
+## v13.315 (owner: "a dock on top of each building ... you eject from the top and enter the building"): standing on a
+## city megatower's roof, INFILTRATE goes into it (one of Data.TOWER_DECKS, picked by the tower). {} if not on one.
+var _tower_roofs_key := ""
+var _tower_roofs: Array = []   # [[AABB of the roof part, tower index]]
+func tower_candidate() -> Dictionary:
+	if not surface_mode or boarding or not is_instance_valid(player) or not Data.CITY_TOWERS or Data.TOWER_DECKS.is_empty(): return {}
+	if not CityPlan.is_city_tile(planet_id, tile): return {}
+	var tk := "%s|%d" % [planet_id, tile]
+	if tk != _tower_roofs_key:
+		_tower_roofs_key = tk
+		_tower_roofs = []
+		var cr := CityPlan.rect(planet_id, tile)
+		var i := 0
+		for rz in cr.size.y:
+			for rx in cr.size.x:
+				for tw in CityPlan.towers(planet_id, tile, cr.position + Vector2i(rx, rz)):
+					if not bool(tw.get("main", false)): continue
+					var top := AABB()
+					for bx: AABB in CityTowers.solids(tw):
+						if top.size == Vector3.ZERO or bx.end.y > top.end.y: top = bx
+					_tower_roofs.append([top, i])
+					i += 1
+	var p := player.global_position
+	for tr in _tower_roofs:
+		var bx: AABB = tr[0]
+		if p.x > bx.position.x - 20.0 and p.x < bx.end.x + 20.0 and p.z > bx.position.z - 20.0 and p.z < bx.end.z + 20.0 \
+				and p.y > bx.end.y - 6.0 and p.y < bx.end.y + Data.TOWER_ROOF_HIGH:
+			var site := {"name": "%s Tower %d" % [str(Surface.PLANETS.get(planet_id, {}).get("name", "City")), int(tr[1]) + 1], "tower": true,
+				"planet": planet_id, "tile": tile, "difficulty": 1, "index": int(tr[1])}
+			_prefetch_facility(site)
+			return site
+	return {}
+
 var _raid_hint_ms := -100000
 signal facility_request(site: Dictionary)
 var _fac_pending := {}
@@ -1981,6 +2014,7 @@ func board_now() -> bool:
 	# v12.29 (owner: "docking should just dock; when you're inside you transform"): no transforming out here
 	# (it left you open, and you died mid-change). You go in as you are; inside you are the mech.
 	var fs := facility_candidate()
+	if fs.is_empty(): fs = tower_candidate()   # v13.315: a city tower's roof
 	if not fs.is_empty():   # v11.96: ENTER the facility
 		facility_request.emit(fs)
 		return true
@@ -14268,7 +14302,7 @@ func prompt() -> String:
 	if on_foot and at_garage() and not GS.garage.is_empty(): return "take_car"
 	if on_foot and not car_candidate().is_empty() and not near_parked(): return "steal"
 	if on_foot or (fleet_mech() and escape_pilot and is_instance_valid(parked)): return "enter" if near_parked() else ""   # v12.39
-	if not board_candidate().is_empty() or not facility_candidate().is_empty(): return "board"   # v11.60 (owner); v11.96: ENTER a facility
+	if not board_candidate().is_empty() or not facility_candidate().is_empty() or not tower_candidate().is_empty(): return "board"   # v11.60 (owner); v11.96: ENTER a facility
 	if can_eject(): return "eject"
 	return "lane" if not lc.is_empty() else ""
 
