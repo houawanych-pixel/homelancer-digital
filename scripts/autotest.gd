@@ -8033,7 +8033,8 @@ func _run() -> void:
 			n_on += 1
 			kinds[p["kind"]] = true
 			if before.has(nd) and (before[nd] as Vector3).distance_to(nd.position) > 3.0: moved += 1
-			if absf(nd.position.y - (g + Data.TRAFFIC_HOVER)) < 1.0: low += 1
+			var up_k: float = float(p.get("up", 0.0))   # (v13.323: on a skyway, it hovers over the deck)
+			if absf(nd.position.y - (g + (up_k if up_k > 0.0 else Data.TRAFFIC_HOVER))) < 1.0: low += 1
 			# on a road: not over a building cell
 			var rx := int(floor((nd.position.x + Surface.EDGE) / Data.BLOCK_REGION))
 			var rz := int(floor((nd.position.z + Surface.EDGE) / Data.BLOCK_REGION))
@@ -8864,6 +8865,38 @@ func _run() -> void:
 		for x in seen: print("PALARM ", x)   # (what the screen did, step by step)
 		await _capture("planet_alarm")
 		_check("v13.322: the ALARM at a planet dock (%s) runs, not a black screen (%d ms; %s)" % [str(main.hub.base.get("name", "")), Time.get_ticks_msec() - t0, str(seen[-1] if not seen.is_empty() else "")], main.state == "flight" and main.fx.fade < 0.05, "")
+		_finish_group()
+		return
+	if _flag("HL_SKYCARS"):   # v13.323 (owner: "a track on the top to have cars running through there too")
+		var pid := "new_terra"
+		var tt := 4
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main._load_surface(pid, tt)
+		await _until(func(): return is_instance_valid(main.space) and main.space.surface_mode and main.space.tile == tt and main.space.city_traffic != null, 40.0)
+		await _wait(3.0)
+		var s := _sp()
+		var cr: Rect2i = CityPlan.rect(pid, tt)
+		var g := CityPlan.ground(pid, tt)
+		var org := Vector2(-Surface.EDGE, -Surface.EDGE) + Vector2(cr.position) * Data.BLOCK_REGION
+		var line := org.x + Data.BLOCK_REGION * 2.0
+		s.player.global_position = Vector3(line + 70.0, g + Data.SKYWAY_Y + 25.0, org.y + Data.BLOCK_REGION * 1.4)
+		s.vel = Vector3.ZERO
+		var dv: Vector3 = (Vector3(line, g + Data.SKYWAY_Y, org.y + Data.BLOCK_REGION * 1.1) - s.player.global_position).normalized()
+		s.yaw = atan2(-dv.x, -dv.z)
+		s.pitch = asin(clampf(dv.y, -1.0, 1.0))
+		s.player.basis = Basis.from_euler(Vector3(s.pitch, s.yaw, 0))
+		s._update_camera(1.0, true)
+		var up := 0
+		for i in 40:
+			await _wait(0.5)
+			up = s.city_traffic.pool.filter(func(p): return p["state"] != "off" and float(p.get("up", 0.0)) > 0.0).size()
+			if up >= 2: break
+		var ys: Array = s.city_traffic.pool.filter(func(p): return p["state"] != "off" and float(p.get("up", 0.0)) > 0.0).map(func(p): return snappedf((p["node"] as Node3D).position.y - g, 1.0))
+		await _wait(1.5)
+		await _capture("skyway_cars")
+		_check("v13.323: cars drive on the skyways too (%d skyway lanes, %d cars up there at %s m)" % [s.city_traffic.sky_lanes, up, str(ys)], s.city_traffic.sky_lanes > 0 and up >= 1 and ys.all(func(y): return absf(float(y) - Data.SKYWAY_Y) < 5.0 or absf(float(y) - Data.SKYWAY_Y2) < 5.0), "")
 		_finish_group()
 		return
 	if _flag("HL_SKYPIER"):   # v13.320 (owner: "there's pillars blocking roads ... bigger lanes, enough for 4 cars")

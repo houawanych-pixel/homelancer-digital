@@ -12,7 +12,8 @@ var planet_id := ""
 var tile := -1
 var pool: Array = []      # {node, kind, state: "off" | "drive", from, to, t, len, speed, base_y}
 var made := 0             # (tests) vehicles sent out so far
-var _lanes: Array = []    # [from (tile-local x, z), to] one way each
+var _lanes: Array = []    # [from (tile-local x, z), to, (v13.323: height over the street; none = on the street)] one way each
+var sky_lanes := 0        # (checks) lanes up on the skyways
 var _spawn_t := 0.0
 var _rng := RandomNumberGenerator.new()
 var _g := 0.0
@@ -57,6 +58,24 @@ func _build_lanes() -> void:
 			var off := lw * (0.5 + k)
 			_lanes.append([Vector2(x - off, org.y), Vector2(x - off, org.y + size.y)])
 			_lanes.append([Vector2(x + off, org.y + size.y), Vector2(x + off, org.y)])
+	# v13.323 (owner: "we should have a track on the top to have cars running through there too"): the skyways over the
+	# inner avenues (the same lines CityTowers.city_links draws), two lanes each way on each deck
+	if not CityPlan.is_town(planet_id, tile) and Data.CITY_TOWERS:
+		for ax in 2:
+			for kk in range(1, (cr.size.x if ax == 0 else cr.size.y)):
+				var line: float = (org.x if ax == 0 else org.y) + kk * S
+				var levels: Array = [Data.SKYWAY_Y] if kk > 1 else [Data.SKYWAY_Y, Data.SKYWAY_Y2]
+				for ly in levels:
+					var yy: float = float(ly) + Data.TRAFFIC_HOVER
+					for k in 2:
+						var off := lw * (0.5 + k)
+						if ax == 0:   # a skyway along z
+							_lanes.append([Vector2(line - off, org.y), Vector2(line - off, org.y + size.y), yy])
+							_lanes.append([Vector2(line + off, org.y + size.y), Vector2(line + off, org.y), yy])
+						else:
+							_lanes.append([Vector2(org.x, line + off), Vector2(org.x + size.x, line + off), yy])
+							_lanes.append([Vector2(org.x + size.x, line - off), Vector2(org.x, line - off), yy])
+	sky_lanes = _lanes.filter(func(l): return l.size() > 2).size()
 
 func _build_pool() -> void:
 	var kinds: Array = []
@@ -289,6 +308,7 @@ func _spawn(p: Dictionary, pp: Vector3) -> void:
 		var kind: String = p["kind"]
 		var spd: Vector2 = Data.TRAFFIC_SPEED[kind]
 		p["lane"] = li
+		p["up"] = float(_lanes[li][2]) if (_lanes[li] as Array).size() > 2 else 0.0
 		p["from"] = a
 		p["to"] = b
 		p["len"] = L
@@ -309,7 +329,7 @@ func _place(p: Dictionary, _dt: float) -> void:
 	var b: Vector2 = p["to"]
 	var at := a.lerp(b, float(p["t"]) / float(p["len"]))
 	var bob := sin(Time.get_ticks_msec() * 0.002 + float(p["phase"])) * 0.25
-	nd.position = Vector3(at.x, _g + Data.TRAFFIC_HOVER + bob, at.y)
+	nd.position = Vector3(at.x, _g + (float(p.get("up", 0.0)) if float(p.get("up", 0.0)) > 0.0 else Data.TRAFFIC_HOVER) + bob, at.y)
 
 ## v13.283 (owner: "stealing cars"): take a vehicle out of the traffic (or off the kerb where someone left it): it
 ## is yours now (the caller hangs it on the player). A fresh one takes its place in the pool.
