@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.348"
+const VERSION := "v13.349"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -727,10 +727,10 @@ const RAMP_LOOP_R := 34.0               # m: the turning loop at the far end
 const RAMP_STEP_DEG := 12.0             # degrees per piece of a curve
 const RAMP_COLUMNS := 6                 # columns round each spiral
 const CITY_FOOTBRIDGES := true          # v13.337 (owner: "crosswalks like escalators, up and over, covered; covered walkways along the roads")
-const FOOTBRIDGE_H := 12.0              # m: the footbridge's deck over the street (buses are 7 m)
-const FOOTBRIDGE_ESC := 26.0            # m: the escalator's run along the pavement (up 12 m)
+const FOOTBRIDGE_H := 21.0              # m: the footbridge's deck over the street (v13.349 owner: "raised up so the mech can go under it": a mech is about 14 m; was 12)
+const FOOTBRIDGE_ESC := 44.0            # m: the escalator's run along the pavement (up 21 m; v13.349: was 26)
 const FOOTBRIDGE_FROM := 8.0            # m past the crossing's edge
-const FOOTBRIDGE_W := 5.0               # m wide
+const FOOTBRIDGE_W := 7.0               # m wide (v13.349: was 5)
 const FOOTBRIDGE_ROOF_H := 4.6          # m: its glass roof over the deck (people are 3.8 m)
 const CANOPY_H := 6.0                   # m: the glass canopy over the pavements
 const CANOPY_POST_EVERY := 30.0         # m between its posts

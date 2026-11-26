@@ -9611,6 +9611,19 @@ func _run() -> void:
 		await _wait(1.5)
 		var stood: float = s.player.global_position.y - Data.PILOT_FEET_BELOW - mid.y
 		await _capture("footbridge_on")
+		# v13.349 (owner: "raised up so the mech can go under it"): a mech walks under a bridge without touching it
+		s.on_foot = false
+		GS.form = "mech"
+		s.set_player_model()
+		s.ground_mode = true
+		var under := Vector3(mid.x, g + Data.WALKER_STAND, mid.z)
+		s.player.global_position = under
+		s.vel = Vector3.ZERO
+		s._ramp_last = Vector3.INF
+		await _wait(1.0)
+		var moved: float = Vector2(s.player.global_position.x - under.x, s.player.global_position.z - under.z).length()
+		var mech_ok: bool = s.player.global_position.y < mid.y - 4.0 and moved < 2.0
+		_check("v13.349: a mech stands under a footbridge without touching it (deck %.0f m up, the mech at %.0f m; moved %.1f m)" % [mid.y - g, s.player.global_position.y - g, moved], mech_ok, "")
 		_check("v13.337: %d covered footbridges (escalator up, glass tube across) and %d pavement canopies; you can stand on a bridge (%.1f m over its deck); the city links mesh is %d triangles" % [bridges.size(), canopies, stood, tris], bridges.size() >= 12 and canopies > 20 and absf(stood) < 1.0 and tris < 180000, "")   # (v13.344: 160k with the capital's outskirts; v13.348: 180k with the street loops)
 		_finish_group()
 		return
