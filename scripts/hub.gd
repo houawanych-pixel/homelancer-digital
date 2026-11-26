@@ -5380,6 +5380,9 @@ func _ships_page() -> void:
 	svc.stretch = true
 	svc.custom_minimum_size = Vector2(200, 160)
 	svc.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	if Data.HUB_DEVICES:   # v13.347 (owner: "the list is too big for the ship's small space: half and half"): the model takes half the device
+		svc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		svc.size_flags_stretch_ratio = 1.0
 	_left_slot(h).add_child(svc)   # v3.5: the model in the left window, the list on the right
 	preview_vp = SubViewport.new()
 	preview_vp.own_world_3d = true
@@ -5565,6 +5568,9 @@ func _mechs_page() -> void:
 	svc.stretch = true
 	svc.custom_minimum_size = Vector2(200, 160)
 	svc.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	if Data.HUB_DEVICES:   # v13.347 (owner: "the list is too big for the ship's small space: half and half"): the model takes half the device
+		svc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		svc.size_flags_stretch_ratio = 1.0
 	_left_slot(h).add_child(svc)   # v3.5: the mech in the left window
 	preview_vp = SubViewport.new()
 	preview_vp.own_world_3d = true
