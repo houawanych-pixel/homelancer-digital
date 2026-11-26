@@ -8051,6 +8051,65 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if _flag("HL_DEVICES"):   # v13.338 (owner: "one layout on every screen: the work device on the left, phone or tablet; credits and LAUNCH always in the same place")
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main.dock(_sp().station)
+		await _until(func(): return main.state == "hub", 8.0)
+		var hb = main.hub
+		hb.set_device_big(false)
+		var rects := {}
+		var lrects := {}
+		var tops_ok := true
+		for pg in ["lounge", "market", "repair", "ship", "board", "command", "ships", "mechs"]:
+			hb.show_screen(pg)
+			await _frames(4)
+			rects[pg] = hb.content.get_global_rect()
+			lrects[pg] = [hb.launch_btn.get_global_rect(), hb.credits_label.get_global_rect()]
+			tops_ok = tops_ok and absf(rects[pg].position.y - rects["lounge"].position.y) < 1.0 and absf(rects[pg].end.y - rects["lounge"].end.y) < 1.0 and absf(rects[pg].position.x - rects["lounge"].position.x) < 1.0 and not hb.leftwin.visible
+		var same_launch := true
+		for pg in lrects: same_launch = same_launch and lrects[pg][0] == lrects["lounge"][0] and lrects[pg][1] == lrects["lounge"][1]
+		var pw: float = hb.panel_w()
+		_check("v13.338: every page sits in the one device on the left (same top, bottom and left edge; no second tablet); phone size where the page fits (lounge %d, market %d = %d), a tablet for wide pages (board %d, ships %d)" % [rects["lounge"].size.x, rects["market"].size.x, pw, rects["board"].size.x, rects["ships"].size.x],
+			tops_ok and absf(rects["lounge"].size.x - pw) < 1.0 and absf(rects["market"].size.x - pw) < 1.0 and rects["board"].size.x > pw * 1.5 and rects["ships"].size.x > pw * 1.5, str(rects))
+		_check("v13.338: credits and LAUNCH in the same place on every page", same_launch, str(lrects))
+		hb.show_screen("lounge")
+		await _frames(4)
+		var db: Button = hb.find_child("DeviceSize", true, false)
+		await _shot("devices_phone", 0.3)
+		db.pressed.emit()
+		await _frames(3)
+		var big: Rect2 = hb.content.get_global_rect()
+		var ph: Rect2 = hb.call_rect("r")
+		await _shot("devices_tablet", 0.3)
+		hb.show_screen("market")
+		await _frames(4)
+		var stays: bool = hb.content.get_global_rect().size.x > pw * 1.5
+		db.pressed.emit()
+		await _frames(3)
+		var back: bool = absf(hb.content.get_global_rect().size.x - pw) < 1.0
+		_check("v13.338: %s maximises the device to a tablet out to your phone (%d wide, ends %d, phone at %d); it stays big on the next page (%s); PHONE SIZE brings it back (%s)" % [db.text, big.size.x, big.end.x, ph.position.x, stays, back],
+			db.visible and big.size.x > pw * 1.5 and big.end.x <= ph.position.x + 1.0 and big.end.x > ph.position.x - 40.0 and stays and back, "")
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
+	if _flag("HL_DEVSHOT"):   # look at every station page
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main.dock(_sp().station)
+		await _until(func(): return main.state == "hub", 8.0)
+		var hb = main.hub
+		if OS.get_environment("HL_DEVBIG") != "": hb.set_device_big(true)
+		for pg in OS.get_environment("HL_DEVSHOT").split(","):
+			hb.show_screen(pg)
+			await _wait(1.5)
+			for sc in hb.content.get_children():
+				if sc is ScrollContainer: print("[dev] ", pg, " sc ", sc.name, " size ", sc.size, " child min ", sc.get_child(0).get_combined_minimum_size(), " child size ", sc.get_child(0).size, " needs ", hb.page_needs_tablet(), " pw ", hb.panel_w())
+			await _capture("dev_" + pg)
+		get_tree().quit()
+		return
 	if _flag("HL_V35"):   # the v3.5 room panorama checks only
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -13081,10 +13140,12 @@ func _job_v114() -> void:
 	var lw: Rect2 = hb.leftwin.get_global_rect()
 	var rw: Rect2 = hb.content.get_global_rect()
 	var two_ok: bool = hb.leftwin.visible and hb.content.visible and absf(lw.size.x - hb.panel_w()) < 2.0 and absf(rw.size.x - hb.panel_w()) < 2.0 and lw.end.x < rw.position.x and lw.size.y > lw.size.x
+	if Data.HUB_DEVICES: two_ok = not hb.leftwin.visible and hb.content.visible and rw.size.x > hb.panel_w() * 1.5   # v13.338: one device (the shipyard opens on the tablet)
 	hb.open_call("l", "Test Rival", "hostile", "You're a long way from home, pilot.", "", 0.0, {"id": "vale"})
 	await _frames(2)
 	var lw2: Rect2 = hb.leftwin.get_global_rect()
 	var moved: bool = lw2.position.x >= hb.call_rect("l").end.x and hb.call_rect("l").position.x < 12.0
+	if Data.HUB_DEVICES: moved = hb.content.get_global_rect().position.x >= hb.call_rect("l").end.x and hb.call_rect("l").position.x < 12.0
 	await _shot("v114_ships_two_tablets", 0.4)
 	hb.close_call("l")
 	hb.show_screen("missions")
@@ -21456,8 +21517,8 @@ func _job_v35() -> void:
 	await _frames(3)
 	var rv: ColorRect = hb.room_view
 	var tex = (rv.material as ShaderMaterial).get_shader_parameter("strip")
-	var room_ok: bool = rv.visible and tex != null and hb.room_key == "liberator_shipyard" and ((tex as Texture2D).resource_path.ends_with("liberator/shipyard.jpg") or hb.room_vid_on) and hb.leftwin.visible \
-		and (is_equal_approx(hb.content.anchor_left, Data.ROOM_SPLIT) or is_equal_approx(hb.content.anchor_left, 1.0)) and hb.leftwin.find_child("RoomName", true, false) != null
+	var room_ok: bool = rv.visible and tex != null and hb.room_key == "liberator_shipyard" and ((tex as Texture2D).resource_path.ends_with("liberator/shipyard.jpg") or hb.room_vid_on) and (hb.leftwin.visible or Data.HUB_DEVICES) \
+		and (Data.HUB_DEVICES or ((is_equal_approx(hb.content.anchor_left, Data.ROOM_SPLIT) or is_equal_approx(hb.content.anchor_left, 1.0)) and hb.leftwin.find_child("RoomName", true, false) != null))
 	await _shot("v35_room_shipyard", 0.2)
 	var y0: float = hb.room_yaw
 	var ev := InputEventMouseMotion.new()

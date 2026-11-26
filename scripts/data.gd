@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.337"
+const VERSION := "v13.338"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -1744,6 +1744,14 @@ const BOARD_DRAG_START := 12.0   # v11.3: px a finger moves on a board list befo
 const ROOM_SEAM_PICK := {"unity_main_hub": 0.8363}   # v11.6 (owner): the seam Evee covers, picked by eye (the woman cut in two); other rooms use room_seams.gd's worst
 const HUB_BOARD_ASPECT := 1.5   # v11.4 (owner): the MISSION BOARD is a big landscape window, 3 wide for 2 tall
 const ASST_ROOM_STAND := {"pilots_lounge": [0.24, 0.93]}   # v11.4 (owner): rooms where everyone sits: Evee's head and feet lines (share of the room picture's height)
+## v13.338 (owner: "one universal layout: the work device on the left, phone size or maximised to a tablet; my phone
+## on the right; credits and LAUNCH always in the same place"): every page in the one device.
+const HUB_DEVICES := true
+const HUB_DEVICE_BEZEL := Color(0.08, 0.1, 0.13, 0.98)   # the device's dark frame
+const HUB_DEVICE_BEZEL_W := 6
+const HUB_DEVICE_ROUND := 18
+const HUB_DEVICE_BOTTOM := 100.0   # the device ends this far above the bottom: the message line, then the button row
+const HUB_DEVICE_SPILL := 1.08   # a page this much wider than the phone opens on the tablet
 const HUB_PANEL_ASPECT := 2.0 / 3.0   # v11.2 (owner): the one panel is a 2 x 3 portrait window (width = height x this)
 const HUB_GLASS := Color(0.02, 0.07, 0.15, 0.82)   # v11.11 (owner): darker blue see-through glass (v11.2 light blue was hard to read)
 const HUB_DARK_GLASS := Color(0.02, 0.07, 0.14, 0.88)   # v11.11: the call screens

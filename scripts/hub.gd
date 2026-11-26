@@ -74,6 +74,10 @@ var look_bar: HBoxContainer
 var show_btn: Button       # v3.5: brings the folded windows back
 var fs_btn: Button         # v9.9 (owner): FULL SCREEN on the station pages too
 var back_hub: Button       # v11.59: ◀ MAIN HUB, on every page but the hub
+var device_btn: Button     # v13.338: the work device: PHONE size or TABLET
+## v13.338 (owner: "one layout on every screen: the work device on the left, phone size or maximised to a tablet"):
+## one setting for every page, kept while you are docked and between stations.
+static var device_big := false
 var _call_top := -1.0      # v9.9: how far the page starts below the calls stacked at the panel's top
 var panels_hidden := false # v3.5: both windows folded away (only the top bar stays)
 var look_motion := false   # v3.5: false = drag / stick to look; true = turn the phone
@@ -460,6 +464,18 @@ func _ready() -> void:
 	back_hub.pressed.connect(func():
 		if panels_hidden: set_panels_hidden(false)
 		show_screen("hub"))
+	device_btn = Button.new()
+	device_btn.name = "DeviceSize"
+	device_btn.anchor_top = 1.0
+	device_btn.anchor_bottom = 1.0
+	device_btn.offset_left = 400
+	device_btn.offset_right = 570
+	device_btn.offset_top = -64
+	device_btn.offset_bottom = -12
+	device_btn.add_theme_font_size_override("font_size", Data.ts(16))
+	device_btn.visible = false
+	device_btn.pressed.connect(func(): set_device_big(not device_big))
+	add_child(device_btn)
 	look_ui = Control.new()   # v5.7: look mode: the two sticks
 	look_ui.name = "LookSticks"
 	look_ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -780,6 +796,7 @@ func _refresh_credits() -> void:
 func show_screen(s: String) -> void:
 	_keep_scroll = board_sc.scroll_vertical if (s == screen and board_sc != null and is_instance_valid(board_sc)) else -1   # v11.97 (owner): a page rebuilt in place (brief, accept) keeps its place in the list
 	close_inspector()
+	if device_btn != null: device_btn.visible = Data.HUB_DEVICES and s != "hub" and not full_page(s) and not lockdown
 	if back_hub != null: back_hub.visible = s != "hub" and s != "equipment" and not lockdown   # v11.59: always a way back (the hangar has its own ◀ STATION)
 	_dragged = false   # (a drag left over from the last page must not swallow the next tap)
 	if s == "equipment" and screen != "equipment": holo_on = false   # v4.7: fresh into the hangar, no box until you tap
@@ -899,6 +916,7 @@ func show_screen(s: String) -> void:
 		"surface": _surface_page()
 		"loadout": _loadout_page()
 	if not (s in ["hub", "equipment"]): _wrap_rows(content)   # v4.6: long lines wrap (the page is narrower beside the assistant)
+	if Data.HUB_DEVICES and not full_page(s): _place_tablets()   # v13.338: (now the page is built: a wide page opens on the tablet)
 	queue_redraw()
 
 ## v3.5 (owner): the same frame on every page: the top bar, the left digital window, the room in the middle, the page
@@ -1991,7 +2009,7 @@ func _layout_windows(s: String) -> void:
 	content.mouse_filter = Control.MOUSE_FILTER_STOP if not full_page(s) else content.mouse_filter
 	var fold: bool = panels_hidden and not full_page(s)
 	content.visible = not fold and not (one and panel_min) and s != "hub"   # v11.61 (owner): no text box on the hub: the room, and the call on the right
-	leftwin.visible = split and not one and not fold
+	leftwin.visible = split and not one and not fold and not Data.HUB_DEVICES   # v13.338: one work device (the model you look at stands in it)
 	show_btn.visible = true
 	if full_page(s):   # (the hangar uses the whole screen; v12.72: the garage too)
 		content.anchor_left = 0.0
@@ -2009,6 +2027,11 @@ func _layout_windows(s: String) -> void:
 		g.set_border_width_all(2)
 		tech_cut(g, 16)
 		content.add_theme_stylebox_override("panel", g)
+		if Data.HUB_DEVICES:   # v13.338: a device: dark bezel, round corners, the same on every page
+			g.border_color = Data.HUB_DEVICE_BEZEL
+			g.set_border_width_all(Data.HUB_DEVICE_BEZEL_W)
+			g.set_corner_radius_all(Data.HUB_DEVICE_ROUND)
+			g.corner_detail = 6
 		if two_tablets(s): leftwin.add_theme_stylebox_override("panel", g)
 	else: leftwin.remove_theme_stylebox_override("panel")
 	_panel_tab_place(s)
@@ -2030,6 +2053,28 @@ func _place_tablets() -> void:
 	var rr := right_reserve()
 	var pw := panel_w()
 	content.offset_bottom = -66.0
+	if Data.HUB_DEVICES:   # v13.338: every page the same: the device on the left, phone size or a tablet out to the phone
+		var l0 := left_reserve()
+		content.anchor_left = 0.0
+		content.anchor_right = 0.0
+		content.offset_left = l0
+		content.offset_right = l0 + device_w()
+		content.offset_bottom = -Data.HUB_DEVICE_BOTTOM   # (the message line runs under it, clear of the page)
+		if status != null and screen != "equipment":
+			status.offset_left = l0
+			status.offset_right = -right_reserve()
+			status.offset_top = -Data.HUB_DEVICE_BOTTOM + 2.0
+			status.offset_bottom = -66.0
+		if device_btn != null:
+			device_btn.text = "PHONE SIZE" if device_big else "⤢ TABLET"
+			device_btn.disabled = not device_big and page_needs_tablet()
+		if panel_tab != null:
+			panel_tab.anchor_left = 0.0
+			panel_tab.anchor_right = 0.0
+			panel_tab.offset_left = l0
+			panel_tab.offset_right = l0 + 54.0
+			panel_tab.text = "▶"
+		return
 	if wide_page(screen):   # (3 wide for 2 tall; on a tall screen it is shorter rather than narrower)
 		pw = clampf((S.y - CONTENT_Y - 66.0) * Data.HUB_BOARD_ASPECT, 240.0, S.x - rr - left_reserve() - 8.0)
 		content.offset_bottom = minf(-66.0, CONTENT_Y + pw / Data.HUB_BOARD_ASPECT - S.y)
@@ -2055,6 +2100,28 @@ func _place_tablets() -> void:
 		panel_tab.offset_left = left_reserve()
 		panel_tab.offset_right = left_reserve() + 54.0
 		panel_tab.text = "▶"
+
+## v13.338: the work device's width: a phone (2 wide for 3 tall) or, maximised, a tablet out to your phone on the right.
+func device_w() -> float:
+	var S := get_viewport_rect().size
+	var pw := panel_w()
+	if not device_big and not page_needs_tablet(): return pw
+	return maxf(pw, S.x - right_reserve() - left_reserve() - 8.0)
+
+## v13.338: a page too wide for the phone (the mission board's tabs, the shipyard's rows) opens on the tablet.
+func page_needs_tablet() -> bool:
+	if content == null: return false
+	if two_tablets(screen): return true   # (the list and the model you are looking at)
+	for sc in content.get_children():
+		if sc is ScrollContainer and not (sc as Node).is_queued_for_deletion() and (sc as ScrollContainer).get_child_count() > 0:
+			var c: Control = (sc as ScrollContainer).get_child(0)
+			var need: float = c.get_combined_minimum_size().x - (sc as Control).offset_right + (sc as Control).offset_left + 4.0
+			return need > panel_w() * Data.HUB_DEVICE_SPILL
+	return false
+
+func set_device_big(on: bool) -> void:
+	device_big = on
+	_place_tablets()
 
 func _panel_tab_place(s: String) -> void:
 	if panel_tab == null:
