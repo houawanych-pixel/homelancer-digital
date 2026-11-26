@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.353"
+const VERSION := "v13.354"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -613,6 +613,17 @@ const TL_STYLE := "holo"         # v13.353 (owner's second picture): "holo" = a 
 const TL_HOLO_H := 20.0          # m: the floating sign's middle over the street
 const TL_HOLO_W := 26.0          # m: the sign's square (each glass panel is half of it wide)
 const TL_HOLO_PH := 5.5          # m: the glass panels' height
+const CITY_DRESS := true         # v13.354 (owner's picture): street lamps with banners, lit bollards, cherry trees on the pavements
+const DRESS_EVERY := 32.0        # m between the street lamps (and the trees, between them)
+const DRESS_BOLLARD_EVERY := 8.0 # m between the kerb's bollards
+const DRESS_CORNER := 70.0       # m kept clear at each corner (the footbridges' escalators)
+const DRESS_LAMP_H := 11.0       # m: a street lamp
+const DRESS_TREE_H := 10.0       # m: a cherry tree
+const DRESS_TREE_R := 4.2        # m: its crown
+const DRESS_FAR := 900.0         # m: past this the dressing isn't drawn
+const DRESS_BANNER := Color(0.42, 0.3, 0.78)
+const DRESS_TRUNK := Color(0.28, 0.2, 0.18)
+const DRESS_BLOOM := Color(1.0, 0.62, 0.82)
 const CITY_ZEBRAS := true        # v13.353 (owner's picture): zebra crossings into every crossing
 const ZEBRA_FROM := 1.5          # m past the crossing's edge
 const ZEBRA_LEN := 6.0           # m long (the stop line is behind them)

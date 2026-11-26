@@ -8525,6 +8525,52 @@ func _run() -> void:
 		for r2 in results: print("[route] ", r2)
 		get_tree().quit()
 		return
+	if _flag("HL_DRESS"):   # v13.354 (owner's picture: cherry trees, street lamps with banners, bollards)
+		var pid := "new_terra"
+		var tt := 4
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main._load_surface(pid, tt)
+		await _until(func(): return is_instance_valid(main.space) and main.space.surface_mode and main.space.tile == tt, 40.0)
+		await _wait(3.0)
+		var s := _sp()
+		var counts := {}
+		var nodes := 0
+		for mmi in s.find_children("*", "MultiMeshInstance3D", true, false):
+			if not str((mmi as Node).get_parent().name).begins_with("Dress_"): continue
+			nodes += 1
+			counts[str(mmi.name)] = int(counts.get(str(mmi.name), 0)) + (mmi as MultiMeshInstance3D).multimesh.instance_count
+		var cr: Rect2i = CityPlan.rect(pid, tt)
+		var co: Rect2i = CityPlan.core(pid, tt)
+		var trees_core := 0
+		for dz in co.size.y:
+			for dx in co.size.x: trees_core += (CityDress.points(pid, tt, co.position + Vector2i(dx, dz))["tree"] as Array).size()
+		var g: float = CityPlan.ground(pid, tt)
+		# a street in the outskirts (trees) and one in the core (lamps under the canopies)
+		var ob: Vector2i = cr.position
+		var c0: Vector2 = BlockField.region_centre(ob)
+		var lot_pts: Array = CityDress.points(pid, tt, ob)["tree"]
+		var tp0: Vector2 = lot_pts[lot_pts.size() / 2][0] if not lot_pts.is_empty() else c0
+		var face: Vector2 = lot_pts[lot_pts.size() / 2][1] if not lot_pts.is_empty() else Vector2(1, 0)
+		var eye := Vector3(tp0.x, g + 9.0, tp0.y) + Vector3(face.x, 0, face.y) * 22.0 + Vector3(-face.y, 0, face.x) * 40.0
+		_tp(eye, Vector3(tp0.x, g + 6.0, tp0.y) - Vector3(-face.y, 0, face.x) * 30.0)
+		await _wait(3.0)
+		await _capture("dress_outskirts")
+		var prims: int = int(Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME))
+		var draws: int = int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))
+		var cb: Vector2 = BlockField.region_centre(co.position + Vector2i(1, 1))
+		var lp: Array = CityDress.points(pid, tt, co.position + Vector2i(1, 1))["lamp"]
+		var l0: Vector2 = lp[lp.size() / 3][0] if not lp.is_empty() else cb
+		var f2: Vector2 = lp[lp.size() / 3][1] if not lp.is_empty() else Vector2(1, 0)
+		_tp(Vector3(l0.x, g + 8.0, l0.y) + Vector3(f2.x, 0, f2.y) * 25.0 + Vector3(-f2.y, 0, f2.x) * 50.0, Vector3(l0.x, g + 6.0, l0.y))
+		await _wait(2.5)
+		await _capture("dress_core")
+		_check("v13.354: the streets are dressed: %s (in %d multimeshes, one per part per block); cherry trees only where no glass canopy is overhead (%d in the core); a street view draws %d triangles in %d draw calls" % [str(counts), nodes, trees_core, prims, draws],
+			int(counts.get("post", 0)) > 200 and int(counts.get("trunk", 0)) > 100 and int(counts.get("bollard", 0)) > 500 and int(counts.get("banner", 0)) > 100 and trees_core == 0, "")
+		for r2 in results: print("[route] ", r2)
+		get_tree().quit()
+		return
 	if _flag("HL_DEVSHOT"):   # look at every station page
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)

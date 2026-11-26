@@ -879,6 +879,9 @@ static func build_tile(planet_id: String, tile: int) -> Node3D:
 					tm.material_override = CityTowers.material()
 					tm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 					ci.add_child(tm)
+		if Data.CITY_DRESS:   # v13.354 (owner's picture): street lamps, banners, bollards, cherry trees
+			for dz in cr.size.y:
+				for dx in cr.size.x: root.add_child(CityDress.build(planet_id, tile, cr.position + Vector2i(dx, dz)))
 		var links: Array = CityTowers.city_links(planet_id, tile)   # v13.304: skyways, glass tunnels, the capitol
 		if not (links[0] as Array).is_empty():
 			var lmi := MeshInstance3D.new()
