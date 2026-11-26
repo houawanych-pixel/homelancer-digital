@@ -8262,12 +8262,23 @@ func _run() -> void:
 			e0["provoked"] = true
 		main.dock_ban[str(hb.base["name"])] = GS.system_id
 		main.escape_chasers = chas.size()
+		GS.heat = 3.0   # v13.356: WANTED by their police too, a patrol of them waiting outside
+		GS.heat_fac = own
+		var cops: Array = sp2._spawn_police(2) if is_instance_valid(sp2) else []
+		hb.show_screen("lounge")
+		await _frames(2)
+		var wanted_row: bool = hb.fixer_factions().has(own) and hb.fixer_cost(own) >= int(3 * Data.REP_FIXER_PER_HEAT)
+		pay = hb.find_child("Fixer_" + own, true, false)
+		cost = hb.fixer_cost(own)
+		c0 = GS.credits
 		var had_pay: bool = pay != null
 		if pay != null: pay.pressed.emit()
 		await _frames(2)
 		var reset: bool = had_pay and not Factions.hostile(own) and Factions.below_neutral(own) < 0.5 and GS.credits == c0 - cost
 		var open_again: bool = not hb._board_locked(VBoxContainer.new())
 		var stood_down: bool = not chas.is_empty() and chas.all(func(e0): return not bool(e0.get("provoked", false)) and not bool(e0.get("aggro", false))) and main.dock_ban.is_empty() and main.escape_chasers == 0
+		var cops_off: bool = not cops.is_empty() and cops.all(func(e0): return not bool(e0.get("provoked", false)) and not bool(e0.get("police", false))) and GS.heat <= 0.0 and GS.heat_fac == ""
+		_check("v13.356: WANTED (heat 3) shows on the Fixer's list and adds to his price (%s); paying clears it and their police waiting outside stand down (%s)" % [wanted_row, cops_off], wanted_row and cops_off, "")
 		_check("v13.345: after paying the Fixer, %s's ships out there stand down (%d of them, none provoked) and you may dock with them again (%s)" % [own, main.cleared_ships, stood_down], stood_down, "")
 		_check("v13.341: the Fixer (Garrick's clips) walks toward you in the lounge (%s); %s's work is locked when they hate you (%s); tap him: his call names the price and the lounge shows PAY (%s); paying %d cr puts you back to neutral (%s) and their missions come back (%s)" % [walks_in, own, locked, call_ok, cost, reset, open_again],
 			walks_in and locked and call_ok and reset and open_again, "%s clip %s vis %s play %s | hostile %s below %.2f cr %d -> %d (cost %d)" % [str(hb.crew.crew_log), hb.crew.vid.get_meta("clip", ""), hb.crew.vid.visible, hb.crew.vid.is_playing(), Factions.hostile(own), Factions.below_neutral(own), c0, GS.credits, cost])

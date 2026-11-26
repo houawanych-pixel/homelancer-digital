@@ -1843,11 +1843,16 @@ var cleared_ships := 0   # (checks)
 func _on_record_cleared(f: String) -> void:
 	escape_chasers = 0
 	dock_ban.clear()   # (there is only ever the one: the station you broke out of)
+	if GS.heat_fac == f or GS.heat_fac == "":   # v13.356 (owner: "the enemy was still waiting outside ... I won't have a bounty"): no longer WANTED either
+		GS.heat = 0.0
+		GS.heat_fac = ""
+		GS.heat_follow = 0
 	if not is_instance_valid(space): return
 	cleared_ships = 0
 	for e in space.enemies:
-		if str(e.get("faction", "")) != f: continue
+		if str(e.get("faction", "")) != f and not (bool(e.get("police", false)) and GS.heat <= 0.0): continue
 		e["provoked"] = false
+		e["police"] = false
 		e["aggro"] = false
 		e["hunter"] = false
 		cleared_ships += 1

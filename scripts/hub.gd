@@ -2326,12 +2326,13 @@ func _lounge_page() -> void:
 ## below, x (1 + points / REP_FIXER_SCALE), so a HUNTED record costs far more than a CAUTIOUS one.
 static func fixer_cost(f: String) -> int:
 	var d: float = Factions.below_neutral(f)
-	return int(round(d * Data.REP_FIXER_PER_POINT * (1.0 + d / Data.REP_FIXER_SCALE) / 10.0)) * 10
+	var wanted: float = ceilf(GS.heat) if GS.heat > 0.0 and GS.heat_fac == f else 0.0   # v13.356: and their police after you
+	return int(round((d * Data.REP_FIXER_PER_POINT * (1.0 + d / Data.REP_FIXER_SCALE) + wanted * Data.REP_FIXER_PER_HEAT) / 10.0)) * 10
 
 func fixer_factions() -> Array:
 	var out: Array = []
 	for f in Factions.DEFS:
-		if Factions.normal(f) and Factions.below_neutral(f) > 0.5: out.append(f)
+		if Factions.normal(f) and (Factions.below_neutral(f) > 0.5 or (GS.heat > 0.0 and GS.heat_fac == f)): out.append(f)   # (v13.356: or WANTED by their police)
 	out.sort_custom(func(a, b): return Factions.below_neutral(a) > Factions.below_neutral(b))
 	return out
 
@@ -2431,7 +2432,7 @@ func _fixer_rows(v: VBoxContainer) -> void:
 	for f in fs:
 		var fl := _label(16, (Factions.info(f)["color"] as Color).lightened(0.2))
 		fl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		fl.text = "%s: %s -> NEUTRAL" % [str(Factions.def(f).get("display_name", f)).to_upper(), str(Factions.info(f)["name"])]
+		fl.text = "%s: %s%s -> CLEAN" % [str(Factions.def(f).get("display_name", f)).to_upper(), str(Factions.info(f)["name"]), ("  ·  WANTED %d" % int(ceilf(GS.heat))) if GS.heat > 0.0 and GS.heat_fac == f else ""]
 		v.add_child(fl)
 		var b := Button.new()
 		b.name = "Fixer_" + str(f)
