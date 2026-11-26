@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.352"
+const VERSION := "v13.353"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -609,12 +609,20 @@ const TRAFFIC_PANEL_H := 1.6     # v13.349 (owner: "a long green panel that turn
 const TRAFFIC_PANEL_T := 0.6     # m thick
 const TRAFFIC_PANEL_SPAN := 0.92 # of the road's width it spans
 const TRAFFIC_PANEL_BACK := 3.0  # m before the crossing's edge
+const TL_STYLE := "holo"         # v13.353 (owner's second picture): "holo" = a glass sign floating over the crossing; "gantry" = the corner gantries (v13.352)
+const TL_HOLO_H := 20.0          # m: the floating sign's middle over the street
+const TL_HOLO_W := 26.0          # m: the sign's square (each glass panel is half of it wide)
+const TL_HOLO_PH := 5.5          # m: the glass panels' height
+const CITY_ZEBRAS := true        # v13.353 (owner's picture): zebra crossings into every crossing
+const ZEBRA_FROM := 1.5          # m past the crossing's edge
+const ZEBRA_LEN := 6.0           # m long (the stop line is behind them)
+const ZEBRA_STRIPE := 1.2        # m wide stripes, as wide again apart
 const TL_H := 22.0               # v13.352 (owner's picture): m: the gantry's arm over the street (a mech, about 14 m, walks under the panel)
 const TL_BACK := 4.0             # m before the crossing's edge
 const TL_PANEL_H := 4.2          # m: the glass panel's height
 const TL_LAMP_R := 1.3           # m: its round lamp
 const TRAFFIC_LIGHT_FLOAT_H := 16.0  # v13.335 (owner: "floating signs above"): m over the middle of the crossing the light hovers
-const TRAFFIC_STOP_GAP := 4.0        # m: cars wait this far short of the crossing
+const TRAFFIC_STOP_GAP := 10.0       # m: cars wait this far short of the crossing (v13.353: behind the zebra crossing and its stop line; was 4)
 const TRAFFIC_LIGHT_SEE := 70.0      # m: how far ahead a car minds a red light or the car in front
 const TRAFFIC_CAR_GAP := 14.0        # m kept to the car in front in a queue
 const CITY_SOLID_PAD := {"foot": 1.0, "car": 2.6, "mech": 4.0, "ship": 6.0}   # v13.325 (owner: "cars are solids, people are solids"): how wide you are against them (m)
