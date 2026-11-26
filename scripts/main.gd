@@ -232,11 +232,55 @@ func _new_space(nm: String) -> void:
 	add_child(space)
 	move_child(space, 0)
 
+## v13.333 (owner: "a camera cutscene could hide the loading"): going in, the camera leaves your ship and sweeps in to
+## the door (the hull, the facility), the screen closes to the caption, and the world you're leaving is let go.
+var door_ins := 0   # (checks)
+func _door_in(focus: Vector3) -> void:
+	door_ins += 1
+	space.controls = false
+	hud.visible = false
+	if is_instance_valid(space) and is_instance_valid(space.cam) and focus != Vector3.INF:
+		space.start_door_film(focus, Data.DOOR_FILM_IN, true)
+		await get_tree().create_timer(maxf(0.0, Data.DOOR_FILM_IN - Data.DOOR_FADE)).timeout
+	var tw := create_tween()
+	tw.tween_property(fx, "fade", 1.0, Data.DOOR_FADE)
+	await tw.finished
+	await _release_world()
+
+## Where a facility stands (its main building), for the camera; Vector3.INF if it isn't on this tile.
+func _facility_focus(site: Dictionary) -> Vector3:
+	if not is_instance_valid(space) or not space.has_method("facility_base_at"): return Vector3.INF
+	var fb: Array = space.facility_base_at(str(site.get("name", "")))
+	return (fb[0] as Vector3) + Vector3(0, float(fb[1]) * 0.35, 0) if fb[0] != Vector3.INF else Vector3.INF
+
+## You broke its shield to get in (an enemy base), so its people are after you when you come out.
+func _facility_hostile(site: Dictionary) -> bool:
+	return str(site.get("side", "")) == "hostile" or bool(site.get("raid", false)) or (is_instance_valid(space) and space.has_method("_fac_side") and str(space._fac_side(site)) == "hostile")
+
+## Back out where you were (the inside never loaded): the world rebuilt, you where you stood, the screen opening.
+func _back_outside(at: Dictionary) -> void:
+	if str(at.get("planet", "")) != "": _load_surface(str(at["planet"]), int(at["tile"]))
+	else: _load_system(str(at["sys"]), "station")
+	await get_tree().process_frame
+	if is_instance_valid(space) and is_instance_valid(space.player):
+		space.player.global_position = (at["pos"] as Vector3) + Vector3(0, 30.0, 0)
+		space.vel = Vector3.ZERO
+	fx.caption = ""
+	fx.sub = ""
+	var twb := create_tween()
+	twb.tween_property(fx, "fade", 0.0, 0.5)
+	await twb.finished
+	if is_instance_valid(space): space.controls = true
+	hud.visible = true
+	state = "flight"
+
 ## v13.322 (owner: "the alarm at the New Terra planetary dock is black"; the facility went black too): on a phone the
 ## world you leave (a whole city) and the deck being built must not be in memory together. Behind the black screen the
 ## old world goes first, a couple of frames to let it go, then the deck is built.
+var releases := 0   # (checks) worlds let go before an inside was built
 func _release_world() -> void:
 	_new_space("Boarding")
+	releases += 1
 	await get_tree().process_frame
 	await get_tree().process_frame
 
@@ -1673,6 +1717,7 @@ func board_station(kind: String, job := {}, opts := {}) -> void:
 	var tw := create_tween()
 	tw.tween_property(fx, "fade", 1.0, 0.5)
 	await tw.finished
+	await _release_world()   # v13.322; v13.333: at once, before the downloads (nothing of the world is kept while they come)
 	await Packs.wait(PilotRig.PACK, 60.0)
 	var gpk := "crowd3d_orion" if fac.to_lower().begins_with("orion") else "crowd3d"
 	Packs.request(gpk)
@@ -1681,7 +1726,6 @@ func board_station(kind: String, job := {}, opts := {}) -> void:
 	if Data.FLEET_MECH:
 		Packs.request("mechs")
 		await Packs.wait("mechs", 60.0)
-	await _release_world()   # v13.322
 	var _bt1 := Time.get_ticks_msec()
 	Boarding.use(L)
 	if OS.get_environment("HL_BTIME") != "": print("BTIME use %d" % (Time.get_ticks_msec() - _bt1))
@@ -2468,9 +2512,7 @@ func board_battleship(e: Dictionary) -> void:
 	fx.caption = "BOARDING"
 	fx.sub = board_from["name"].to_upper()
 	Sfx.play("whoosh", -2.0, 0.8)
-	var tw := create_tween()
-	tw.tween_property(fx, "fade", 1.0, 0.5)
-	await tw.finished
+	await _door_in(board_from["ship_at"])   # v13.333: the camera sweeps in to the hull, then the world goes
 	# v12.18 (owner): every enemy battleship has its own generated deck plan (Boarding.deckplan "ship")
 	if Boarding.classic: Boarding.use_ship()
 	elif bool(board_from["mothership"]):   # v12.58 (owner): the mothership: huge, tunnels and chambers, flown with your ship
@@ -2510,10 +2552,9 @@ func infiltrate_station(n: Node3D) -> void:
 	fx.caption = "INFILTRATION"
 	fx.sub = nm.to_upper()
 	Sfx.play("whoosh", -2.0, 0.7)
-	var tw := create_tween()
-	tw.tween_property(fx, "fade", 1.0, 0.5)
-	await tw.finished
-	Boarding.use(Boarding.deckplan("%s:%s" % [space.sys_id, nm], "station", Data.STATION_INFIL_LEVEL, nm))   # v12.18: a hub-and-ring station deck plan
+	var isid: String = space.sys_id
+	await _door_in(n.global_position)   # v13.333
+	Boarding.use(Boarding.deckplan("%s:%s" % [isid, nm], "station", Data.STATION_INFIL_LEVEL, nm))   # v12.18: a hub-and-ring station deck plan
 	GS.form = "mech"   # v12.29 (owner): you dock as you are; inside you are the mech
 	_new_space("Boarding")
 	space.setup_boarding({"sys": board_from["sys"], "faction": board_from["faction"], "name": nm})
@@ -2553,37 +2594,34 @@ func _enter_facility_deck(site: Dictionary, path: String) -> void:
 	# v13.314 (owner: "when I went inside, the screen is black"): everything it needs comes down together BEFORE the
 	# screen goes dark, with the progress showing, instead of one after another behind a black screen
 	var need := facility_packs(site, fac)
+	var out_at := {"planet": str(space.planet_id), "tile": int(space.tile), "pos": space.player.global_position, "sys": space.sys_id, "focus": _facility_focus(site),
+		"hostile": _facility_hostile(site)}
 	space.controls = false
 	hud.visible = false
 	fx.caption = "TOWER" if bool(site.get("tower", false)) else "FACILITY"
 	fx.sub = "%s  ·  LOADING" % nm.to_upper()
-	var tw0 := create_tween()
-	tw0.tween_property(fx, "fade", 1.0, 0.5)
-	await tw0.finished
+	for pk in need: Packs.request(str(pk))   # (they come down while the camera sweeps in)
+	# v13.333 (owner: "it went black straight away ... a camera cutscene could hide the loading; just remove the city
+	# completely, you're going in"): the camera sweeps in to the facility's door, then the whole world is let go
+	# (city, planet, traffic) BEFORE anything inside is downloaded or built
+	await _door_in(out_at["focus"])
 	var got := await _wait_packs_shown(need, nm, Data.FACILITY_LOAD_WAIT)
 	var fpk := "towers" if bool(site.get("tower", false)) else "facilities_l%d" % clampi(int(site.get("difficulty", 1)), 1, 5)
 	var L := Boarding.fleet_layout(path) if Packs.is_ready(fpk) and FileAccess.file_exists(path) else {}
 	if L.is_empty() or not got:   # (it didn't come down: back to the world, never a stuck black screen)
-		fx.caption = ""
-		fx.sub = ""
-		var twb := create_tween()
-		twb.tween_property(fx, "fade", 0.0, 0.4)
-		await twb.finished
-		if is_instance_valid(space): space.controls = true
-		hud.visible = true
-		state = "flight"
+		await _back_outside(out_at)
 		hud.flash_message("The facility didn't load (slow connection?). Press INFILTRATE to try again.")
 		return
 	var kind: String = ["sabotage", "capture", "rescue"][absi(hash("mission:%s:%s" % [str(site.get("planet", "")), nm])) % 3]
 	if bool(site.get("tower", false)): kind = ["capture", "rescue"][absi(hash("tower:" + nm)) % 2]   # v13.315 (owner: "looking for someone in a certain room, a target")   # (the same three missions: each site has its own)
-	board_from = {"sys": space.sys_id, "pos": space.player.global_position, "ship_at": Vector3.ZERO, "name": nm, "faction": fac, "facility": true,
-		"planet": str(space.planet_id), "tile": int(space.tile), "difficulty": int(site.get("difficulty", 1)), "form": GS.form,
-		"fleet_deck": "facility:" + path.get_file().get_basename(), "job": false, "kind": kind, "from": "facility"}
+	board_from = {"sys": out_at["sys"], "pos": out_at["pos"], "ship_at": Vector3.ZERO, "name": nm, "faction": fac, "facility": true,
+		"planet": out_at["planet"], "tile": out_at["tile"], "difficulty": int(site.get("difficulty", 1)), "form": GS.form,
+		"fleet_deck": "facility:" + path.get_file().get_basename(), "job": false, "kind": kind, "from": "facility",
+		"focus": out_at["focus"], "hostile": out_at["hostile"]}
 	fx.sub = ("%s  ·  ROOF DOCK" % nm.to_upper()) if bool(site.get("tower", false)) else "%s  ·  LEVEL %d" % [nm.to_upper(), int(site.get("difficulty", 1))]
 	if bool(site.get("tower", false)): board_from["tower"] = true
 	Sfx.play("whoosh", -2.0, 0.7)
 	GS.form = "mech"
-	await _release_world()   # v13.322
 	Boarding.use(L)
 	Boarding.INFO["name"] = nm
 	var dm := {}
@@ -2644,9 +2682,7 @@ func enter_facility(site: Dictionary) -> void:
 	fx.caption = "FACILITY"
 	fx.sub = "%s  ·  LEVEL %d" % [str(site["name"]).to_upper(), int(site.get("difficulty", 1))]
 	Sfx.play("whoosh", -2.0, 0.7)
-	var tw := create_tween()
-	tw.tween_property(fx, "fade", 1.0, 0.5)
-	await tw.finished
+	await _door_in(_facility_focus(site))   # v13.333
 	Boarding.use(Boarding.facility("%s:%s" % [str(site.get("planet", "")), str(site["name"])], int(site.get("difficulty", 1)), str(site["name"])))
 	GS.form = "mech"   # v12.29 (owner): you dock as you are; inside you are the mech
 	_new_space("Boarding")
@@ -2864,6 +2900,7 @@ func board_fleet_ship(id: String, kind: String, job := {}) -> void:
 	var tw := create_tween()
 	tw.tween_property(fx, "fade", 1.0, 0.5)
 	await tw.finished
+	await _release_world()   # v13.333: the world goes before anything inside is built or downloaded
 	await Packs.wait(PilotRig.PACK, 60.0)
 	var gpk := "crowd3d_orion" if fac.to_lower().begins_with("orion") else "crowd3d"
 	Packs.request(gpk)
@@ -2924,6 +2961,8 @@ func _leave_fleet_ship(won: bool) -> void:
 		if blow:
 			space.start_nuke_film(fbase[0], maxf(60.0, float(fbase[1])))
 			space.base_blown(str(bf["name"]))   # (gone in the flash)
+		elif fbase[0] != Vector3.INF:   # v13.333 (owner: "a short exit cutscene"): the camera pulls back out from the door to your ship
+			space.start_door_film((fbase[0] as Vector3) + Vector3(0, float(fbase[1]) * 0.35, 0), Data.DOOR_FILM_OUT, false)
 		var twf2 := create_tween()
 		twf2.tween_property(fx, "fade", 0.0, 0.6)
 		await twf2.finished
@@ -2932,6 +2971,12 @@ func _leave_fleet_ship(won: bool) -> void:
 		if blow:
 			film_runs += 1
 			await space.nuke_film_done
+		elif fbase[0] != Vector3.INF:
+			await get_tree().create_timer(Data.DOOR_FILM_OUT - 0.6).timeout
+			space.door_film = {}
+		if Data.FACILITY_EXIT_CHASE and bool(bf.get("hostile", false)):   # v13.333 (owner, "maybe"): you broke in: their ships come after you
+			var n_ch: int = space.facility_chase(str(bf["faction"]))
+			if n_ch > 0: hud.flash_message("%d of their ships are after you: you broke into %s." % [n_ch, str(bf["name"])])
 		if fjob: space.raid_clear(str(bf["name"]))   # v13.241: the raid base is gone
 		space.controls = true
 		hud.visible = true

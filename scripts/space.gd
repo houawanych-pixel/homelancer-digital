@@ -13158,8 +13158,49 @@ static func _basis_along(dir: Vector3) -> Basis:   # a basis whose y axis is dir
 	return Basis(x, y, z)
 
 var cine_t := -1.0   # v12.52: the landing film (>= 0: the camera flies round your ship on its own)
+## v13.333 (owner: "a camera cutscene hides the loading"): the door film: going in, the camera leaves the ship and
+## sweeps in to the door (focus); coming out, it starts by the door and pulls back up and away to your ship.
+var door_film := {}
+func start_door_film(focus: Vector3, dur: float, inward: bool) -> void:
+	var from: Vector3 = cam.global_position if is_instance_valid(cam) else focus + Vector3(0, 60, 200)
+	door_film = {"a": from, "f": focus, "t": 0.0, "d": maxf(0.1, dur), "in": inward}
+func _door_film(dt: float) -> void:
+	door_film["t"] = float(door_film["t"]) + dt
+	var k := smoothstep(0.0, 1.0, clampf(float(door_film["t"]) / float(door_film["d"]), 0.0, 1.0))
+	var f: Vector3 = door_film["f"]
+	var a: Vector3 = door_film["a"]
+	var away := Vector3(a.x - f.x, 0.0, a.z - f.z)
+	away = away.normalized() if away.length() > 1.0 else Vector3(0, 0, 1)
+	var pos: Vector3
+	if bool(door_film["in"]):
+		var stop := f + away * Data.DOOR_FILM_STOP + Vector3(0, Data.DOOR_FILM_STOP * 0.25, 0)
+		pos = a.lerp(stop, k)
+	else:
+		var p0 := f + away * Data.DOOR_FILM_STOP + Vector3(0, Data.DOOR_FILM_STOP * 0.25, 0)
+		var p1: Vector3 = player.global_position + (player.global_basis.z * 60.0) + Vector3(0, 25.0, 0) if is_instance_valid(player) else p0 + Vector3(0, 120, 0)
+		pos = p0.lerp(p1, k)
+		f = f.lerp(player.global_position if is_instance_valid(player) else f, k)
+	cam.global_position = pos
+	if pos.distance_to(f) > 0.5: cam.look_at(f, Vector3.UP)
+
+## The ships of a base you broke into, after you as you come out (a group near you, angry). Returns how many.
+func facility_chase(fac: String) -> int:
+	if not is_instance_valid(player): return 0
+	if not Factions.has(fac): fac = "Savagers"
+	var p := player.global_position
+	var at := p - player.global_basis.z * 700.0 + Vector3(0, 80.0, 0)
+	if surface_mode: at.y = maxf(at.y, _ground(at.x, at.z) + 120.0)
+	var g: Array = spawn_mission_group(at, fac, Data.FACILITY_CHASERS, 2, "", -8)
+	for e in g:
+		e["aggro"] = true
+		e["provoked"] = true
+	return g.size()
+
 func _update_camera(dt: float, snap: bool) -> void:
 	if is_instance_valid(player): _cam_prev_ship = player.global_position
+	if not door_film.is_empty() and is_instance_valid(cam):   # v13.333
+		_door_film(dt)
+		return
 	if not esc_film.is_empty() and is_instance_valid(player):   # v13.220
 		_escape_film(dt)
 		return

@@ -1989,10 +1989,26 @@ func _run() -> void:
 		main.enter_facility(site)
 		await _wait(0.3)
 		var loading: bool = main.fx.caption == "FACILITY"
+		var rel0: int = main.releases
+		var door0: int = main.door_ins
 		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding, 120.0)
+		var released: bool = main.releases > rel0 and main.door_ins > 0
 		await _wait(1.0)
 		await _capture("base_inside")
 		_check("v13.314: INFILTRATE shows the FACILITY loading screen (%s), then you're inside (%s), the screen clear (fade %.2f)" % [str(loading), str(main.space.boarding), main.fx.fade], loading and main.space.boarding and main.fx.fade < 0.05 and main.hud.visible, "")
+		# v13.333: going in, the camera swept to the door and the planet was let go before the inside was built; coming
+		# out, the camera pulls back out, and a base you broke into sends its ships after you
+		main.board_from["hostile"] = true
+		main._leave_fleet_ship(false)
+		var filmed := false
+		for i in 120:
+			await _wait(0.25)
+			if is_instance_valid(main.space) and not main.space.door_film.is_empty(): filmed = true
+			if main.state == "flight" and is_instance_valid(main.space) and main.space.surface_mode: break
+		await _wait(1.0)
+		await _capture("facility_out")
+		var chasers: int = main.space.enemies.filter(func(e): return int(e.get("mission", 0)) == -8 and e["aggro"]).size()
+		_check("v13.333: going in, the planet was let go before the inside was built (%s); coming out, a camera pull-back (%s) and %d of their ships after you" % [str(released), str(filmed), chasers], released and filmed and chasers > 0 and main.state == "flight", "")
 		_finish_group()
 		return
 	if _flag("HL_RAID"):   # v13.241 (owner: "a base should spawn when you take on a mission ... a good distance from the docking hub ... a shield like the ship ... enemy mechs protect it")
