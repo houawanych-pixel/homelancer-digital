@@ -198,7 +198,7 @@ static func solids(t: Dictionary) -> Array:
 static func parts_solids(ps: Array) -> Array:
 	var out: Array = []
 	for p in ps:
-		if str(p["k"]) in ["green", "glow", "ribbon"]: continue   # (v13.331: the ramp decks are drawn, not boxes)
+		if str(p["k"]) in ["green", "glow", "ribbon", "post", "pane"]: continue   # (v13.331: the ramp decks are drawn, not boxes; v13.337: nor the canopies, overhead and thin)
 		var pp: Vector3 = p["p"]
 		var s: Vector3 = p["s"]
 		out.append(AABB(Vector3(pp.x - s.x * 0.5, pp.y, pp.z - s.z * 0.5), s))
@@ -385,6 +385,7 @@ static func city_links(pid: String, tile: int) -> Array:
 			for ly in levels:
 				_skyway(out, ax == 0, line, (org.y if ax == 0 else org.x), (org.y + size.y if ax == 0 else org.x + size.x), g, g + float(ly))
 	out.append_array(interchange_parts(pid, tile))   # v13.331: the spiral interchanges at the skyways' ends
+	out.append_array(walk_parts(pid, tile))   # v13.337: the covered footbridges and the canopies over the pavements
 	# glass tunnels between neighbouring giants
 	var giants := {}
 	for rz in cr.size.y:
@@ -567,6 +568,82 @@ static func _uturn(c: Vector2, o: Vector2, w: Vector2, off: float, rr: float, y:
 	pts.append(Vector3((c - w * off).x, y, (c - w * off).y))
 	return pts
 
+## v13.337 (owner: "crosswalks should be like escalators for people to go up and over, covered, to be protected; and
+## covered walkways along the roads, room for pedestrians"): at each avenue crossing, a covered glass footbridge over
+## each of the two avenues, just past the crossing: an escalator up from the pavement either side, a glass tube across
+## over the traffic, walls and a glass roof all the way. And along every pavement facing an avenue, a glass canopy on
+## slim posts. All of it is parts of the one city-links mesh.
+static func walk_parts(pid: String, tile: int) -> Array:
+	var out: Array = []
+	var cr := CityPlan.rect(pid, tile)
+	if cr.size == Vector2i.ZERO or not Data.CITY_TOWERS or not Data.CITY_FOOTBRIDGES: return out
+	var g := CityPlan.ground(pid, tile)
+	var S: float = Data.BLOCK_REGION
+	var org := Vector2(-Surface.EDGE, -Surface.EDGE) + Vector2(cr.position) * S
+	var size := Vector2(cr.size) * S
+	var av: float = Data.CITY_AVENUE * Data.BLOCK_MIN
+	var lines := func(n_blocks: int, o: float) -> Array:   # [coordinate, half the road's width]
+		var l: Array = [[o + av * 0.5, av * 0.5]]
+		for b in range(1, n_blocks): l.append([o + b * S, av])
+		l.append([o + n_blocks * S - av * 0.5, av * 0.5])
+		return l
+	var lx: Array = lines.call(cr.size.x, org.x)
+	var lz: Array = lines.call(cr.size.y, org.y)
+	var H: float = g + Data.FOOTBRIDGE_H
+	var E: float = Data.FOOTBRIDGE_ESC
+	var off: float = Data.FOOTBRIDGE_FROM
+	var side: float = Data.FOOTBRIDGE_W * 0.5 + 1.0
+	for ax in lx:
+		for az in lz:
+			var X: float = ax[0]
+			var Z: float = az[0]
+			var hx: float = ax[1]
+			var hz: float = az[1]
+			# over the avenue that runs along x (spanning z), on the +x arm of the crossing
+			var x0 := X + hx + off
+			if x0 + E + 4.0 < org.x + size.x:
+				var a1 := Vector3(x0 + E, g + 0.1, Z - hz - side)
+				var b1 := Vector3(x0, H, Z - hz - side)
+				var b2 := Vector3(x0, H, Z + hz + side)
+				var a2 := Vector3(x0 + E, g + 0.1, Z + hz + side)
+				out.append({"k": "ribbon", "pts": PackedVector3Array([a1, b1, b2, a2]), "w": Data.FOOTBRIDGE_W, "rail": true, "roof": true, "walk": true})
+			# over the avenue that runs along z (spanning x), on the +z arm
+			var z0 := Z + hz + off
+			if z0 + E + 4.0 < org.y + size.y:
+				var c1 := Vector3(X - hx - side, g + 0.1, z0 + E)
+				var d1 := Vector3(X - hx - side, H, z0)
+				var d2 := Vector3(X + hx + side, H, z0)
+				var c2 := Vector3(X + hx + side, g + 0.1, z0 + E)
+				out.append({"k": "ribbon", "pts": PackedVector3Array([c1, d1, d2, c2]), "w": Data.FOOTBRIDGE_W, "rail": true, "roof": true, "walk": true})
+	# canopies over the pavements along the avenues: the lots' edges facing a road, a glass roof on posts
+	var pv: float = Data.CITY_PAVEMENT * Data.BLOCK_MIN
+	for rz in cr.size.y:
+		for rx in cr.size.x:
+			var plan := CityPlan.block(pid, tile, cr.position + Vector2i(rx, rz))
+			var bo := org + Vector2(rx, rz) * S
+			for lr in plan.get("lots", []):
+				var r: Rect2i = lr
+				var x0 := bo.x + r.position.x * Data.BLOCK_MIN
+				var z0 := bo.y + r.position.y * Data.BLOCK_MIN
+				var x1 := bo.x + r.end.x * Data.BLOCK_MIN
+				var z1 := bo.y + r.end.y * Data.BLOCK_MIN
+				for ed in [[Vector2(x0, z0), Vector2(x1, z0), Vector2(0, 1)], [Vector2(x0, z1), Vector2(x1, z1), Vector2(0, -1)], [Vector2(x0, z0), Vector2(x0, z1), Vector2(1, 0)], [Vector2(x1, z0), Vector2(x1, z1), Vector2(-1, 0)]]:
+					var p0: Vector2 = ed[0]
+					var p1: Vector2 = ed[1]
+					var inn: Vector2 = ed[2]   # toward the lot
+					var mid := (p0 + p1) * 0.5 + inn * pv * 0.82   # (its back half: the footbridges' escalators run along the front)
+					var L := p0.distance_to(p1) - 6.0
+					if L < 10.0: continue
+					var along_x := absf(p1.x - p0.x) > 1.0
+					out.append({"k": "pane", "p": Vector3(mid.x, g + Data.CANOPY_H, mid.y), "s": Vector3(L, 0.4, pv * 0.36) if along_x else Vector3(pv * 0.36, 0.4, L)})
+					out.append({"k": "glow", "p": Vector3(mid.x - inn.x * pv * 0.18, g + Data.CANOPY_H - 0.1, mid.y - inn.y * pv * 0.18), "s": Vector3(L, 0.3, 0.3) if along_x else Vector3(0.3, 0.3, L)})
+					var n_post := int(L / Data.CANOPY_POST_EVERY)
+					for k in n_post + 1:
+						var f := -0.5 + float(k) / maxf(1.0, n_post)
+						var q := mid - inn * pv * 0.15 + (Vector2(L * f, 0) if along_x else Vector2(0, L * f))
+						out.append({"k": "post", "p": Vector3(q.x, g, q.y), "s": Vector3(0.5, Data.CANOPY_H, 0.5)})
+	return out
+
 ## The interchanges' roadways to draw: helix decks with rails and lit edges, their columns, the street out to the loop.
 static func interchange_parts(pid: String, tile: int) -> Array:
 	var out: Array = []
@@ -614,7 +691,7 @@ static func interchange_parts(pid: String, tile: int) -> Array:
 	return out
 
 ## A road along a line of points: a deck (dark top, white underside), with glass rails and lit edges if rail.
-static func _ribbon(st: SurfaceTool, pts: PackedVector3Array, wd: float, rail: bool, far: bool) -> void:
+static func _ribbon(st: SurfaceTool, pts: PackedVector3Array, wd: float, rail: bool, far: bool, roof := false) -> void:
 	var h := wd * 0.5
 	for i in pts.size() - 1:
 		var a := pts[i]
@@ -650,6 +727,15 @@ static func _ribbon(st: SurfaceTool, pts: PackedVector3Array, wd: float, rail: b
 				_quad(st, p0, p0 + r, p1 + r, p1, nin, Data.TOWER_WHITE, PANEL)
 				_quad(st, o0 + r, o0, o1, o1 + r, -nin, Data.TOWER_WHITE, PANEL)
 				_quad(st, o0 + r, p0 + r, p1 + r, o1 + r, Vector3.UP, Data.CITY_TRIM, GLOW)
+		if roof:   # v13.337 (owner: "covered, to be protected"): glass sides up to a glass roof, white ribs along its edges
+			var gh := Vector3(0, Data.FOOTBRIDGE_ROOF_H, 0)
+			var lo := Vector3(0, Data.RAMP_WALL_H, 0)
+			_quad(st, ar + lo, ar + gh, br + gh, br + lo, -sd.normalized(), Data.KIT_GLASS, GLASS)
+			_quad(st, al + gh, al + lo, bl + lo, bl + gh, sd.normalized(), Data.KIT_GLASS, GLASS)
+			_quad(st, ar + gh, al + gh, bl + gh, br + gh, up, Data.KIT_GLASS, GLASS)
+			var rb := sd.normalized() * 0.35
+			_quad(st, ar + gh, ar + gh + rb, br + gh + rb, br + gh, up, Data.TOWER_WHITE, PANEL)
+			_quad(st, al + gh - rb, al + gh, bl + gh, bl + gh - rb, up, Data.TOWER_WHITE, PANEL)
 
 ## A glass tunnel between two points (tile-local x, z) at height y, axis-aligned legs: glass tube with white rings.
 static func _tunnel(out: Array, a: Vector2, b: Vector2, y: float) -> void:
@@ -687,8 +773,12 @@ static func _part(st: SurfaceTool, p: Dictionary, far: bool) -> void:
 			_pod(st, pp, s, p.get("out", Vector3.RIGHT), far)
 		"glow":   # a line of light
 			_bevel_box(st, pp, s, 0.0, Data.CITY_TRIM, GLOW, GLOW, true)
+		"post":   # v13.337: a plain slim box (no rounded edges: the canopies' posts)
+			_bevel_box(st, pp, s, 0.0, Data.TOWER_WHITE, PANEL, PANEL, true)
+		"pane":   # v13.337: a plain glass slab (the canopies' roofs)
+			_bevel_box(st, pp, s, 0.0, Data.KIT_GLASS, GLASS, GLASS, true)
 		"ribbon":   # v13.331: a road along points (the interchange spirals, the street out, the loop)
-			_ribbon(st, p["pts"], float(p["w"]), bool(p.get("rail", false)), far)
+			_ribbon(st, p["pts"], float(p["w"]), bool(p.get("rail", false)), far, bool(p.get("roof", false)))
 
 ## A box (bottom centre p, size s) with its four upright edges rounded (radius b, 2 steps) and its top and bottom edges
 ## chamfered by b: the HyperNURBS look with a handful of faces. walls: the side faces' kind; caps: top and bottom.

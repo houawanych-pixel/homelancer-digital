@@ -9211,6 +9211,49 @@ func _run() -> void:
 		_check("v13.325: you can't walk through a car (pushed %.1f m out) or a person (%s, person found %s); a car stops %.0f m short of you in its lane (%s)" % [away, str(ped_ok), str(not ped.is_empty()), gap, str(yield_ok)], car_ok and ped_ok and not ped.is_empty() and yield_ok, "")
 		_finish_group()
 		return
+	if _flag("HL_FOOTBRIDGE"):   # v13.337 (owner: "escalators up and over, covered; covered walkways along the roads")
+		var pid := "new_terra"
+		var tt := 4
+		var wp: Array = CityTowers.walk_parts(pid, tt)
+		var bridges: Array = wp.filter(func(q): return str(q["k"]) == "ribbon")
+		var canopies: int = wp.filter(func(q): return str(q["k"]) == "pane").size()
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main._load_surface(pid, tt)
+		await _until(func(): return is_instance_valid(main.space) and main.space.surface_mode and main.space.tile == tt, 40.0)
+		await _wait(3.0)
+		var s := _sp()
+		var g := CityPlan.ground(pid, tt)
+		var tris := 0
+		for n in s.find_children("CityLinks", "MeshInstance3D", true, false):
+			var m: Mesh = (n as MeshInstance3D).mesh
+			for si in m.get_surface_count(): tris += (m.surface_get_arrays(si)[Mesh.ARRAY_VERTEX] as PackedVector3Array).size() / 3
+		var br: PackedVector3Array = bridges[4]["pts"]
+		var mid: Vector3 = (br[1] + br[2]) * 0.5
+		s.player.global_position = Vector3(mid.x + 60.0, g + 7.0, mid.z + 50.0)
+		var dv: Vector3 = (mid - s.player.global_position).normalized()
+		s.yaw = atan2(-dv.x, -dv.z)
+		s.pitch = asin(clampf(dv.y, -1.0, 1.0))
+		s.player.basis = Basis.from_euler(Vector3(s.pitch, s.yaw, 0))
+		s.vel = Vector3.ZERO
+		s._update_camera(1.0, true)
+		await _wait(3.0)
+		await _capture("footbridge")
+		# on foot up the escalator and across: the deck holds you
+		s.on_foot = true
+		GS.form = "mech"
+		s.set_player_model()
+		s.ground_mode = true
+		s.player.global_position = mid + Vector3(0, 6.0, 0)
+		s.vel = Vector3.ZERO
+		s._ramp_last = Vector3.INF
+		await _wait(1.5)
+		var stood: float = s.player.global_position.y - Data.PILOT_FEET_BELOW - mid.y
+		await _capture("footbridge_on")
+		_check("v13.337: %d covered footbridges (escalator up, glass tube across) and %d pavement canopies; you can stand on a bridge (%.1f m over its deck); the city links mesh is %d triangles" % [bridges.size(), canopies, stood, tris], bridges.size() >= 12 and canopies > 20 and absf(stood) < 1.0 and tris < 140000, "")
+		_finish_group()
+		return
 	if _flag("HL_MARKINGS"):   # v13.336 (owner: "the roads on the bottom don't have any line work")
 		var pid := "new_terra"
 		var tt := 4

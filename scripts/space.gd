@@ -16860,7 +16860,7 @@ func _ramp_solids() -> void:
 	if key != _ramp_key:
 		_ramp_key = key
 		_ramp_segs = []
-		for prt in CityTowers.interchange_parts(planet_id, tile):
+		for prt in CityTowers.interchange_parts(planet_id, tile) + CityTowers.walk_parts(planet_id, tile):   # (v13.337: and the footbridges)
 			if str(prt.get("k", "")) != "ribbon" or not bool(prt.get("rail", false)): continue
 			var pts: PackedVector3Array = prt["pts"]
 			for i in pts.size() - 1: _ramp_segs.append([pts[i], pts[i + 1], float(prt["w"]) * 0.5, true])
