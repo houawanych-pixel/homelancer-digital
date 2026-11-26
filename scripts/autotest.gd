@@ -8331,6 +8331,59 @@ func _run() -> void:
 		for r2 in results: print("[route] ", r2)
 		get_tree().quit()
 		return
+	if _flag("HL_LOOPS"):   # v13.348 (owner: "like a Hot Wheels track: everything loops together, the vehicles go round the whole city")
+		var pid := "new_terra"
+		var tt := 4
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main._load_surface(pid, tt)
+		await _until(func(): return is_instance_valid(main.space) and main.space.surface_mode and main.space.tile == tt, 40.0)
+		await _wait(3.0)
+		var s := _sp()
+		var cr: Rect2i = CityPlan.rect(pid, tt)
+		var g: float = CityPlan.ground(pid, tt)
+		var c0: Vector2 = BlockField.region_centre(cr.position + Vector2i(1, 1)) - Vector2(Data.BLOCK_REGION, Data.BLOCK_REGION) * 0.5
+		var spot := Vector3(c0.x + 20.0, g + 25.0, c0.y + 60.0)
+		await _until(func(): s.player.global_position = spot; s.vel = Vector3.ZERO; return s.city_traffic != null and is_instance_valid(s.city_traffic), 60.0)
+		var ct: CityTraffic = s.city_traffic
+		var dead := 0
+		var streets := 0
+		for li in ct._lanes.size():
+			var L: Array = ct._lanes[li]
+			if L.size() == 4: 
+				if not ct._next.has(li): dead += 1
+				continue
+			if L.size() == 3: continue
+			streets += 1
+			if not ct._next.has(li): dead += 1
+		# the land round the city lies flat (the loops and the interchanges' street on it)
+		var org := Vector2(-Surface.EDGE, -Surface.EDGE) + Vector2(cr.position) * Data.BLOCK_REGION
+		var flat := true
+		for lp in CityTowers.street_loops(pid, tt):
+			var pp: PackedVector3Array = lp["pts"]
+			var far_pt: Vector3 = pp[pp.size() / 2]
+			if Surface.height(pid, tt, far_pt.x, far_pt.z) > g + 0.5: flat = false
+		# a car runs on round: put one at a street's end and let it drive across the loop
+		var car_ok := false
+		var lp0: Dictionary = CityTowers.street_loops(pid, tt)[0]
+		for li in ct._lanes.size():
+			var L2: Array = ct._lanes[li]
+			if L2.size() == 2 and (L2[1] as Vector2).distance_to(lp0["B"] + lp0["w"] * lp0["off"]) < 1.5:
+				var nx: Array = ct._next.get(li, [])
+				if nx.is_empty(): break
+				var nx2: Array = ct._next.get(int(nx[0]), [])
+				car_ok = not nx2.is_empty() and (ct._lanes[int(nx2[0])] as Array).size() == 2 and ((ct._lanes[int(nx2[0])][0]) as Vector2).distance_to(lp0["B"] - lp0["w"] * lp0["off"]) < 1.5
+				break
+		var at: Vector3 = (lp0["pts"] as PackedVector3Array)[(lp0["pts"] as PackedVector3Array).size() / 2]
+		_tp(at + Vector3(-160, 140, 160), at)
+		await _wait(3.0)
+		await _capture("loops_air")
+		_check("v13.348: every street has somewhere to go at its end (%d street lanes, %d turning loops, %d dead ends); a car at a street's end goes round its loop and back in on the other side (%s); the land under the loops is flat at street level (%s)" % [streets, ct.loop_lanes, dead, car_ok, flat],
+			dead == 0 and ct.loop_lanes > 20 and car_ok and flat, "")
+		for r2 in results: print("[route] ", r2)
+		get_tree().quit()
+		return
 	if _flag("HL_DEVSHOT"):   # look at every station page
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -9558,7 +9611,7 @@ func _run() -> void:
 		await _wait(1.5)
 		var stood: float = s.player.global_position.y - Data.PILOT_FEET_BELOW - mid.y
 		await _capture("footbridge_on")
-		_check("v13.337: %d covered footbridges (escalator up, glass tube across) and %d pavement canopies; you can stand on a bridge (%.1f m over its deck); the city links mesh is %d triangles" % [bridges.size(), canopies, stood, tris], bridges.size() >= 12 and canopies > 20 and absf(stood) < 1.0 and tris < 160000, "")   # (v13.344: 160k with the capital's outskirts)
+		_check("v13.337: %d covered footbridges (escalator up, glass tube across) and %d pavement canopies; you can stand on a bridge (%.1f m over its deck); the city links mesh is %d triangles" % [bridges.size(), canopies, stood, tris], bridges.size() >= 12 and canopies > 20 and absf(stood) < 1.0 and tris < 180000, "")   # (v13.344: 160k with the capital's outskirts; v13.348: 180k with the street loops)
 		_finish_group()
 		return
 	if _flag("HL_MARKINGS"):   # v13.336 (owner: "the roads on the bottom don't have any line work")

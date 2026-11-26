@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.347"
+const VERSION := "v13.348"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -533,6 +533,10 @@ const CITY_LAND := {"city": 3, "coast": 3, "jungle": 2, "forest": 1, "industrial
 const CITY_OFFCENTRE := 1.2        # v13.302: a city this many regions per extra block across may sit off the tile's middle (beside its port)
 const CITY_FORCE := {"new_terra": {5: 3}}   # v13.316 (owner: "another good sized tile, same size city, same kind of build"; picked B3 Forest): tile -> blocks across, on top of the ones CITY_LAND picks
 const SOLDIER_DROP_MECH := true   # v13.345: a guard made a soldier keeps no hidden mech under it (graphics memory on phones)
+const CITY_LOOPS := true            # v13.348 (owner: "like a Hot Wheels track, everything loops together"): every street end turns round in a loop
+const LOOP_R := 22.0                # m: a street's turning loop (its inner lane)
+const LOOP_OUT := 6.0               # m out past the city's edge before it turns
+const CITY_APRON := 500.0           # v13.348: m round a city the land lies flat at its street level (its loops and interchanges stand on it), then eases back
 const CITY_WIDEN := {"new_terra": {4: 1}}   # v13.344 (owner: "the capital should be the biggest city"): a ring of outskirt blocks round the capital's core (tile -> blocks out)
 const OUTSKIRT_H := 0.5                     # their towers: half the core's height
 const OUTSKIRT_VARY := Vector2(0.8, 1.25)   # ...give or take
@@ -582,6 +586,10 @@ const TRAFFIC_LIGHT_AMBER := 2.0     # ... then amber, then the other way's turn
 const TRAFFIC_LIGHT_H := 8.0         # m: the light post (v13.335: no posts now)
 const STREET_MARK_UP := 0.06        # v13.336: m the street markings lie over the street
 const STREET_DASH := 6.0            # m a dash of a lane line (and the gap)
+const TRAFFIC_PANEL_H := 1.6     # v13.349 (owner: "a long green panel that turns red"): m tall
+const TRAFFIC_PANEL_T := 0.6     # m thick
+const TRAFFIC_PANEL_SPAN := 0.92 # of the road's width it spans
+const TRAFFIC_PANEL_BACK := 3.0  # m before the crossing's edge
 const TRAFFIC_LIGHT_FLOAT_H := 16.0  # v13.335 (owner: "floating signs above"): m over the middle of the crossing the light hovers
 const TRAFFIC_STOP_GAP := 4.0        # m: cars wait this far short of the crossing
 const TRAFFIC_LIGHT_SEE := 70.0      # m: how far ahead a car minds a red light or the car in front

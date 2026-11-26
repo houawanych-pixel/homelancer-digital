@@ -89,6 +89,7 @@ func _build_lanes() -> void:
 							_lanes.append([Vector2(org.x + size.x, line - off), Vector2(org.x, line - off), yy])
 	sky_lanes = _lanes.filter(func(l): return l.size() == 3).size()
 	_build_interchanges()
+	_build_loops()
 	# v13.324: the avenue lines (where the lights stand): [coordinate, half the road's width] on each axis
 	var lines := func(n_blocks: int, o: float) -> Array:
 		var out: Array = [[o + av * 0.5, av * 0.5]]
@@ -311,6 +312,26 @@ func _build_interchanges() -> void:
 				if i >= 1: _next[idx["in_%d_%d" % [i, k]]] = [idx["in_%d_%d" % [i - 1, k]], idx["up_%d_%d" % [i - 1, k]]]
 			_next[idx["uturn_%d" % k]] = [idx["in_%d_%d" % [nst - 1, k]]]
 
+## v13.348: the streets' turning loops: the lane heading out runs on round its loop and back in on the lane coming in.
+var loop_lanes := 0   # (checks)
+func _build_loops() -> void:
+	var near_pt := func(p: Vector2, q: Vector2) -> bool: return p.distance_to(q) < 1.5
+	var n0 := _lanes.size()
+	for lp in CityTowers.street_loops(planet_id, tile):
+		var pts: PackedVector3Array = lp["pts"]
+		var road := PackedVector3Array()
+		for p in pts: road.append(p + Vector3(0, Data.TRAFFIC_HOVER - 0.15, 0))
+		var li := _lanes.size()
+		_lanes.append([Vector2(road[0].x, road[0].z), Vector2(road[road.size() - 1].x, road[road.size() - 1].z), 0.0, road])
+		loop_lanes += 1
+		var a := Vector2(road[0].x, road[0].z)
+		var b := Vector2(road[road.size() - 1].x, road[road.size() - 1].z)
+		for k in n0:
+			var L: Array = _lanes[k]
+			if L.size() != 2: continue
+			if near_pt.call(L[1], a): _next[k] = [li]
+			if near_pt.call(L[0], b): _next[li] = [k]
+
 ## Run a car on to lane li from its start.
 func _enter_lane(p: Dictionary, li: int, t: float) -> void:
 	var L: Array = _lanes[li]
@@ -359,12 +380,6 @@ func _build_lights() -> void:
 		c.radial_segments = segs
 		c.rings = 1
 		return c
-	var disc: CylinderMesh = cyl.call(1.6, 1.6, 0.4, 16)   # the head: a round dark frame ...
-	var dot: CylinderMesh = cyl.call(0.28, 0.28, 0.5, 8)   # ... a ring of round lamps ...
-	var bar_z := BoxMesh.new()       # ... and a glowing bar under it (laid along its face: one for each way the head turns)
-	bar_z.size = Vector3(2.4, 0.5, 0.4)
-	var bar_x := BoxMesh.new()
-	bar_x.size = Vector3(0.4, 0.5, 2.4)
 	var st := {}
 	for k in ["frame", "trim", "x", "z"]:
 		var t := SurfaceTool.new()
@@ -373,30 +388,43 @@ func _build_lights() -> void:
 	# v13.335 (owner: "I didn't like the little corner stop signs, that seems old: floating signs above"): no posts. Over
 	# the middle of each crossing a light hovers: a slim dark core with a glowing ring under it, and a round head on each
 	# of its four sides facing the traffic coming that way (a ring of lamps and a bar), green / amber / red.
-	var core: CylinderMesh = cyl.call(1.2, 1.6, 2.6, 12)
-	var halo: CylinderMesh = cyl.call(2.4, 2.4, 0.25, 16)
+	# v13.349 (owner: "that little traffic light thing's dumb: a longer panel, a long green panel, and it turns red"):
+	# over each way into a crossing, a long glowing panel right across that road, floating high enough for a mech to walk
+	# under, in a dark frame with a lit rim: green, amber, red for the traffic coming that way.
+	var panel := BoxMesh.new()
+	var back := BoxMesh.new()
+	var rim := BoxMesh.new()
 	for ax in _ave_x:
 		for az in _ave_z:
+			var X := float(ax[0])
+			var Z := float(az[0])
+			var hx := float(ax[1])
+			var hz := float(az[1])
 			var mark := Node3D.new()
 			mark.name = "TrafficLight"
-			mark.position = Vector3(float(ax[0]), _g + Data.TRAFFIC_LIGHT_FLOAT_H, float(az[0]))
+			mark.position = Vector3(X, _g + Data.TRAFFIC_LIGHT_FLOAT_H, Z)
 			add_child(mark)
 			lights.append(mark)
-			var cxf := Transform3D(Basis.IDENTITY, mark.position)
-			(st["frame"] as SurfaceTool).append_from(core, 0, cxf)
-			(st["trim"] as SurfaceTool).append_from(halo, 0, cxf * Transform3D(Basis.IDENTITY, Vector3(0, -1.6, 0)))
-			for face in [[Vector3(1, 0, 0), true], [Vector3(-1, 0, 0), true], [Vector3(0, 0, 1), false], [Vector3(0, 0, -1), false]]:
-				var fd: Vector3 = face[0]
-				var face_x: bool = face[1]
-				var hb := Basis.from_euler(Vector3(PI * 0.5, 0.0, 0.0) if not face_x else Vector3(0.0, 0.0, PI * 0.5))
-				var hxf := cxf * Transform3D(hb, fd * 1.9)
-				var lk := "x" if face_x else "z"
-				(st["frame"] as SurfaceTool).append_from(disc, 0, hxf)
-				for k in 8:
-					var a := TAU * k / 8.0
-					(st[lk] as SurfaceTool).append_from(dot, 0, hxf * Transform3D(Basis.IDENTITY, Vector3(cos(a) * 1.05, 0.0, sin(a) * 1.05)))
-				(st["trim"] as SurfaceTool).append_from(dot, 0, hxf)
-				(st[lk] as SurfaceTool).append_from(bar_x if face_x else bar_z, 0, hxf * Transform3D(Basis.IDENTITY, Vector3(-2.2, 0.0, 0.0) if face_x else Vector3(0.0, 0.0, 2.2)))
+			var y := _g + Data.TRAFFIC_LIGHT_FLOAT_H
+			for side in [-1.0, 1.0]:
+				# the traffic along x: a panel across that road (spanning z), just before the crossing on each side
+				var L := hz * 2.0 * Data.TRAFFIC_PANEL_SPAN
+				var at := Vector3(X + side * (hx + Data.TRAFFIC_PANEL_BACK), y, Z)
+				panel.size = Vector3(Data.TRAFFIC_PANEL_T, Data.TRAFFIC_PANEL_H, L)
+				back.size = Vector3(Data.TRAFFIC_PANEL_T * 1.6, Data.TRAFFIC_PANEL_H + 0.8, L + 0.8)
+				rim.size = Vector3(Data.TRAFFIC_PANEL_T * 1.8, 0.25, L + 1.0)
+				(st["x"] as SurfaceTool).append_from(panel, 0, Transform3D(Basis.IDENTITY, at + Vector3(side * 0.3, 0, 0)))
+				(st["frame"] as SurfaceTool).append_from(back, 0, Transform3D(Basis.IDENTITY, at - Vector3(side * 0.2, 0, 0)))
+				(st["trim"] as SurfaceTool).append_from(rim, 0, Transform3D(Basis.IDENTITY, at + Vector3(0, Data.TRAFFIC_PANEL_H * 0.5 + 0.5, 0)))
+				# the traffic along z
+				var L2 := hx * 2.0 * Data.TRAFFIC_PANEL_SPAN
+				var at2 := Vector3(X, y, Z + side * (hz + Data.TRAFFIC_PANEL_BACK))
+				panel.size = Vector3(L2, Data.TRAFFIC_PANEL_H, Data.TRAFFIC_PANEL_T)
+				back.size = Vector3(L2 + 0.8, Data.TRAFFIC_PANEL_H + 0.8, Data.TRAFFIC_PANEL_T * 1.6)
+				rim.size = Vector3(L2 + 1.0, 0.25, Data.TRAFFIC_PANEL_T * 1.8)
+				(st["z"] as SurfaceTool).append_from(panel, 0, Transform3D(Basis.IDENTITY, at2 + Vector3(0, 0, side * 0.3)))
+				(st["frame"] as SurfaceTool).append_from(back, 0, Transform3D(Basis.IDENTITY, at2 - Vector3(0, 0, side * 0.2)))
+				(st["trim"] as SurfaceTool).append_from(rim, 0, Transform3D(Basis.IDENTITY, at2 + Vector3(0, Data.TRAFFIC_PANEL_H * 0.5 + 0.5, 0)))
 	for pr in [["frame", frame], ["trim", trim], ["x", _lamp_x], ["z", _lamp_z]]:
 		var mi := MeshInstance3D.new()
 		mi.name = "Lights_" + str(pr[0])

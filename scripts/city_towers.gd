@@ -386,6 +386,7 @@ static func city_links(pid: String, tile: int) -> Array:
 			for ly in levels:
 				_skyway(out, ax == 0, line, (org.y if ax == 0 else org.x), (org.y + size.y if ax == 0 else org.x + size.x), g, g + float(ly))
 	out.append_array(interchange_parts(pid, tile))   # v13.331: the spiral interchanges at the skyways' ends
+	for lp in street_loops(pid, tile): out.append({"k": "ribbon", "pts": lp["pts"], "w": Data.TRAFFIC_LANE_W * 1.3, "rail": false})   # v13.348: the streets' turning loops
 	out.append_array(walk_parts(pid, tile))   # v13.337: the covered footbridges and the canopies over the pavements
 	# glass tunnels between neighbouring giants
 	var giants := {}
@@ -570,6 +571,48 @@ static func _uturn(c: Vector2, o: Vector2, w: Vector2, off: float, rr: float, y:
 		pts.append(Vector3(p.x, y, p.y))
 	pts.append(Vector3((c - w * off).x, y, (c - w * off).y))
 	return pts
+
+## v13.348 (owner: "the track cuts off and goes into the grass; it should be like a race car track or a Hot Wheels
+## track, everything looping together"): every street that runs out to the city's edge (and has no spiral interchange
+## there) turns round in a loop just outside it and comes back in on its other side, so every road is part of a loop
+## and the traffic runs on round the city for ever. [{o (outward), w (the outgoing lanes' side), B (the street's end at
+## the edge), off (the lane's distance from the street's middle), pts (the loop, out on the right, back on the left)}]
+static func street_loops(pid: String, tile: int) -> Array:
+	var out: Array = []
+	var cr := CityPlan.rect(pid, tile)
+	if cr.size == Vector2i.ZERO or not Data.CITY_LOOPS: return out
+	var g := CityPlan.ground(pid, tile)
+	var S: float = Data.BLOCK_REGION
+	var org := Vector2(-Surface.EDGE, -Surface.EDGE) + Vector2(cr.position) * S
+	var size := Vector2(cr.size) * S
+	var av: float = Data.CITY_AVENUE * Data.BLOCK_MIN
+	var lw: float = Data.TRAFFIC_LANE_W
+	var sky := {}   # the lines with a spiral interchange at their ends (they turn there instead)
+	if not CityPlan.is_town(pid, tile) and Data.CITY_TOWERS and Data.CITY_RAMPS:
+		for ax in 2:
+			for sl in CityPlan.sky_lines(pid, tile, ax): sky[Vector2i(ax, int(sl[0]))] = true
+	for ax in 2:   # ax 0: streets along z (their ends on the north and south edges); 1: along x
+		var n_b: int = cr.size.x if ax == 0 else cr.size.y
+		var mids: Array = [[av * 0.5, 1, -1]]
+		for b in n_b:
+			mids.append([b * S + S * 0.5, 1, -1])   # an alley
+			if b > 0: mids.append([b * S, 2, b])    # an avenue (b: its block line)
+		mids.append([n_b * S - av * 0.5, 1, -1])
+		for m in mids:
+			if int(m[2]) > 0 and sky.has(Vector2i(ax, int(m[2]))): continue
+			var line: float = (org.x if ax == 0 else org.y) + float(m[0])
+			for sgn in [-1.0, 1.0]:
+				var o := Vector2(0.0, sgn) if ax == 0 else Vector2(sgn, 0.0)
+				var w := Vector2(-o.y, o.x)
+				var B := Vector2(line, org.y if sgn < 0.0 else org.y + size.y) if ax == 0 else Vector2(org.x if sgn < 0.0 else org.x + size.x, line)
+				for k in int(m[1]):
+					var off := lw * (0.5 + k)
+					var rr: float = Data.LOOP_R + k * lw * 1.5
+					var pts := _uturn(B + o * Data.LOOP_OUT, o, w, off, rr, g + 0.15)
+					pts.insert(0, Vector3((B + w * off).x, g + 0.15, (B + w * off).y))
+					pts.append(Vector3((B - w * off).x, g + 0.15, (B - w * off).y))
+					out.append({"o": o, "w": w, "B": B, "off": off, "pts": pts})
+	return out
 
 ## v13.337 (owner: "crosswalks should be like escalators for people to go up and over, covered, to be protected; and
 ## covered walkways along the roads, room for pedestrians"): at each avenue crossing, a covered glass footbridge over
