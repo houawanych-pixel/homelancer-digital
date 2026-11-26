@@ -357,7 +357,6 @@ func _build_lights() -> void:
 		c.radial_segments = segs
 		c.rings = 1
 		return c
-	var pole: CylinderMesh = cyl.call(0.35, 0.45, Data.TRAFFIC_LIGHT_H, 8)
 	var disc: CylinderMesh = cyl.call(1.6, 1.6, 0.4, 16)   # the head: a round dark frame ...
 	var dot: CylinderMesh = cyl.call(0.28, 0.28, 0.5, 8)   # ... a ring of round lamps ...
 	var bar_z := BoxMesh.new()       # ... and a glowing bar under it (laid along its face: one for each way the head turns)
@@ -369,28 +368,33 @@ func _build_lights() -> void:
 		var t := SurfaceTool.new()
 		t.begin(Mesh.PRIMITIVE_TRIANGLES)
 		st[k] = t
+	# v13.335 (owner: "I didn't like the little corner stop signs, that seems old: floating signs above"): no posts. Over
+	# the middle of each crossing a light hovers: a slim dark core with a glowing ring under it, and a round head on each
+	# of its four sides facing the traffic coming that way (a ring of lamps and a bar), green / amber / red.
+	var core: CylinderMesh = cyl.call(1.2, 1.6, 2.6, 12)
+	var halo: CylinderMesh = cyl.call(2.4, 2.4, 0.25, 16)
 	for ax in _ave_x:
 		for az in _ave_z:
-			for sx in [-1.0, 1.0]:
-				for sz in [-1.0, 1.0]:
-					var post := Node3D.new()
-					post.name = "TrafficLight"
-					post.position = Vector3(float(ax[0]) + sx * (float(ax[1]) + 3.0), _g, float(az[0]) + sz * (float(az[1]) + 3.0))
-					add_child(post)
-					lights.append(post)
-					var pxf := Transform3D(Basis.IDENTITY, post.position)
-					(st["frame"] as SurfaceTool).append_from(pole, 0, pxf * Transform3D(Basis.IDENTITY, Vector3(0, Data.TRAFFIC_LIGHT_H * 0.5, 0)))
-					for face_x in [true, false]:   # one head for each way through the crossing
-						var hp := Vector3(0, Data.TRAFFIC_LIGHT_H - 1.0, 0) + (Vector3(-sx * 1.2, 0, 0) if face_x else Vector3(0, 0, -sz * 1.2))
-						var hb := Basis.from_euler(Vector3(PI * 0.5, 0.0, 0.0) if not face_x else Vector3(0.0, 0.0, PI * 0.5))   # its face toward the traffic
-						var hxf := pxf * Transform3D(hb, hp)
-						var lk := "x" if face_x else "z"
-						(st["frame"] as SurfaceTool).append_from(disc, 0, hxf)
-						for k in 8:
-							var a := TAU * k / 8.0
-							(st[lk] as SurfaceTool).append_from(dot, 0, hxf * Transform3D(Basis.IDENTITY, Vector3(cos(a) * 1.05, 0.0, sin(a) * 1.05)))
-						(st["trim"] as SurfaceTool).append_from(dot, 0, hxf)
-						(st[lk] as SurfaceTool).append_from(bar_x if face_x else bar_z, 0, hxf * Transform3D(Basis.IDENTITY, Vector3(-2.2, 0.0, 0.0) if face_x else Vector3(0.0, 0.0, 2.2)))
+			var mark := Node3D.new()
+			mark.name = "TrafficLight"
+			mark.position = Vector3(float(ax[0]), _g + Data.TRAFFIC_LIGHT_FLOAT_H, float(az[0]))
+			add_child(mark)
+			lights.append(mark)
+			var cxf := Transform3D(Basis.IDENTITY, mark.position)
+			(st["frame"] as SurfaceTool).append_from(core, 0, cxf)
+			(st["trim"] as SurfaceTool).append_from(halo, 0, cxf * Transform3D(Basis.IDENTITY, Vector3(0, -1.6, 0)))
+			for face in [[Vector3(1, 0, 0), true], [Vector3(-1, 0, 0), true], [Vector3(0, 0, 1), false], [Vector3(0, 0, -1), false]]:
+				var fd: Vector3 = face[0]
+				var face_x: bool = face[1]
+				var hb := Basis.from_euler(Vector3(PI * 0.5, 0.0, 0.0) if not face_x else Vector3(0.0, 0.0, PI * 0.5))
+				var hxf := cxf * Transform3D(hb, fd * 1.9)
+				var lk := "x" if face_x else "z"
+				(st["frame"] as SurfaceTool).append_from(disc, 0, hxf)
+				for k in 8:
+					var a := TAU * k / 8.0
+					(st[lk] as SurfaceTool).append_from(dot, 0, hxf * Transform3D(Basis.IDENTITY, Vector3(cos(a) * 1.05, 0.0, sin(a) * 1.05)))
+				(st["trim"] as SurfaceTool).append_from(dot, 0, hxf)
+				(st[lk] as SurfaceTool).append_from(bar_x if face_x else bar_z, 0, hxf * Transform3D(Basis.IDENTITY, Vector3(-2.2, 0.0, 0.0) if face_x else Vector3(0.0, 0.0, 2.2)))
 	for pr in [["frame", frame], ["trim", trim], ["x", _lamp_x], ["z", _lamp_z]]:
 		var mi := MeshInstance3D.new()
 		mi.name = "Lights_" + str(pr[0])

@@ -9259,16 +9259,16 @@ func _run() -> void:
 		tr.light_t = 0.2   # the x way: green
 		await _wait(2.0)
 		var went: bool = float(car["t"]) > ts + 10.0
-		var lp: Vector3 = (tr.lights[5] as Node3D).global_position
-		s.player.global_position = lp + Vector3(14.0, 6.0, 16.0)
-		var dv2: Vector3 = (lp + Vector3(0, Data.TRAFFIC_LIGHT_H - 1.0, 0) - s.player.global_position).normalized()
+		var lp: Vector3 = (tr.lights[5] as Node3D).global_position   # (v13.335: the floating light over a crossing)
+		s.player.global_position = lp + Vector3(26.0, -6.0, 30.0)
+		var dv2: Vector3 = (lp - s.player.global_position).normalized()
 		s.yaw = atan2(-dv2.x, -dv2.z)
 		s.pitch = asin(clampf(dv2.y, -1.0, 1.0))
 		s.player.basis = Basis.from_euler(Vector3(s.pitch, s.yaw, 0))
 		s._update_camera(1.0, true)
 		await _wait(0.6)
 		await _capture("traffic_light_green")
-		_check("v13.324: %d traffic lights at the crossings; at red (x %s, z %s) a car waits at the line (%s, %s, stops %d), at green it goes (%s)" % [tr.lights.size(), red, green_z, str(held_ok), str(at_line), tr.stops, str(went)], tr.lights.size() >= 16 and red == "stop" and green_z == "go" and held_ok and at_line and went, "")
+		_check("v13.324: %d traffic lights at the crossings; at red (x %s, z %s) a car waits at the line (%s, %s, stops %d), at green it goes (%s)" % [tr.lights.size(), red, green_z, str(held_ok), str(at_line), tr.stops, str(went)], tr.lights.size() >= 9 and red == "stop" and green_z == "go" and held_ok and at_line and went, "")
 		_finish_group()
 		return
 	if _flag("HL_SKYCARS"):   # v13.323 (owner: "a track on the top to have cars running through there too")
