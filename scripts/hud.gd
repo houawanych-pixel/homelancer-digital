@@ -3421,7 +3421,7 @@ func _fleet_map3d(inner: Rect2) -> void:
 		var dtex := {}   # v13.138: the other decks' plans (shown when you are on that deck)
 		for dn in (Boarding.INFO.get("plan_tex_decks", {}) as Dictionary):
 			var dp := str(Boarding.INFO["plan_tex_decks"][dn])
-			if ResourceLoader.exists(dp): dtex[dn] = load(dp)
+			if ResourceLoader.exists(dp): dtex[dn] = dp   # v13.345: the path; the map loads the deck you are on only (ten 3300 px floor plans were a phone's whole memory)
 		map3d.setup(Boarding.ROOMS, space.board_doors, ptex, Boarding.INFO.get("plan_map", {}), dtex)
 		_map3d_for = space.board
 	var fl: Dictionary = space.board.get("fleet", {})

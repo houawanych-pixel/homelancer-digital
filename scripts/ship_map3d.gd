@@ -26,6 +26,7 @@ var _route_key := ""
 var lit := {}            # v13.138: the rooms Evee lights up (yellow) on the way to her waypoint
 var _state := ""
 var plan_mi: MeshInstance3D
+var _plan_shown := ""
 var plan_decks := {}     # deck name -> its plan picture (the next deck's plan when you go up or down)
 var _route_t := 0.0
 
@@ -221,8 +222,11 @@ func refresh(seen: Dictionary, deck_y: float, ppos: Vector3, pfwd: Vector3, goal
 			for rk in d.get("rooms", []): near = near or seen.has(str(rk))
 			(dn[0] as MeshInstance3D).visible = near
 	var dk := Boarding.deck_name(deck_y)   # the plan of the deck you are on
-	if plan_mi != null and plan_decks.has(dk) and (plan_mi.material_override as StandardMaterial3D).albedo_texture != plan_decks[dk]:
-		(plan_mi.material_override as StandardMaterial3D).albedo_texture = plan_decks[dk]
+	if plan_mi != null and plan_decks.has(dk) and _plan_shown != dk:   # v13.345: one deck's plan in memory at a time (a path is loaded now)
+		_plan_shown = dk
+		var tx = plan_decks[dk]
+		if tx is String: tx = load(str(tx)) if ResourceLoader.exists(str(tx)) else null
+		if tx != null: (plan_mi.material_override as StandardMaterial3D).albedo_texture = tx
 	if plan_mi != null: plan_mi.position.y = deck_y - SLAB * 2.0
 	for k in slabs:   # only this deck (the others would hide it)
 		var mi: MeshInstance3D = slabs[k]

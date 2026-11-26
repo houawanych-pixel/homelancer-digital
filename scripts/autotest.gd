@@ -2396,6 +2396,7 @@ func _run() -> void:
 		var site: Dictionary = s.tower_candidate()
 		_check("v13.315: on a tower's roof INFILTRATE shows (%s)" % str(site.get("name", "")), not site.is_empty() and s.prompt() == "board", s.prompt())
 		await _capture("tower_roof")
+		print("[cityperf] tex MB ", Performance.get_monitor(Performance.RENDER_TEXTURE_MEM_USED) / 1048576.0, " buf MB ", Performance.get_monitor(Performance.RENDER_BUFFER_MEM_USED) / 1048576.0, " prims ", Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME), " draws ", Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), " objs ", Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME), " vmem MB ", Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0, " nodes ", Performance.get_monitor(Performance.OBJECT_NODE_COUNT), " static MB ", Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0)
 		main.enter_facility(site)
 		await _until(func(): return main.state == "flight" and is_instance_valid(main.space) and main.space.boarding and Boarding.INFO.has("fleet"), 120.0)
 		await _wait(2.0)
@@ -2405,6 +2406,65 @@ func _run() -> void:
 		_check("v13.315: inside the tower: ten floors (%s), in at the ROOF DOCK (%s), %s" % [", ".join(names), here, str(s.board.get("fleet", {}).get("kind", ""))],
 			bool(Boarding.INFO.get("tower", false)) and names.size() == 10 and str(Boarding.ROOMS.get(here, {}).get("label", "")) == "ROOF DOCK" and str(s.board.get("fleet", {}).get("kind", "")) in ["capture", "rescue"], here)
 		await _capture("tower_in_mech")
+		var by := {}
+		for mi in get_tree().root.find_children("*", "MeshInstance3D", true, false):
+			var m: Mesh = (mi as MeshInstance3D).mesh
+			if m == null: continue
+			var nv := 0
+			for si in m.get_surface_count():
+				var arr := m.surface_get_arrays(si)
+				nv += (arr[Mesh.ARRAY_VERTEX] as PackedVector3Array).size()
+			var p0: Node = mi
+			var path := ""
+			for k in 3:
+				if p0.get_parent() == null: break
+				p0 = p0.get_parent()
+			path = str((mi as Node).get_path()).get_slice("/", 3) + "/" + str((mi as Node).get_path()).get_slice("/", 4)
+			if not by.has(path): by[path] = [0, 0]
+			by[path][0] += 1
+			by[path][1] += nv
+		var keys := by.keys()
+		keys.sort_custom(func(x, y): return by[x][1] > by[y][1])
+		for k in keys.slice(0, 15): print("[towermesh] ", k, " meshes ", by[k][0], " verts ", by[k][1])
+		var ng := 0
+		for e0 in s.enemies:
+			if bool(e0.get("soldier", false)): ng += 1
+		print("[towermesh] soldiers ", ng, " enemies ", s.enemies.size())
+		var cnt := {}
+		for e0 in s.enemies:
+			var nm0 := str((e0["node"] as Node).name).rstrip("0123456789 ")
+			cnt[nm0] = int(cnt.get(nm0, 0)) + 1
+		print("[towermesh] kinds ", cnt)
+		var texs := {}
+		var addtex := func(t, who: String):
+			if t is Texture2D and not texs.has(t): texs[t] = who
+		for nd in get_tree().root.find_children("*", "", true, false):
+			if nd is MeshInstance3D:
+				var mi2 := nd as MeshInstance3D
+				var mats: Array = [mi2.material_override]
+				if mi2.mesh != null:
+					for si in mi2.mesh.get_surface_count(): mats.append(mi2.get_active_material(si))
+				for mt in mats:
+					if mt is BaseMaterial3D:
+						for pn in ["albedo_texture", "normal_texture", "roughness_texture", "metallic_texture", "emission_texture", "orm_texture"]: addtex.call((mt as BaseMaterial3D).get(pn), str(nd.get_path()))
+					elif mt is ShaderMaterial:
+						for pr in (mt as ShaderMaterial).shader.get_shader_uniform_list() if (mt as ShaderMaterial).shader else []: addtex.call((mt as ShaderMaterial).get_shader_parameter(pr["name"]), str(nd.get_path()))
+			elif nd is TextureRect: addtex.call((nd as TextureRect).texture, str(nd.get_path()))
+			elif nd is Sprite3D: addtex.call((nd as Sprite3D).texture, str(nd.get_path()))
+		var tl: Array = texs.keys()
+		tl.sort_custom(func(x, y): return x.get_width() * x.get_height() > y.get_width() * y.get_height())
+		var tot := 0.0
+		for t in tl: tot += t.get_width() * t.get_height() * 4.0 / 1048576.0
+		print("[towertex] ", tl.size(), " textures ~", tot, " MB")
+		for t in tl.slice(0, 12): print("[towertex] ", t.get_width(), "x", t.get_height(), " ", t.resource_path, " @ ", texs[t].right(70))
+		for e0 in s.enemies:
+			if bool(e0.get("soldier", false)):
+				for mi in (e0["node"] as Node).find_children("*", "MeshInstance3D", true, false):
+					var nv := 0
+					for si in (mi as MeshInstance3D).mesh.get_surface_count(): nv += ((mi as MeshInstance3D).mesh.surface_get_arrays(si)[Mesh.ARRAY_VERTEX] as PackedVector3Array).size()
+					print("[towermesh]   ", (e0["node"] as Node).get_path_to(mi), " verts ", nv, " vis ", (mi as MeshInstance3D).is_visible_in_tree(), " skin ", (mi as MeshInstance3D).skin != null)
+				break
+		print("[towerperf] prims ", Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME), " draws ", Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), " objs ", Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME), " vmem MB ", Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0, " tex MB ", Performance.get_monitor(Performance.RENDER_TEXTURE_MEM_USED) / 1048576.0, " buf MB ", Performance.get_monitor(Performance.RENDER_BUFFER_MEM_USED) / 1048576.0, " nodes ", Performance.get_monitor(Performance.OBJECT_NODE_COUNT), " static MB ", Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0)
 		# eject, then the pilot fits every pilot door: wide (3+ pilots) and tall (4+ pilots)
 		s._fleet_eject()
 		await _wait(0.6)
@@ -8195,11 +8255,20 @@ func _run() -> void:
 		await _shot("fixer_talk", 0.3)
 		var cost: int = hb.fixer_cost(own)
 		var c0: int = GS.credits
+		var sp2: Node = main.space
+		var chas: Array = sp2.spawn_mission_group(sp2.player.global_position + Vector3(0, 60, 900), own, 3, 3, "", -8) if is_instance_valid(sp2) else []
+		for e0 in chas:
+			e0["aggro"] = true
+			e0["provoked"] = true
+		main.dock_ban[str(hb.base["name"])] = GS.system_id
+		main.escape_chasers = chas.size()
 		var had_pay: bool = pay != null
 		if pay != null: pay.pressed.emit()
 		await _frames(2)
 		var reset: bool = had_pay and not Factions.hostile(own) and Factions.below_neutral(own) < 0.5 and GS.credits == c0 - cost
 		var open_again: bool = not hb._board_locked(VBoxContainer.new())
+		var stood_down: bool = not chas.is_empty() and chas.all(func(e0): return not bool(e0.get("provoked", false)) and not bool(e0.get("aggro", false))) and main.dock_ban.is_empty() and main.escape_chasers == 0
+		_check("v13.345: after paying the Fixer, %s's ships out there stand down (%d of them, none provoked) and you may dock with them again (%s)" % [own, main.cleared_ships, stood_down], stood_down, "")
 		_check("v13.341: the Fixer (Garrick's clips) walks toward you in the lounge (%s); %s's work is locked when they hate you (%s); tap him: his call names the price and the lounge shows PAY (%s); paying %d cr puts you back to neutral (%s) and their missions come back (%s)" % [walks_in, own, locked, call_ok, cost, reset, open_again],
 			walks_in and locked and call_ok and reset and open_again, "%s clip %s vis %s play %s | hostile %s below %.2f cr %d -> %d (cost %d)" % [str(hb.crew.crew_log), hb.crew.vid.get_meta("clip", ""), hb.crew.vid.visible, hb.crew.vid.is_playing(), Factions.hostile(own), Factions.below_neutral(own), c0, GS.credits, cost])
 		for r in results: print("[route] ", r)

@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.344"
+const VERSION := "v13.345"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -532,6 +532,7 @@ const CITY_BIOMES := ["city"]       # (v13.272; v13.274: CITY_LAND decides)
 const CITY_LAND := {"city": 3, "coast": 3, "jungle": 2, "forest": 1, "industrial": 1}   # v13.274: green land gets a city at its tile's centre: 2 = a 2 x 2 of blocks, 1 = one block (snow, desert, rock: none)
 const CITY_OFFCENTRE := 1.2        # v13.302: a city this many regions per extra block across may sit off the tile's middle (beside its port)
 const CITY_FORCE := {"new_terra": {5: 3}}   # v13.316 (owner: "another good sized tile, same size city, same kind of build"; picked B3 Forest): tile -> blocks across, on top of the ones CITY_LAND picks
+const SOLDIER_DROP_MECH := true   # v13.345: a guard made a soldier keeps no hidden mech under it (graphics memory on phones)
 const CITY_WIDEN := {"new_terra": {4: 1}}   # v13.344 (owner: "the capital should be the biggest city"): a ring of outskirt blocks round the capital's core (tile -> blocks out)
 const OUTSKIRT_H := 0.5                     # their towers: half the core's height
 const OUTSKIRT_VARY := Vector2(0.8, 1.25)   # ...give or take
@@ -3348,6 +3349,8 @@ const BOARD_PILOT_PAD := 1.6   # v13.156: the pilot's own room round him against
 const ROOM_SPAWN_AREA := 9000.0   # v13.156: one guard per this much floor (u²) in a room, when its door first opens
 const ROOM_SPAWN_MAX := 4         # ... at most this many per room
 const ROOM_SPAWN_CAP := 40        # ... and no more once this many are aboard (phones)
+const TOWER_LAZY_GUARDS := true    # v13.345: a tower's guards come in as its doors open, not all at the start
+const TOWER_SPAWN_CAP := 16       # v13.345 (owner: a tower went white on his phone): a city tower holds fewer (its ten floors are big)
 const STEALTH_CAUTION_TIME := 40.0   # v13.144 (owner, Metal Gear): s of searching before it goes back to NEUTRAL
 const STEALTH_SEARCH_R := 900.0      # guards this near where you were go and search there
 const STEALTH_SNEAK_DIST := 45.0     # m: hit a guard from behind this close and nobody knows

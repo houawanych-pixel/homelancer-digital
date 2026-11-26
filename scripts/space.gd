@@ -2182,7 +2182,7 @@ func setup_boarding(info: Dictionary) -> void:
 						_wrecked_tunnels[str(pr[1])] = true   # v13.73 (owner): the short cuts are blocked by wreckage the CUTTER cuts through (doors themselves can't be cut)
 					else: d["sealed"] = true
 		if is_instance_valid(_board_path): _board_path.visible = false   # v12.50 (owner: "too easy"): no lights to the hangar; the deck map shows where it is
-		_breakout_guards(fac)
+		if not (bool(Boarding.INFO.get("tower", false)) and Data.TOWER_LAZY_GUARDS): _breakout_guards(fac)   # v13.345: a tower's guards come in floor by floor as its doors open (all ten floors' at once filled a phone's memory)
 		if Data.BREAKOUT_SHELL_SHOWN: _breakout_shell(root)   # v12.49 (owner): the shell was the guide for the layout; it blocked the view: not drawn
 		if Boarding.ROOMS.has("secure"):   # the lockdown console in the security office
 			var sr: Array = Boarding.ROOMS["secure"]["r"]
@@ -3209,6 +3209,11 @@ func _soldierify(e: Dictionary, fac: String) -> void:
 	(e["node"] as Node3D).add_child(holder)
 	holder.add_child(inst)
 	(e["model"] as Node3D).visible = false
+	if Data.SOLDIER_DROP_MECH:   # v13.345 (owner: a tower went white on his phone): the hidden mech under each soldier (three
+		# skinned parts, 128k vertices, its own skinning buffers) goes: 47 of them filled the phone's graphics memory
+		var old: Node3D = e["model"]
+		e["model"] = holder
+		old.queue_free()
 	e["soldier"] = true
 	e["mech"] = false
 	e["vis"] = {"l": [], "r": []}
@@ -4008,7 +4013,7 @@ func _room_spawns() -> void:
 			done[k] = true
 			var R: Dictionary = Boarding.ROOMS[k]
 			if bool(R.get("conn", false)) or bool(R.get("flow", false)) or "lift" in k.to_lower(): continue
-			if enemies.size() >= Data.ROOM_SPAWN_CAP: continue
+			if enemies.size() >= (Data.TOWER_SPAWN_CAP if bool(Boarding.INFO.get("tower", false)) else Data.ROOM_SPAWN_CAP): continue   # (v13.345: a tower, ten floors of it in memory, holds fewer)
 			var r: Array = R["r"]
 			var area := absf((float(r[1]) - float(r[0])) * (float(r[3]) - float(r[2])))
 			var n := clampi(int(area / Data.ROOM_SPAWN_AREA), 1, Data.ROOM_SPAWN_MAX)
