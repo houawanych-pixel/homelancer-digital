@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.342"
+const VERSION := "v13.343"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -1704,6 +1704,13 @@ const ASST_KEY := Color(0.08, 0.75, 0.1)   # the green to remove
 ## v13.341 (owner: "the Fixer in the lounge: an existing character who walks toward the camera like Evee; you pay him,
 ## your standing resets, that faction's missions come back"): Garrick's clips play him, in every station's lounge.
 const FIXER_IN_LOUNGE := true
+const FIXER_SCALE := 1.15         # v13.343 (owner: "a little more whole scale"): his height against the room's standing people
+const FIXER_FEET := 0.93          # his floor line when the room has none of its own (share of the picture's height)
+const FIXER_VIEW := [0.4, 0.8]    # where in view he may stand (share of the screen: right of the device, left of the phone)
+## picked by eye: [where (share of the loop), head line, feet line (shares of the picture's height)], sized by the
+## room's perspective (the people standing on that floor: 0.74 tall at the front, 0.28 at the back)
+const FIXER_SPOT := {"unity_pilots_lounge": [0.665, 0.28, 0.8]}   # the open floor in front of the stairs, nobody near
+const FIXER_CLEAR := 0.035        # this far (share of the room's loop) from anyone counts as clear
 const FIXER := {"id": "fixer", "file": "garrick", "clips": "orion", "name": "The Fixer", "role": "Records cleaned · cash only", "female": false, "fixer": true,
 	"line": "Records can be changed, for a price."}
 const CREW := {

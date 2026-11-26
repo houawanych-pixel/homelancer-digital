@@ -2351,6 +2351,58 @@ func fixer_line() -> String:
 	var f: String = fs[0]
 	return "%s has you down as %s. %s cr and it's gone, and their work opens up again. PAY is on your device." % [str(Factions.def(f).get("display_name", f)), str(Factions.info(f)["name"]).to_upper(), _thousands(fixer_cost(f))]
 
+## v13.343 (owner: "a little more whole scale; put him where he blends in with good perspective, a place where he's
+## isolated"): the clearest bit of floor in view (between your device and your phone), as far from the room's people
+## and from Evee as it gets; the whole room when nothing in view is clear.
+func fixer_spot(key: String) -> float:
+	if Data.FIXER_SPOT.has(key): return float(Data.FIXER_SPOT[key][0])   # (picked by eye: open floor, nobody near)
+	var xs: Array = []
+	var k2 := people_key(key)
+	if RoomPeople.ROOMS.has(k2):
+		for p in RoomPeople.ROOMS[k2]["people"]: xs.append(float(p[0]))
+	if evee_here and asst_yaw >= 0.0: xs.append(asst_yaw)
+	var clear := func(y: float) -> float:
+		var d := 1.0
+		for x in xs: d = minf(d, absf(fposmod(float(x) - y + 0.5, 1.0) - 0.5))
+		return d
+	var vw := 0.3
+	if room_view != null and room_view.material is ShaderMaterial: vw = float((room_view.material as ShaderMaterial).get_shader_parameter("vis_w"))
+	var best := -1.0
+	var bd := -1.0
+	for i in 41:   # in view: from just right of the device to just left of the phone
+		var sx: float = lerpf(Data.FIXER_VIEW[0], Data.FIXER_VIEW[1], i / 40.0)
+		var y := fposmod(room_yaw + (sx - 0.5) * vw, 1.0)
+		var d: float = clear.call(y)
+		if d > bd:
+			bd = d
+			best = y
+	if bd >= Data.FIXER_CLEAR: return best
+	for i in 200:   # nothing clear in view: the clearest floor in the room
+		var d2: float = clear.call(i / 200.0)
+		if d2 > bd:
+			bd = d2
+			best = i / 200.0
+	return best
+
+## His size: the room's own standing lines (the lounge's, where everyone sits), else its perspective at the floor line,
+## a little bigger than the people there (Data.FIXER_SCALE): {top, feet} as shares of the picture's height.
+func fixer_scale(key: String) -> Dictionary:
+	var rn := key.substr(key.find("_") + 1)
+	var top := 0.0
+	var feet := Data.FIXER_FEET
+	if Data.FIXER_SPOT.has(key):   # (his spot's own lines, measured off the people standing near it)
+		top = float(Data.FIXER_SPOT[key][1])
+		feet = float(Data.FIXER_SPOT[key][2])
+	elif Data.ASST_ROOM_STAND.has(rn):
+		top = float(Data.ASST_ROOM_STAND[rn][0])
+		feet = float(Data.ASST_ROOM_STAND[rn][1])
+	else:
+		var ref := biggest_person(key)
+		if ref.is_empty(): return {}
+		top = float(ref["top"])
+		feet = float(ref["feet"])
+	return {"top": feet - (feet - top) * Data.FIXER_SCALE, "feet": feet}
+
 ## Tapping him opens the lounge page at his offer.
 func fixer_page() -> void:
 	if panel_min: panel_min = false

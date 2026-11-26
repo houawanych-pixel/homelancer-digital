@@ -123,8 +123,9 @@ func room_changed(key: String) -> void:
 	var sm: Array = hub.seams_by_badness(key) if not c.get("fixer", false) else []   # (v13.341: the Fixer comes up where you are looking)
 	if sm.size() >= 2: yaw = float(sm[1])
 	elif sm.size() == 1 and not hub.asst_seam: yaw = float(sm[0])
+	if c.get("fixer", false): yaw = hub.fixer_spot(key)   # v13.343: a clear spot on the floor, in view
 	if yaw >= 0.0: who["_home_yaw"] = yaw
-	scale_ref = hub.biggest_person(key)
+	scale_ref = hub.biggest_person(key) if not c.get("fixer", false) else hub.fixer_scale(key)
 	_play("walk_fwd" if ResourceLoader.exists(clip_path("walk_fwd")) else "idle")
 	state = "in"
 	next_walk = randf_range(Data.CREW_WALK_EVERY[0], Data.CREW_WALK_EVERY[1])
@@ -153,7 +154,7 @@ func _clip_done() -> void:
 	_play("idle")
 
 func tick(dt: float) -> void:
-	if who.is_empty() or not vid.visible: return
+	if who.is_empty() or vid.stream == null: return   # (v13.343: not "not visible": off screen they still need placing, or looking round never finds them)
 	state_t += dt
 	if state == "idle":
 		next_walk -= dt

@@ -8175,7 +8175,9 @@ func _run() -> void:
 		hb.show_screen("lounge")
 		await _wait(0.5)
 		hb.show_screen("lounge")
-		await _wait(1.0)
+		await _frames(2)
+		hb.room_yaw = hb.crew.yaw   # (look where he stands)
+		await _wait(0.8)
 		var walks_in: bool = str(hb.crew.who.get("id", "")) == "fixer" and hb.crew.vid.visible and hb.crew.vid.is_playing() and str(hb.crew.vid.get_meta("clip", "")) == "walk_fwd" and hb.crew.crew_log.has("in:fixer")
 		await _shot("fixer_walks_in", 0.0)
 		# your record with this station's people goes bad: their work is locked
