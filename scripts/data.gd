@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.340"
+const VERSION := "v13.341"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -1690,6 +1690,11 @@ const ASST_KEY := Color(0.08, 0.75, 0.1)   # the green to remove
 # v11.14 (owner): a faction's crew stand in its station rooms like Evee (scripts/crew.gd). Clips in
 # assets/crew/<faction>/<file>_{idle,talk,walk_fwd,walk_side}.ogv (magenta screen), <file>_greet.mp3, <file>_face.png.
 # home = their own room; also = the rooms they visit in turn (they move every CREW_VISIT_S seconds).
+## v13.341 (owner: "the Fixer in the lounge: an existing character who walks toward the camera like Evee; you pay him,
+## your standing resets, that faction's missions come back"): Garrick's clips play him, in every station's lounge.
+const FIXER_IN_LOUNGE := true
+const FIXER := {"id": "fixer", "file": "garrick", "clips": "orion", "name": "The Fixer", "role": "Records cleaned · cash only", "female": false, "fixer": true,
+	"line": "Records can be changed, for a price."}
 const CREW := {
 	"orion": [
 		{"id": "orion_lyra", "file": "lyra", "name": "Lyra Ashwind", "role": "Mission Officer", "home": "mission_center", "also": ["command", "main_hub"], "female": true,

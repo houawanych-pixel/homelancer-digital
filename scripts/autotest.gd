@@ -8162,6 +8162,47 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if _flag("HL_FIXERWALK"):   # v13.341 (owner: "the Fixer in the lounge walks up like Evee; pay him, standing resets, that faction's missions come back")
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main.dock(_sp().station)
+		await _until(func(): return main.state == "hub", 8.0)
+		var hb = main.hub
+		var own: String = Factions.owner_of(hb.base, Data.SYSTEMS[GS.system_id])
+		Packs.request("crew_orion_garrick")
+		await Packs.wait("crew_orion_garrick", 60.0)
+		hb.show_screen("lounge")
+		await _wait(0.5)
+		hb.show_screen("lounge")
+		await _wait(1.0)
+		var walks_in: bool = str(hb.crew.who.get("id", "")) == "fixer" and hb.crew.vid.visible and hb.crew.vid.is_playing() and str(hb.crew.vid.get_meta("clip", "")) == "walk_fwd" and hb.crew.crew_log.has("in:fixer")
+		await _shot("fixer_walks_in", 0.0)
+		# your record with this station's people goes bad: their work is locked
+		GS.credits = 2000000
+		Factions.adjust(own, -Data.REP_LIMIT * 1.5)
+		var locked: bool = Factions.hostile(own) and hb._board_locked(VBoxContainer.new())
+		hb.close_call("r")
+		hb.show_screen("lounge")
+		await _frames(3)
+		hb.crew.tap()
+		await _frames(3)
+		await _frames(3)
+		var call_ok: bool = hb.board_sc.scroll_vertical > 0 and str(hb.calls["r"].get("from", "")) == "The Fixer" and str(hb.calls["r"].get("line", "")).contains(" cr") and hb.screen == "lounge"
+		var pay: Button = hb.find_child("Fixer_" + own, true, false)
+		await _shot("fixer_talk", 0.3)
+		var cost: int = hb.fixer_cost(own)
+		var c0: int = GS.credits
+		var had_pay: bool = pay != null
+		if pay != null: pay.pressed.emit()
+		await _frames(2)
+		var reset: bool = had_pay and not Factions.hostile(own) and Factions.below_neutral(own) < 0.5 and GS.credits == c0 - cost
+		var open_again: bool = not hb._board_locked(VBoxContainer.new())
+		_check("v13.341: the Fixer (Garrick's clips) walks toward you in the lounge (%s); %s's work is locked when they hate you (%s); tap him: his call names the price and the lounge shows PAY (%s); paying %d cr puts you back to neutral (%s) and their missions come back (%s)" % [walks_in, own, locked, call_ok, cost, reset, open_again],
+			walks_in and locked and call_ok and reset and open_again, "%s clip %s vis %s play %s | hostile %s below %.2f cr %d -> %d (cost %d)" % [str(hb.crew.crew_log), hb.crew.vid.get_meta("clip", ""), hb.crew.vid.visible, hb.crew.vid.is_playing(), Factions.hostile(own), Factions.below_neutral(own), c0, GS.credits, cost])
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if _flag("HL_DEVSHOT"):   # look at every station page
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)

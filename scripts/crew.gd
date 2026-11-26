@@ -84,10 +84,13 @@ static func room_of(c: Dictionary, turn: int) -> String:
 	return str(also[k]) if k < also.size() else str(c["home"])
 
 func clip_path(clip: String) -> String:
-	return "res://assets/crew/%s/%s_%s.ogv" % [str(who["faction"]), str(who["file"]), clip]
+	return "res://assets/crew/%s/%s_%s.ogv" % [str(who.get("clips", who["faction"])), str(who["file"]), clip]
 
 func pack_name(c: Dictionary) -> String:
-	return "crew_%s_%s" % [str(c["faction"]), str(c["file"])]
+	return "crew_%s_%s" % [str(c.get("clips", c["faction"])), str(c["file"])]
+
+func _asset(c: Dictionary, tail: String) -> String:
+	return "res://assets/crew/%s/%s_%s" % [str(c.get("clips", c["faction"])), str(c["file"]), tail]
 
 ## The room on screen changed (hub._show_room): the crew member here walks in, or whoever was here goes.
 func room_changed(key: String) -> void:
@@ -99,7 +102,9 @@ func room_changed(key: String) -> void:
 	hit.visible = false
 	if key == "" or not ("_" in key): return
 	var f := key.get_slice("_", 0)
-	var c := in_room(f, key.substr(f.length() + 1)) if force.is_empty() else force.duplicate()
+	var rm := key.substr(f.length() + 1)
+	var c := in_room(f, rm) if force.is_empty() else force.duplicate()
+	if force.is_empty() and rm == "pilots_lounge" and Data.FIXER_IN_LOUNGE: c = Data.FIXER.duplicate()   # v13.341: the Fixer in every lounge
 	if c.is_empty(): return
 	c = c.duplicate()
 	c["faction"] = f
@@ -115,7 +120,7 @@ func room_changed(key: String) -> void:
 	# v11.60 (owner: "use them to cover the seams ... in good spots"): they stand on a seam of the moving room (the
 	# second worst one; Evee covers the worst), sized to the biggest people in the picture
 	yaw = -1.0
-	var sm: Array = hub.seams_by_badness(key)
+	var sm: Array = hub.seams_by_badness(key) if not c.get("fixer", false) else []   # (v13.341: the Fixer comes up where you are looking)
 	if sm.size() >= 2: yaw = float(sm[1])
 	elif sm.size() == 1 and not hub.asst_seam: yaw = float(sm[0])
 	if yaw >= 0.0: who["_home_yaw"] = yaw
@@ -212,11 +217,16 @@ func tap() -> void:
 	if ResourceLoader.exists(clip_path("talk")):
 		_play("talk")
 		state = "talk"
-	var g := "res://assets/crew/%s/%s_greet.mp3" % [str(who["faction"]), str(who["file"])]
+	var g := _asset(who, "greet.mp3")
 	if ResourceLoader.exists(g):
 		Sfx.stop_voice()
 		voice.stream = load(g)
 		voice.play()
-	var face := "res://assets/crew/%s/%s_face.png" % [str(who["faction"]), str(who["file"])]
+	var face := _asset(who, "face.png")
+	if who.get("fixer", false):   # v13.341: the Fixer: what your worst record costs to clear (PAY is on the lounge page)
+		hub.open_call("r", str(who["name"]), str(who["role"]), hub.fixer_line(), face, 0.0, {"id": "fixer", "voice_id": str(who["file"]), "female": false})
+		hub.fixer_page()
+		crew_log.append("talk:fixer")
+		return
 	hub.open_call("r", str(who["name"]), "%s · %s" % [str(who["faction"]).to_upper(), str(who["role"])], str(who["line"]), face, 0.0, {"id": str(who["id"])})
 	crew_log.append("talk:" + str(who["id"]))

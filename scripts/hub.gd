@@ -2343,8 +2343,26 @@ func fixer_pay(f: String) -> String:
 	GS.changed.emit()
 	return "THE FIXER: \"Done. %s forgets about you.\" %s -> %s (%d cr)." % [str(Factions.def(f).get("display_name", f)), was, Factions.band(f).to_upper(), cost]
 
+## v13.341 (owner: "the Fixer in the lounge walks up like Evee does; you pay him, your standing resets, and that
+## faction's missions come back"): what he says when you tap him.
+func fixer_line() -> String:
+	var fs := fixer_factions()
+	if fs.is_empty(): return "Your record's clean, pilot. Nothing for me to fix."
+	var f: String = fs[0]
+	return "%s has you down as %s. %s cr and it's gone, and their work opens up again. PAY is on your device." % [str(Factions.def(f).get("display_name", f)), str(Factions.info(f)["name"]).to_upper(), _thousands(fixer_cost(f))]
+
+## Tapping him opens the lounge page at his offer.
+func fixer_page() -> void:
+	if panel_min: panel_min = false
+	_keep_scroll = -1
+	show_screen("lounge")   # (rebuilt: PAY for your record as it is now)
+	for i in 2: await get_tree().process_frame
+	var cap: Control = content.find_child("FixerCap", true, false)
+	if cap != null and board_sc != null and is_instance_valid(board_sc): board_sc.scroll_vertical = int(cap.position.y)   # (his offer at the top)
+
 func _fixer_rows(v: VBoxContainer) -> void:
 	var cap := _label(18, GOLD)
+	cap.name = "FixerCap"
 	cap.text = "THE FIXER"
 	v.add_child(cap)
 	var say := _label(16, Color(0.85, 0.9, 1.0))
@@ -5965,7 +5983,7 @@ func _board_locked(v: VBoxContainer) -> bool:
 	var lk := _label(Data.BOARD_FONT, Color(1.0, 0.5, 0.45))
 	lk.name = "BoardLocked"
 	lk.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	lk.text = "LOCKED. %s don't want your business: your standing with them is %s. Raise it (work for their friends, stop hitting their ships) and come back." % [own, Factions.band(own).to_upper()]
+	lk.text = "LOCKED. %s don't want your business: your standing with them is %s. Raise it (work for their friends, stop hitting their ships), or pay the Fixer in a pilots' lounge, and come back." % [own, Factions.band(own).to_upper()]
 	v.add_child(lk)
 	return true
 
