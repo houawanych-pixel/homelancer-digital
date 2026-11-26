@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.343"
+const VERSION := "v13.344"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -532,6 +532,11 @@ const CITY_BIOMES := ["city"]       # (v13.272; v13.274: CITY_LAND decides)
 const CITY_LAND := {"city": 3, "coast": 3, "jungle": 2, "forest": 1, "industrial": 1}   # v13.274: green land gets a city at its tile's centre: 2 = a 2 x 2 of blocks, 1 = one block (snow, desert, rock: none)
 const CITY_OFFCENTRE := 1.2        # v13.302: a city this many regions per extra block across may sit off the tile's middle (beside its port)
 const CITY_FORCE := {"new_terra": {5: 3}}   # v13.316 (owner: "another good sized tile, same size city, same kind of build"; picked B3 Forest): tile -> blocks across, on top of the ones CITY_LAND picks
+const CITY_WIDEN := {"new_terra": {4: 1}}   # v13.344 (owner: "the capital should be the biggest city"): a ring of outskirt blocks round the capital's core (tile -> blocks out)
+const OUTSKIRT_H := 0.5                     # their towers: half the core's height
+const OUTSKIRT_VARY := Vector2(0.8, 1.25)   # ...give or take
+const OUTSKIRT_R := Vector2(0.75, 1.0)      # their giant a little slimmer
+const OUTSKIRT_STYLES := ["slab", "twin", "cluster", "slab"]
 const CITY_TOWNS := {"new_terra": {8: 2}}   # v13.319 (owner: "a small town, no huge skyscrapers, the same look smaller"; picked C3 Red Canyon): tile -> blocks across
 const TOWN_TOWER_H_MAIN := Vector2(55.0, 85.0)   # m: a town block's middle tower (a city's is 225-575)
 const TOWN_TOWER_H := Vector2(22.0, 45.0)        # m: its slim ones

@@ -14,6 +14,7 @@ extends RefCounted
 
 const N := 100                     # cells per region side (500 m / 5 m)
 
+static var _cores := {}            # v13.344: "pid|tile" -> the city's core (before its outskirts)
 static var _rects := {}            # "pid|tile" -> Rect2i of the city's regions (size 0: no city)
 static var _tiles := {}            # pid -> {tile: blocks across (1 or 2)}
 static var _ground := {}           # "pid|tile" -> street height
@@ -163,6 +164,31 @@ static func safehouse(pid: String, tile: int) -> Dictionary:
 ## Is there a city on this tile?
 ## v13.319 (owner: "a small town, something that doesn't have huge skyscrapers, using the same good structure, the
 ## same look, smaller"): a town tile is built like a city, but its towers stay low.
+## v13.344 (owner: "more city blocks for the capital, it should be the biggest city; the new buildings half the size of
+## what's there, with some variety"): the blocks round the old 3 x 3 core.
+## v13.344: the skyway lines (avenues, counted in blocks from the city's edge) on one axis (0: lines across x, running
+## along z), each with its decks: only the core's inner avenues carry them, the first with two decks. The skyways still run
+## the city's whole length.
+static func sky_lines(pid: String, tile: int, ax: int) -> Array:
+	var cr := rect(pid, tile)
+	var co := core(pid, tile)
+	var k0: int = (co.position.x - cr.position.x) if ax == 0 else (co.position.y - cr.position.y)
+	var n: int = co.size.x if ax == 0 else co.size.y
+	var out: Array = []
+	for kk in range(k0 + 1, k0 + n):
+		out.append([kk, [Data.SKYWAY_Y] if kk > k0 + 1 else [Data.SKYWAY_Y, Data.SKYWAY_Y2]])
+	return out
+
+static func core(pid: String, tile: int) -> Rect2i:
+	var r := rect(pid, tile)
+	return _cores.get("%s|%d" % [pid, tile], r)
+
+static func is_outskirt(pid: String, tile: int, r: Vector2i) -> bool:
+	var wide := int((Data.CITY_WIDEN.get(pid, {}) as Dictionary).get(tile, 0))
+	if wide <= 0: return false
+	var cr := rect(pid, tile)
+	return cr.has_point(r) and not core(pid, tile).has_point(r)
+
 static func is_town(pid: String, tile: int) -> bool:
 	return (Data.CITY_TOWNS.get(pid, {}) as Dictionary).has(tile)
 
@@ -197,6 +223,18 @@ static func rect(pid: String, tile: int) -> Rect2i:
 						bd = d
 						out = Rect2i(xx, zz, sz2, sz2)
 			if out.size.x > 0 and bd <= Data.BLOCK_REGION * (1.5 + Data.CITY_OFFCENTRE * (sz2 - 1)): break   # (else a smaller city nearer the middle; v13.302: a big one may sit off to the side of the port)
+		_cores[key] = out
+		var wide := int((Data.CITY_WIDEN.get(pid, {}) as Dictionary).get(tile, 0))
+		if wide > 0 and out.size.x > 0:   # v13.344: the capital's outskirts, a ring of blocks round it (kept off the tile's edge)
+			for side in [SIDE_LEFT, SIDE_RIGHT, SIDE_TOP, SIDE_BOTTOM]:   # (each side only where it keeps clear of the port)
+				var g2 := out.grow_side(side, wide).intersection(Rect2i(1, 1, nr - 2, nr - 2))
+				var rr2 := Rect2(-Surface.EDGE + g2.position.x * Data.BLOCK_REGION, -Surface.EDGE + g2.position.y * Data.BLOCK_REGION, g2.size.x * Data.BLOCK_REGION, g2.size.y * Data.BLOCK_REGION)
+				var ok2 := true
+				for a2 in avoid:
+					var p2: Vector2 = a2[0]
+					var q2 := Vector2(clampf(p2.x, rr2.position.x, rr2.end.x), clampf(p2.y, rr2.position.y, rr2.end.y))
+					if q2.distance_to(p2) < float(a2[1]): ok2 = false
+				if ok2: out = g2
 	_rects[key] = out
 	return out
 
@@ -328,6 +366,16 @@ static func towers(pid: String, tile: int, r: Vector2i) -> Array:
 		t["style"] = "cluster"
 		t["ground"] = g
 		out.append(t)
+	if is_outskirt(pid, tile, r):   # v13.344: the same kit, half the height, and mixed up a little
+		var orng := RandomNumberGenerator.new()
+		orng.seed = absi(hash(key + "|outskirt"))
+		var ost: Array = Data.OUTSKIRT_STYLES
+		for i in out.size():
+			out[i]["h"] = float(out[i]["h"]) * Data.OUTSKIRT_H * orng.randf_range(Data.OUTSKIRT_VARY.x, Data.OUTSKIRT_VARY.y)
+			if i == 0:
+				out[i]["style"] = str(ost[orng.randi() % ost.size()])
+				out[i]["r"] = float(out[i]["r"]) * orng.randf_range(Data.OUTSKIRT_R.x, Data.OUTSKIRT_R.y)
+				out[i]["sides"] = [6, 8, 8, 12][orng.randi() % 4]
 	if is_town(pid, tile):   # v13.319: the same towers, a town's height (the middle one a little taller)
 		var trng := RandomNumberGenerator.new()
 		trng.seed = absi(hash(key + "|town"))

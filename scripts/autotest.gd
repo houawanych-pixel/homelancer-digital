@@ -8205,6 +8205,63 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if _flag("HL_CITYINFO"):   # (tool) print the cities of a world
+		var pid := OS.get_environment("HL_CITYINFO") if OS.get_environment("HL_CITYINFO") != "1" else "new_terra"
+		print("[city] tiles ", CityPlan.city_tiles(pid), " grid ", Surface.grid(pid), " land ", Surface.PLANETS[pid].get("tiles", []))
+		for t2 in CityPlan.city_tiles(pid): print("[city] tile ", t2, " rect ", CityPlan.rect(pid, int(t2)), " town ", CityPlan.is_town(pid, int(t2)), " locs ", Surface.locations_in(pid, int(t2)).map(func(l): return l["pos"]))
+		get_tree().quit()
+		return
+	if _flag("HL_CAPITAL"):   # v13.344 (owner: "more city blocks for the capital, the biggest city; the new buildings half the size, with variety")
+		var pid := "new_terra"
+		var tile := 4
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var cr: Rect2i = CityPlan.rect(pid, tile)
+		var co: Rect2i = CityPlan.core(pid, tile)
+		var core_h: Array = []
+		var out_h: Array = []
+		var styles := {}
+		for rz in cr.size.y:
+			for rx in cr.size.x:
+				var r := cr.position + Vector2i(rx, rz)
+				var tw: Array = CityPlan.towers(pid, tile, r)
+				if tw.is_empty(): continue
+				var main_t: Dictionary = tw[0]
+				var dt := (r - co.position) == Vector2i(co.size.x / 2, co.size.y / 2)
+				if CityPlan.is_outskirt(pid, tile, r):
+					out_h.append(float(main_t["h"]))
+					styles[str(main_t["style"]) + "/" + str(main_t.get("sides", 8))] = true
+				elif not dt: core_h.append(float(main_t["h"]))
+		var avg := func(a: Array) -> float:
+			var t0 := 0.0
+			for v in a: t0 += float(v)
+			return t0 / maxf(1, a.size())
+		var biggest := true
+		for t2 in CityPlan.city_tiles(pid):
+			var rr: Rect2i = CityPlan.rect(pid, int(t2))
+			if int(t2) != tile and rr.size.x * rr.size.y >= cr.size.x * cr.size.y: biggest = false
+		main._load_surface(pid, tile)
+		await _until(func(): return is_instance_valid(main.space) and main.space.surface_mode and main.space.planet_id == pid, 40.0)
+		await _wait(4.0)
+		var s: Node = _sp()
+		var g: float = CityPlan.ground(pid, tile)
+		var c0: Vector2 = BlockField.region_centre(cr.position) - Vector2(Data.BLOCK_REGION, Data.BLOCK_REGION) * 0.5
+		var mid := Vector3(c0.x + cr.size.x * Data.BLOCK_REGION * 0.5, g, c0.y + cr.size.y * Data.BLOCK_REGION * 0.5)
+		_tp(mid + Vector3(-1900, 1100, 1900), mid)
+		await _wait(3.0)
+		await _capture("capital_air")
+		print("[cap] prims ", Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME), " draws ", Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), " objs ", Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME))
+		var tris := 0
+		for n in s.find_children("CityLinks", "MeshInstance3D", true, false):
+			var m: Mesh = (n as MeshInstance3D).mesh
+			for si in m.get_surface_count(): tris += (m.surface_get_arrays(si)[Mesh.ARRAY_VERTEX] as PackedVector3Array).size() / 3
+		var ok_h: bool = out_h.size() >= 8 and avg.call(out_h) < avg.call(core_h) * 0.65 and avg.call(out_h) > avg.call(core_h) * 0.35
+		_check("v13.344: the capital is the biggest city (%d x %d blocks, the 3 x 3 core plus %d outskirt blocks) (%s); outskirt towers %.0f m on average against the core's %.0f m; %d tower looks among them (%s); city links %d triangles" % [cr.size.x, cr.size.y, out_h.size(), biggest, avg.call(out_h), avg.call(core_h), styles.size(), str(styles.keys()), tris],
+			biggest and ok_h and styles.size() >= 3 and co.size == Vector2i(3, 3), "")
+		for r2 in results: print("[route] ", r2)
+		get_tree().quit()
+		return
 	if _flag("HL_DEVSHOT"):   # look at every station page
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -9432,7 +9489,7 @@ func _run() -> void:
 		await _wait(1.5)
 		var stood: float = s.player.global_position.y - Data.PILOT_FEET_BELOW - mid.y
 		await _capture("footbridge_on")
-		_check("v13.337: %d covered footbridges (escalator up, glass tube across) and %d pavement canopies; you can stand on a bridge (%.1f m over its deck); the city links mesh is %d triangles" % [bridges.size(), canopies, stood, tris], bridges.size() >= 12 and canopies > 20 and absf(stood) < 1.0 and tris < 140000, "")
+		_check("v13.337: %d covered footbridges (escalator up, glass tube across) and %d pavement canopies; you can stand on a bridge (%.1f m over its deck); the city links mesh is %d triangles" % [bridges.size(), canopies, stood, tris], bridges.size() >= 12 and canopies > 20 and absf(stood) < 1.0 and tris < 160000, "")   # (v13.344: 160k with the capital's outskirts)
 		_finish_group()
 		return
 	if _flag("HL_MARKINGS"):   # v13.336 (owner: "the roads on the bottom don't have any line work")

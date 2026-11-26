@@ -379,9 +379,10 @@ static func city_links(pid: String, tile: int) -> Array:
 	rng.seed = absi(hash("%s|%d|links" % [pid, tile]))
 	# skyways along the inner avenues (each way), level 1 everywhere, level 2 on the first
 	for ax in (0 if CityPlan.is_town(pid, tile) else 2):   # (v13.319: a town has none)
-		for k in range(1, (cr.size.x if ax == 0 else cr.size.y)):
+		for sl in CityPlan.sky_lines(pid, tile, ax):
+			var k: int = sl[0]
 			var line := (org.x if ax == 0 else org.y) + k * Data.BLOCK_REGION
-			var levels: Array = [Data.SKYWAY_Y] if k > 1 else [Data.SKYWAY_Y, Data.SKYWAY_Y2]
+			var levels: Array = sl[1]
 			for ly in levels:
 				_skyway(out, ax == 0, line, (org.y if ax == 0 else org.x), (org.y + size.y if ax == 0 else org.x + size.x), g, g + float(ly))
 	out.append_array(interchange_parts(pid, tile))   # v13.331: the spiral interchanges at the skyways' ends
@@ -396,6 +397,7 @@ static func city_links(pid: String, tile: int) -> Array:
 		var a: Dictionary = giants[gk]
 		for e in [Vector2i(1, 0), Vector2i(0, 1)]:
 			if not giants.has(gk + e): continue
+			if CityPlan.is_outskirt(pid, tile, cr.position + gk) and CityPlan.is_outskirt(pid, tile, cr.position + gk + e): continue   # v13.344: (outskirt to outskirt: none)
 			var b: Dictionary = giants[gk + e]
 			var top := minf(float(a["base"]) + float(a["h"]), float(b["base"]) + float(b["h"]))
 			for n in rng.randi_range(1, 2):
@@ -481,9 +483,10 @@ static func interchanges(pid: String, tile: int) -> Array:
 	var lw: float = Data.TRAFFIC_LANE_W
 	var hv: float = Data.TRAFFIC_HOVER
 	for ax in 2:
-		for kk in range(1, (cr.size.x if ax == 0 else cr.size.y)):
+		for sl in CityPlan.sky_lines(pid, tile, ax):
+			var kk: int = sl[0]
 			var line: float = (org.x if ax == 0 else org.y) + kk * S
-			var lvls: Array = [Data.SKYWAY_Y] if kk > 1 else [Data.SKYWAY_Y, Data.SKYWAY_Y2]
+			var lvls: Array = sl[1]
 			for sgn in [-1.0, 1.0]:
 				var o := Vector2(0.0, sgn) if ax == 0 else Vector2(sgn, 0.0)   # outward
 				var w := Vector2(-o.y, o.x)                                    # the outbound lanes' side
@@ -593,10 +596,13 @@ static func walk_parts(pid: String, tile: int) -> Array:
 	var E: float = Data.FOOTBRIDGE_ESC
 	var off: float = Data.FOOTBRIDGE_FROM
 	var side: float = Data.FOOTBRIDGE_W * 0.5 + 1.0
+	var co := CityPlan.core(pid, tile)   # v13.344: footbridges and canopies in the core (the outskirts keep the triangle budget)
+	var core_box := Rect2(Vector2(-Surface.EDGE, -Surface.EDGE) + Vector2(co.position) * S, Vector2(co.size) * S).grow(av)
 	for ax in lx:
 		for az in lz:
 			var X: float = ax[0]
 			var Z: float = az[0]
+			if not core_box.has_point(Vector2(X, Z)): continue
 			var hx: float = ax[1]
 			var hz: float = az[1]
 			# over the avenue that runs along x (spanning z), on the +x arm of the crossing
@@ -619,6 +625,7 @@ static func walk_parts(pid: String, tile: int) -> Array:
 	var pv: float = Data.CITY_PAVEMENT * Data.BLOCK_MIN
 	for rz in cr.size.y:
 		for rx in cr.size.x:
+			if CityPlan.is_outskirt(pid, tile, cr.position + Vector2i(rx, rz)): continue
 			var plan := CityPlan.block(pid, tile, cr.position + Vector2i(rx, rz))
 			var bo := org + Vector2(rx, rz) * S
 			for lr in plan.get("lots", []):

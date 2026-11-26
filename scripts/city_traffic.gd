@@ -73,9 +73,10 @@ func _build_lanes() -> void:
 	# inner avenues (the same lines CityTowers.city_links draws), two lanes each way on each deck
 	if not CityPlan.is_town(planet_id, tile) and Data.CITY_TOWERS:
 		for ax in 2:
-			for kk in range(1, (cr.size.x if ax == 0 else cr.size.y)):
+			for sl in CityPlan.sky_lines(planet_id, tile, ax):
+				var kk: int = sl[0]
 				var line: float = (org.x if ax == 0 else org.y) + kk * S
-				var levels: Array = [Data.SKYWAY_Y] if kk > 1 else [Data.SKYWAY_Y, Data.SKYWAY_Y2]
+				var levels: Array = sl[1]
 				for ly in levels:
 					var yy: float = float(ly) + Data.TRAFFIC_HOVER
 					for k in 2:
