@@ -37,6 +37,7 @@ func setup(sp: Node, pid: String, t: int) -> void:
 	_build_lanes()
 	_build_pool()
 	_build_lights()
+	_build_markings()
 
 ## The lanes: every avenue between and round the blocks and every alley through them, two lanes each way, keeping right.
 func _build_lanes() -> void:
@@ -403,6 +404,85 @@ func _build_lights() -> void:
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(mi)
 	_show_lights()
+
+## v13.336 (owner: "the roads on top look good, but the roads on the bottom don't have any line work"): the street
+## markings, lit like the skyways': a glowing middle line on every avenue and alley, dashed lane lines between the two
+## lanes each way, and a stop line before each crossing. One merged mesh, lying on the street, cut at the crossings.
+var markings: MeshInstance3D
+func _build_markings() -> void:
+	if _ave_x.is_empty(): return
+	var cr := CityPlan.rect(planet_id, tile)
+	var S: float = Data.BLOCK_REGION
+	var org := Vector2(-Surface.EDGE, -Surface.EDGE) + Vector2(cr.position) * S
+	var size := Vector2(cr.size) * S
+	var av: float = Data.CITY_AVENUE * Data.BLOCK_MIN
+	var lw: float = Data.TRAFFIC_LANE_W
+	var y := _g + Data.STREET_MARK_UP
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var dash := SurfaceTool.new()
+	dash.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var strip := func(t: SurfaceTool, a: Vector2, b: Vector2, w: float) -> void:
+		var d := (b - a)
+		if d.length() < 0.1: return
+		var n := Vector2(-d.y, d.x).normalized() * w * 0.5
+		var p := [Vector3(a.x - n.x, y, a.y - n.y), Vector3(a.x + n.x, y, a.y + n.y), Vector3(b.x + n.x, y, b.y + n.y), Vector3(b.x - n.x, y, b.y - n.y)]
+		for i in [0, 2, 1, 0, 3, 2]:
+			t.set_normal(Vector3.UP)
+			t.add_vertex(p[i])
+	for ax in 2:   # ax 0: roads along x (at a z), 1: along z (at an x)
+		var n_bl: int = cr.size.y if ax == 0 else cr.size.x
+		var o0: float = org.y if ax == 0 else org.x
+		var mids: Array = [[o0 + av * 0.5, 1]]
+		for b in n_bl:
+			mids.append([o0 + b * S + S * 0.5, 1])   # the alley
+			if b > 0: mids.append([o0 + b * S, 2])  # an avenue between blocks
+		mids.append([o0 + n_bl * S - av * 0.5, 1])
+		var cross: Array = _ave_x if ax == 0 else _ave_z   # the crossings along the road
+		var r0: float = org.x if ax == 0 else org.y
+		var r1: float = r0 + (size.x if ax == 0 else size.y)
+		var cuts: Array = [r0]
+		for c in cross:
+			cuts.append(float(c[0]) - float(c[1]))
+			cuts.append(float(c[0]) + float(c[1]))
+		cuts.append(r1)
+		cuts.sort()
+		for m in mids:
+			var at: float = float(m[0])
+			var lanes: int = int(m[1])
+			var P := func(along: float, off: float) -> Vector2: return Vector2(along, at + off) if ax == 0 else Vector2(at + off, along)
+			for i in range(0, cuts.size() - 1, 2):   # each stretch between two crossings
+				var a0: float = cuts[i]
+				var a1: float = cuts[i + 1]
+				if a1 - a0 < 4.0: continue
+				strip.call(st, P.call(a0, -0.35), P.call(a1, -0.35), 0.3)   # the middle line (two lit lines)
+				strip.call(st, P.call(a0, 0.35), P.call(a1, 0.35), 0.3)
+				if lanes == 2:   # dashed lines between the two lanes each way
+					var u := a0 + 2.0
+					while u < a1 - 2.0:
+						var u1 := minf(u + Data.STREET_DASH, a1 - 2.0)
+						for sg in [-1.0, 1.0]: strip.call(dash, P.call(u, sg * lw), P.call(u1, sg * lw), 0.25)
+						u += Data.STREET_DASH * 2.0
+				for e in [[a0, 1.0], [a1, -1.0]]:   # stop lines across the lanes coming in to each crossing
+					if float(e[0]) <= r0 + 0.5 or float(e[0]) >= r1 - 0.5: continue
+					var sl: float = float(e[0]) + float(e[1]) * Data.TRAFFIC_STOP_GAP * 0.5
+					var side := -1.0 if float(e[1]) > 0.0 else 1.0   # (the incoming lanes: keep right)
+					strip.call(st, P.call(sl, side * 0.6), P.call(sl, side * lw * lanes), 0.6)
+	var mesh: ArrayMesh = st.commit()
+	dash.commit(mesh)
+	var mt := StandardMaterial3D.new()
+	mt.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mt.albedo_color = Data.CITY_TRIM
+	var md := StandardMaterial3D.new()
+	md.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	md.albedo_color = Color(0.92, 0.95, 1.0)
+	mesh.surface_set_material(0, mt)
+	if mesh.get_surface_count() > 1: mesh.surface_set_material(1, md)
+	markings = MeshInstance3D.new()
+	markings.name = "StreetMarkings"
+	markings.mesh = mesh
+	markings.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(markings)
 
 func _show_lights() -> void:
 	if _lamp_x == null: return

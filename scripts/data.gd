@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.335"
+const VERSION := "v13.336"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -563,6 +563,8 @@ const TRAFFIC_LANE_W := 6.0         # m a lane
 const TRAFFIC_LIGHT_GREEN := 9.0     # v13.324 (owner: "traffic lights where cars stop and cars go"): s of green each way ...
 const TRAFFIC_LIGHT_AMBER := 2.0     # ... then amber, then the other way's turn
 const TRAFFIC_LIGHT_H := 8.0         # m: the light post (v13.335: no posts now)
+const STREET_MARK_UP := 0.06        # v13.336: m the street markings lie over the street
+const STREET_DASH := 6.0            # m a dash of a lane line (and the gap)
 const TRAFFIC_LIGHT_FLOAT_H := 16.0  # v13.335 (owner: "floating signs above"): m over the middle of the crossing the light hovers
 const TRAFFIC_STOP_GAP := 4.0        # m: cars wait this far short of the crossing
 const TRAFFIC_LIGHT_SEE := 70.0      # m: how far ahead a car minds a red light or the car in front

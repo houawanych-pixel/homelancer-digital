@@ -9211,6 +9211,44 @@ func _run() -> void:
 		_check("v13.325: you can't walk through a car (pushed %.1f m out) or a person (%s, person found %s); a car stops %.0f m short of you in its lane (%s)" % [away, str(ped_ok), str(not ped.is_empty()), gap, str(yield_ok)], car_ok and ped_ok and not ped.is_empty() and yield_ok, "")
 		_finish_group()
 		return
+	if _flag("HL_MARKINGS"):   # v13.336 (owner: "the roads on the bottom don't have any line work")
+		var pid := "new_terra"
+		var tt := 4
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main._load_surface(pid, tt)
+		await _until(func(): return is_instance_valid(main.space) and main.space.surface_mode and main.space.tile == tt and main.space.city_traffic != null, 40.0)
+		await _wait(3.0)
+		var s := _sp()
+		var tr: CityTraffic = s.city_traffic
+		var g := CityPlan.ground(pid, tt)
+		var cr: Rect2i = CityPlan.rect(pid, tt)
+		var org := Vector2(-Surface.EDGE, -Surface.EDGE) + Vector2(cr.position) * Data.BLOCK_REGION
+		var m: Mesh = tr.markings.mesh if tr.markings != null else null
+		var tris := 0
+		if m != null:
+			for si in m.get_surface_count(): tris += (m.surface_get_arrays(si)[Mesh.ARRAY_VERTEX] as PackedVector3Array).size() / 3
+		var road := Vector2(org.x + Data.BLOCK_REGION * 0.3, org.y + Data.BLOCK_REGION)   # on the avenue between two blocks
+		var street_y: float = s._ground(road.x, road.y)
+		s.player.global_position = Vector3(road.x - 40.0, g + 9.0, road.y + 2.0)
+		s.yaw = -PI * 0.5   # looking down the avenue (+x)
+		s.pitch = -0.12
+		s.player.basis = Basis.from_euler(Vector3(s.pitch, s.yaw, 0))
+		s.vel = Vector3.ZERO
+		s._update_camera(1.0, true)
+		await _wait(3.0)
+		await _capture("street_markings")
+		s.player.global_position = Vector3(road.x, g + 3.5, road.y + 14.0)
+		s.yaw = -PI * 0.5
+		s.pitch = -0.35
+		s.player.basis = Basis.from_euler(Vector3(s.pitch, s.yaw, 0))
+		s._update_camera(1.0, true)
+		await _wait(1.5)
+		await _capture("street_markings_close")
+		_check("v13.336: the street roads have lit markings (%d triangles in %d surfaces), %.2f m over the street's top (CityPlan ground)" % [tris, m.get_surface_count() if m else 0, Data.STREET_MARK_UP], m != null and tris > 200, "")
+		_finish_group()
+		return
 	if _flag("HL_LIGHTS"):   # v13.324 (owner: "traffic lights: a set of circles, green bars for green and red; cars stop and go")
 		var pid := "new_terra"
 		var tt := 4
