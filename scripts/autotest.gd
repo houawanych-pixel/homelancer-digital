@@ -8916,7 +8916,7 @@ func _run() -> void:
 		await _wait(0.5)
 		hb.lockdown = true   # (the lockdown as the hub shows it: the 3D escape is not started here)
 		hb.launch_btn.disabled = false
-		hb.launch_btn.text = "RUN FOR IT"
+		hb.launch_btn.text = "LAUNCH"
 		hb.show_screen("hub")
 		main.launch()
 		await _wait(0.3)
@@ -12647,7 +12647,7 @@ func _job_v1114() -> void:
 	var has_btn: bool = ab != null and red_ok and hb.find_child("FixAndRestock", true, false) != null   # (v11.25: REPAIR & RESTOCK on the station page)
 	if has_btn: ab.pressed.emit()   # (the page is rebuilt: the button is a new one after this)
 	await _frames(20)
-	var alarm_ok: bool = has_btn and hb.lockdown and hb.breakout != null and hb.breakout.visible and hb.breakout.faction == "orion" and hb.launch_btn.text == "RUN FOR IT"
+	var alarm_ok: bool = has_btn and hb.lockdown and hb.breakout != null and hb.breakout.visible and hb.breakout.faction == "orion" and hb.launch_btn.text == "LAUNCH" and not hb.launch_btn.disabled
 	await _shot("v1117_alarm_test", 0.5)
 	await _wait(4.0)
 	await _shot("v1119_layers_fight", 0.0)
@@ -20768,7 +20768,7 @@ func _job_v92_breakout() -> void:
 	await _frames(3)
 	var hb = main.hub
 	var bo: Breakout = hb.breakout
-	var lock_ok: bool = Factions.hostile(own) and hb.lockdown and bo != null and bo.visible and hb.launch_btn.text == "RUN FOR IT" and not hb.asst.visible
+	var lock_ok: bool = Factions.hostile(own) and hb.lockdown and bo != null and bo.visible and hb.launch_btn.text == "LAUNCH" and not hb.launch_btn.disabled and not hb.asst.visible
 	main.launch()
 	await _frames(2)
 	lock_ok = lock_ok and main.state == "hub"
