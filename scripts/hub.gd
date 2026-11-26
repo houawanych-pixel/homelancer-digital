@@ -52,6 +52,7 @@ var dock_bay: bool = Data.DOCK_TO_BAY   # v13.187 (the older route tests dock on
 var deck_mode := false   # v13.165: opened from a sign on the station's deck (LAUNCH reads BACK TO DECK)
 var asst: VideoStreamPlayer   # v3.7 (owner): the station assistant, standing in the HOME room
 var asst_chat: Panel       # v11.4: the comms bar under the call screen
+var phone_frame: Panel     # v13.339: your phone on the right: one frame round the call and its comms bar
 var comms_panel: Panel     # v11.4 (owner): CONTACTS / chat LOG, on the left like the flight comms
 var comms_view := ""       # "" | "contacts" | "log"
 var comms_big := false     # the log brought big into the middle (FULL)
@@ -337,12 +338,24 @@ func _ready() -> void:
 	sb.pressed.connect(func(): asst_ask(ed.text))
 	row.add_child(sb)
 	add_child(asst_chat)
+	phone_frame = Panel.new()   # v13.339 (owner: "my phone on the right for calls and contacts, it can minimise away")
+	phone_frame.name = "PhoneFrame"
+	phone_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	phone_frame.visible = false
+	var pfb := StyleBoxFlat.new()
+	pfb.bg_color = Data.HUB_DEVICE_BEZEL
+	pfb.border_color = Color(0.6, 0.9, 1.0, 0.85)
+	pfb.set_border_width_all(2)
+	pfb.set_corner_radius_all(Data.HUB_DEVICE_ROUND)
+	pfb.corner_detail = 6
+	phone_frame.add_theme_stylebox_override("panel", pfb)
+	add_child(phone_frame)
 	# v11.4 (owner): CONTACTS and the chat LOG come up on the LEFT, like the flight comms; FULL brings the log big into the middle
 	comms_panel = Panel.new()
 	comms_panel.name = "CommsPanel"
 	comms_panel.visible = false
 	var cpb := StyleBoxFlat.new()
-	cpb.bg_color = Color(0.02, 0.06, 0.12, 0.93)
+	cpb.bg_color = Color(0.02, 0.06, 0.12, 0.99)   # (v13.339: solid: it opens over the call on your phone)
 	cpb.border_color = Color(CYAN, 0.75)
 	cpb.set_border_width_all(2)
 	tech_cut(cpb, 12)
@@ -1237,6 +1250,13 @@ func _place_calls() -> void:
 		var bot := S.y - 72.0
 		var w := maxf(panel_w(), 260.0)   # v11.11 (owner): the left box switches to your contacts / log
 		var x := left_reserve()
+		var on_phone: bool = Data.HUB_DEVICES and not (comms_big and comms_view == "log")
+		if on_phone:   # v13.339: contacts and the log open on your phone, the work device stays
+			var pr := call_rect("r") if _call_open("r") else Rect2(S.x - 8.0 - call_w(), top, call_w(), bot - top)
+			x = pr.position.x
+			w = pr.size.x
+			top = pr.position.y
+			bot = pr.end.y
 		if comms_big and comms_view == "log":
 			w = minf(S.x * 0.56, 860.0)
 			x = (S.x - w) * 0.5
@@ -1247,9 +1267,10 @@ func _place_calls() -> void:
 		(comms_panel.find_child("CommsFull", true, false) as Button).text = "SMALL" if comms_big else "FULL"
 		move_child(comms_panel, get_child_count() - 1)
 		if launch_btn != null: move_child(launch_btn, get_child_count() - 1)
-		if screen != "equipment":   # (only one box on the left at a time)
+		if screen != "equipment" and not on_phone:   # (only one box on the left at a time)
 			content.visible = false
 			leftwin.visible = false
+	_place_phone()
 	_place_tablets()
 	if launch_btn != null:   # v11.10: LAUNCH moves left to make room for the COMMS tab beside it
 		launch_btn.offset_right = -(8.0 + call_w() + 10.0) if comms_up() else -36.0
@@ -1259,6 +1280,19 @@ func _place_calls() -> void:
 			walk_btn.offset_left = launch_btn.offset_left
 		credits_label.offset_right = launch_btn.offset_right
 		credits_label.offset_left = credits_label.offset_right - 250.0
+
+## v13.339: the phone's frame round the call on the right and its comms bar (gone when the call is folded away).
+func _place_phone() -> void:
+	if phone_frame == null: return
+	phone_frame.visible = Data.HUB_DEVICES and _call_open("r")
+	if not phone_frame.visible: return
+	var r := call_rect("r")
+	if asst_chat.visible and talk_side == "r": r = r.merge(asst_chat.get_rect())
+	var m := Data.HUB_PHONE_BEZEL
+	phone_frame.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	phone_frame.position = r.position - Vector2(m, m)
+	phone_frame.size = r.size + Vector2(m, m) * 2.0
+	move_child(phone_frame, mini((call_ctl["r"] as Control).get_index(), asst_chat.get_index()))
 
 var _face_cache := {}
 func _call_face(path: String) -> Texture2D:

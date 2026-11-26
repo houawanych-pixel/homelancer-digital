@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.338"
+const VERSION := "v13.339"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -1750,6 +1750,7 @@ const HUB_DEVICES := true
 const HUB_DEVICE_BEZEL := Color(0.08, 0.1, 0.13, 0.98)   # the device's dark frame
 const HUB_DEVICE_BEZEL_W := 6
 const HUB_DEVICE_ROUND := 18
+const HUB_PHONE_BEZEL := 6.0   # v13.339: your phone's frame round the call and its comms bar
 const HUB_DEVICE_BOTTOM := 100.0   # the device ends this far above the bottom: the message line, then the button row
 const HUB_DEVICE_SPILL := 1.08   # a page this much wider than the phone opens on the tablet
 const HUB_PANEL_ASPECT := 2.0 / 3.0   # v11.2 (owner): the one panel is a 2 x 3 portrait window (width = height x this)

@@ -8091,6 +8091,30 @@ func _run() -> void:
 		var back: bool = absf(hb.content.get_global_rect().size.x - pw) < 1.0
 		_check("v13.338: %s maximises the device to a tablet out to your phone (%d wide, ends %d, phone at %d); it stays big on the next page (%s); PHONE SIZE brings it back (%s)" % [db.text, big.size.x, big.end.x, ph.position.x, stays, back],
 			db.visible and big.size.x > pw * 1.5 and big.end.x <= ph.position.x + 1.0 and big.end.x > ph.position.x - 40.0 and stays and back, "")
+		# v13.339: your phone on the right: one frame round the call and its bar; contacts open on it, the work device stays
+		var S: Vector2 = hb.get_viewport_rect().size
+		if hb.calls["r"].is_empty(): hb.asst_tap()
+		await _frames(3)
+		var fr: Rect2 = hb.phone_frame.get_global_rect()
+		var frame_ok: bool = hb.phone_frame.visible and fr.encloses(hb.call_rect("r")) and fr.encloses(hb.asst_chat.get_global_rect())
+		hb.open_comms("contacts")
+		await _frames(3)
+		var cp: Rect2 = hb.comms_panel.get_global_rect()
+		var on_phone: bool = hb.comms_panel.visible and cp.position.x > S.x * 0.7 and fr.encloses(cp) and hb.content.visible and hb.comms_panel.find_child("Contact_assistant", true, false) != null
+		await _shot("devices_phone_contacts", 0.3)
+		hb.open_comms("")
+		var ev := InputEventMouseButton.new()
+		ev.button_index = MOUSE_BUTTON_LEFT
+		ev.pressed = false
+		ev.position = Vector2(hb.call_ctl["r"].size.x - 40.0, 12.0)
+		hb._call_input(ev, "r")
+		await _frames(2)
+		var folded: bool = hb.calls["r"].get("min", false) and not hb.phone_frame.visible
+		hb._call_input(ev, "r")
+		await _frames(2)
+		var back2: bool = hb.phone_frame.visible
+		_check("v13.339: your phone on the right: one frame round the call and its comms bar (%s); CONTACTS open on the phone with the work device still there (%s); \"—\" folds the phone away (%s) and a tap brings it back (%s)" % [frame_ok, on_phone, folded, back2],
+			frame_ok and on_phone and folded and back2, "%s %s" % [fr, cp])
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
@@ -13095,7 +13119,7 @@ func _job_v114() -> void:
 	var cp: Rect2 = hb.comms_panel.get_global_rect()
 	var evee_row: Button = hb.comms_panel.find_child("Contact_assistant", true, false)
 	var rows: int = hb.comms_panel.find_children("Contact_*", "Button", true, false).size()
-	var contacts_ok: bool = hb.comms_panel.visible and evee_row != null and rows >= 2 and cp.position.x < S.x * 0.3 and evee_row.icon != null
+	var contacts_ok: bool = hb.comms_panel.visible and evee_row != null and rows >= 2 and (cp.position.x < S.x * 0.3 or (Data.HUB_DEVICES and cp.position.x > S.x * 0.7)) and evee_row.icon != null
 	await _shot("v114_contacts", 0.3)
 	if evee_row != null: evee_row.pressed.emit()
 	await _frames(2)
@@ -13110,7 +13134,7 @@ func _job_v114() -> void:
 	await _frames(2)
 	var lt: Label = hb.comms_panel.find_child("LogText", true, false)
 	var small: Rect2 = hb.comms_panel.get_global_rect()
-	var log_ok: bool = lt != null and lt.text.contains("YOU: hello") and lt.text.contains("EVEE:") and small.position.x < S.x * 0.3
+	var log_ok: bool = lt != null and lt.text.contains("YOU: hello") and lt.text.contains("EVEE:") and (small.position.x < S.x * 0.3 or (Data.HUB_DEVICES and small.position.x > S.x * 0.7))   # (v13.339: on your phone)
 	(hb.comms_panel.find_child("CommsFull", true, false) as Button).pressed.emit()
 	await _frames(2)
 	var big: Rect2 = hb.comms_panel.get_global_rect()
