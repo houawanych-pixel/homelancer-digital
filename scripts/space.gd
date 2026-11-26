@@ -9986,11 +9986,11 @@ func _update_bolts(dt: float) -> void:
 				var at: Vector3 = rb[1]
 				if true:
 					hit = true
-					if b["owner"] == "player":
+					if b["owner"] == "player" and Data.GUNS_DIG:   # (v13.355 owner: "lag; only missiles, mines and nukes change the terrain": guns don't)
 						var res := _blast_blocks(at, "gun", bfg)
 						_spark(at, bfg.tone(str(res["mat"])) if str(res["mat"]) != "" else Color(1, 0.85, 0.6), 4.5 if int(res["broken"]) > 0 else 2.5, 0.25)
 					else:
-						_spark(at, Color(1, 0.8, 0.5), 2.0)
+						_spark(at, Color(1, 0.8, 0.5), 2.0 if b["owner"] != "player" else 3.0)
 		if not hit and in_belt_region(to):
 			if not asteroids.is_empty():   # v1.7x: shots chip the block asteroids (yours break blocks)
 				var ah := ray_asteroids(from, to)
@@ -13769,6 +13769,7 @@ func _update_mines(dt: float) -> void:
 				if pd < 12.0: boom = true
 		if boom:
 			_explode(n.global_position)
+			_ground_dig(n.global_position, "heavy")   # v13.355 (owner): a mine changes the ground
 			_board_blast(n.global_position, Data.MINE_RADIUS, BOARD_MINE)   # v13.11
 			for e in enemies.duplicate():
 				var d: float = maxf(0.0, e["node"].global_position.distance_to(n.global_position) - _hull_r(e) * 0.8)
@@ -15848,7 +15849,7 @@ func _special_beam() -> void:
 	var bfs: BlockField = rbs[0]
 	var dig: Vector3 = rbs[1]
 	if dig != Vector3.INF:   # EXPERIMENT (v1.5t): a beam through the block ground blows a crater you can fly into
-		_blast_blocks(dig, "special", bfs)
+		if Data.SUPER_DIGS: _blast_blocks(dig, "special", bfs)   # (v13.355: not any more: only missiles, mines and nukes)
 		_blast(dig, Data.BLAST_DEATH, "ground")
 	var e := _enemy_entry(special_target)
 	if e.is_empty(): return
@@ -15966,6 +15967,7 @@ func missile_blast(at: Vector3, m: Dictionary, hit: Node3D) -> void:
 	# v13.11 (owner: "missiles, nukes, anything hitting the ship should damage it")
 	_board_blast(at, r * (Data.NUKE_BLAST_K if m.get("nuke", false) else 1.0), BOARD_NUKE if m.get("nuke", false) else (BOARD_HEAVY if heavy else BOARD_MISSILE * float(m.get("scale", 1.0))))
 	if m.get("nuke", false):   # v11.25 (owner): twice the blast at 3x the damage, then a second, bigger one
+		_ground_dig(at, "special")   # v13.355 (owner): a nuke changes the ground (a big crater)
 		r *= Data.NUKE_BLAST_K
 		nuke_later.append({"at": at, "t": float(Data.NUKE_SECOND[0])})
 		_nuke_splash(at, r, Data.NUKE_MULT, hit, "first")
@@ -16638,6 +16640,16 @@ func _ray_blocks(a: Vector3, b: Vector3) -> Array:
 
 ## v1.7d: a blast digs every region it reaches (one right on a region edge digs both sides). Returns what the region
 ## that was hit broke (for sparks and sounds).
+## v13.355: a blast near the block ground (a mine, a nuke going off in the air close over it) digs where it is.
+func _ground_dig(at: Vector3, kind: String) -> void:
+	if not surface_mode or boarding: return
+	var bf := _block_field_at(at.x, at.z)
+	if bf == null: return
+	var r: float = (Data.BLOCK_BLAST.get(kind, Data.BLOCK_BLAST["gun"]) as Array)[0]
+	var gy: float = bf.ground_for(at.x, at.y, at.z) if bf.has_method("ground_for") else -INF
+	if gy == -INF or at.y - gy > r: return   # (too high over it to reach it)
+	_blast_blocks(Vector3(at.x, minf(at.y, gy + 1.0), at.z), kind, bf)
+
 func _blast_blocks(at: Vector3, kind: String, hit: BlockField) -> Dictionary:
 	var res: Dictionary = hit.blast(at, kind)
 	if wildlife != null and is_instance_valid(wildlife): wildlife.on_blast(at, kind)   # (v12.41) shots hurt / scare the animals

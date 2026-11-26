@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.354"
+const VERSION := "v13.355"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -814,6 +814,8 @@ const BLOCK_ROCK := Color(0.32, 0.3, 0.29)   # the deep rock colour under the su
 # Step 2 (v1.5t): craters. Every block inside a blast's radius is hit; a block only partly inside splits into four
 # (20 -> 10 -> 5 m) so only the hit part goes; obsidian never splits (it chips, then breaks off whole, in half).
 const BLOCK_HITS := {"concrete": 6, "glass": 2, "street": 5, "walk": 5, "lift": 8, "door": 6, "bridge": 6, "sand": 1, "dirt": 2, "stone": 4, "obsidian": 8, "gold": 6, "diamond": 12, "wood": 3, "leaf": 1, "leaf2": 1, "vine": 2, "frond": 1, "glow": 1, "bloom": 1}   # light-gun hits to break a 5 m layer, by tier
+const GUNS_DIG := false     # v13.355 (owner: "a lot of lag ... fire at the ground changes terrain; only missiles, mines or a nuke change the terrain"): gunfire leaves the ground alone
+const SUPER_DIGS := false   # ... and so does the super beam
 const BLOCK_BLAST := {"gun": [2.4, 1], "missile": [12.0, 4], "heavy": [20.0, 8], "special": [40.0, 16], "thrust": [7.5, 1], "thrust_soft": [7.5, 2]}   # [radius m, hits dealt]; thrust = the mech pushing into a wall
 const BLOCK_BREAK_PIECES := {"obsidian": 2, "stone": 3, "dirt": 4, "sand": 5, "gold": 4, "diamond": 3, "wood": 3, "leaf": 5, "leaf2": 5}   # each material breaks its own way: harder = fewer, bigger pieces
 const BLOCK_CLEAVE_SPEED := 12.0     # an obsidian piece landing faster than this (m/s) cleaves in half once more

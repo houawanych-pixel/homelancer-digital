@@ -8571,6 +8571,36 @@ func _run() -> void:
 		for r2 in results: print("[route] ", r2)
 		get_tree().quit()
 		return
+	if _flag("HL_DIGRULES"):   # v13.355 (owner: "only missiles, mines or a nuke change the terrain")
+		var pid := "new_terra"
+		var tt := 5
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main._load_surface(pid, tt)
+		await _until(func(): return is_instance_valid(main.space) and main.space.surface_mode and main.space.tile == tt, 40.0)
+		var s := _sp()
+		var spot := Vector3(-1800.0, 0.0, 1800.0)
+		await _until(func(): s.player.global_position = Vector3(spot.x, Surface.height(pid, tt, spot.x, spot.z) + 60.0, spot.z); s.vel = Vector3.ZERO; return s._block_field_at(spot.x, spot.z) != null, 60.0)
+		var bf: BlockField = s._block_field_at(spot.x, spot.z)
+		var notes := func() -> int: return bf.deltas.filter(func(d): return not str(d[3]).contains(":")).size() if bf != null else -1   # (blasts only: not blocks placed or settling)
+		var gy: float = bf.ground_for(spot.x, 1000.0, spot.z) if bf != null else 0.0
+		var n0: int = notes.call()
+		for k in 6:
+			s._spawn_bolt(Vector3(spot.x + k * 3.0, gy + 40.0, spot.z), Vector3(0, -600, 0), 10.0, Color(1, 0.4, 0.3), "player", 1.0)
+		await _wait(0.6)
+		var after_guns: int = notes.call()
+		s._ground_dig(Vector3(spot.x + 40.0, bf.ground_for(spot.x + 40.0, 1000.0, spot.z) + 2.0, spot.z), "heavy")   # what a mine going off there does
+		var after_mine: int = notes.call()
+		s._ground_dig(Vector3(spot.x - 60.0, bf.ground_for(spot.x - 60.0, 1000.0, spot.z) + 10.0, spot.z), "special")   # a nuke
+		var after_nuke: int = notes.call()
+		s._ground_dig(Vector3(spot.x - 60.0, gy + 300.0, spot.z), "special")   # one high in the sky: too far up
+		var after_high: int = notes.call()
+		_check("v13.355: gunfire leaves the ground alone (%d notes -> %d after 6 shots); a mine digs (%d), a nuke digs (%d), one high in the sky doesn't (%d)" % [n0, after_guns, after_mine, after_nuke, after_high],
+			bf != null and after_guns == n0 and after_mine > after_guns and after_nuke > after_mine and after_high == after_nuke, "")
+		for r2 in results: print("[route] ", r2)
+		get_tree().quit()
+		return
 	if _flag("HL_DEVSHOT"):   # look at every station page
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -20120,8 +20150,8 @@ func _craters(s, bf: BlockField, pid: String, t: int) -> void:
 	aim.y = bf.top_at(aim.x, aim.z)
 	s._spawn_bolt(aim + Vector3(0, 60, 0), Vector3(0, -600, 0), 10.0, Color(1, 0.4, 0.3), "player", 1.0)
 	await _wait(0.4)
-	var shot_ok: bool = shots_of.call() == nd1 + 1
-	_check("Craters: the ship's own shots hit the block ground (they used to fly through it) and each one is a crater note", shot_ok, "shot notes %d -> %d" % [nd1, shots_of.call()])
+	var shot_ok: bool = shots_of.call() == nd1 + (1 if Data.GUNS_DIG else 0)
+	_check("Craters: the ship's own shots hit the block ground (they used to fly through it); %s" % ("each one is a crater note" if Data.GUNS_DIG else "v13.355: they leave it as it is (only missiles, mines and nukes dig)"), shot_ok, "shot notes %d -> %d" % [nd1, shots_of.call()])
 	# 6. rubble stays capped and comes down to rest on the ground
 	for k in 12:
 		var q := Vector3(bf.center.x + 150.0 - k * 25.0, 0.0, bf.center.y - 150.0)
