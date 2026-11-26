@@ -2,6 +2,7 @@ extends Control
 ## Docked base screens: Hub, Equipment Dealer, Ship Dealer, Repair/Resupply. Map and Launch are handled by main.
 
 signal launch_requested
+signal record_cleared(faction: String)   # v13.345: the Fixer cleared your record with a faction (main makes its ships stand down)
 signal creator_finished   # v12.90: START FLYING in the PILOT CREATOR
 signal escape_requested(faction: String)   # v12.30: the 3D on-foot escape (main runs it)
 signal map_requested
@@ -2340,6 +2341,11 @@ func fixer_pay(f: String) -> String:
 	var was: String = Factions.band(f).to_upper()
 	GS.credits -= cost
 	Factions.set_neutral(f)
+	# v13.345 (owner: "I paid the fee and when I launched there were still enemies, I couldn't dock again; when you
+	# fix your reputation everything's friendly again"): a lockdown here by them is called off, and main stands their
+	# ships down and lifts any docking ban
+	if lockdown and str(Factions.owner_of(base, Data.SYSTEMS[GS.system_id])) == str(f): _end_lockdown()
+	record_cleared.emit(str(f))
 	GS.changed.emit()
 	return "THE FIXER: \"Done. %s forgets about you.\" %s -> %s (%d cr)." % [str(Factions.def(f).get("display_name", f)), was, Factions.band(f).to_upper(), cost]
 

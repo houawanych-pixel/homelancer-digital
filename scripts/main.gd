@@ -48,6 +48,7 @@ func _ready() -> void:
 	hud.pressed.connect(_on_hud)
 	hud.typed.connect(_on_typed)
 	hub.launch_requested.connect(launch)
+	hub.record_cleared.connect(_on_record_cleared)   # v13.345
 	hub.creator_finished.connect(finish_creator)   # v12.90
 	hub.escape_requested.connect(start_escape)   # v12.30
 	hub.map_requested.connect(func(): navmap.open(null))
@@ -1831,6 +1832,21 @@ func _escape_finish(quiet := false) -> void:
 	hud.flash_message("You're out! %d of their ships are after you. %s won't let you dock: leave the system or dock somewhere else." % [grp.size(), escape_from])
 
 var escape_chasers := 0
+## v13.345 (owner: "when you fix your reputation everything's friendly again, they let you dock"): the faction's
+## ships out there stop hunting you (no longer provoked, not hunters: they're peaceful again at neutral), the escape
+## chase is off, and no station of theirs bans you from docking.
+var cleared_ships := 0   # (checks)
+func _on_record_cleared(f: String) -> void:
+	escape_chasers = 0
+	dock_ban.clear()   # (there is only ever the one: the station you broke out of)
+	if not is_instance_valid(space): return
+	cleared_ships = 0
+	for e in space.enemies:
+		if str(e.get("faction", "")) != f: continue
+		e["provoked"] = false
+		e["aggro"] = false
+		e["hunter"] = false
+		cleared_ships += 1
 var breakout_retries := 0   # (tests)
 
 func launch() -> void:
