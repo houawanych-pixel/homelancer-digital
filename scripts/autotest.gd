@@ -9111,6 +9111,17 @@ func _run() -> void:
 		_tp(mid + dir * 520.0 + Vector3(0, 40, 0), mid)
 		await _wait(1.5)
 		await _capture("lanering_from_b")
+		var r0: Transform3D = s._lane_mm.multimesh.get_instance_transform(2)   # v13.342: close to one ring, from the side
+		var rc: Vector3 = (s._lane_mm.global_transform * r0).origin
+		var rsz: float = r0.basis.get_scale().x
+		_tp(rc + r0.basis.x.normalized() * rsz * 3.2 + r0.basis.z.normalized() * rsz * 2.4 + Vector3(0, rsz * 0.8, 0), rc)
+		await _wait(1.5)
+		await _capture("lanering_close")
+		var tris := 0
+		for si in (m.get_surface_count() if m else 0):
+			var ar: Array = m.surface_get_arrays(si)
+			tris += ((ar[Mesh.ARRAY_INDEX] as PackedInt32Array).size() if ar[Mesh.ARRAY_INDEX] != null else (ar[Mesh.ARRAY_VERTEX] as PackedVector3Array).size()) / 3
+		print("RINGTRIS ", tris, " surfaces ", m.get_surface_count() if m else 0, " rings ", s._lane_mm.multimesh.instance_count)
 		var up_x: Transform3D = s._lane_mm.multimesh.get_instance_transform(0)
 		var dn_x: Transform3D = s._lane_mm.multimesh.get_instance_transform(1)
 		var faces_ok: bool = up_x.basis.z.normalized().dot(-dir) > 0.9 and dn_x.basis.z.normalized().dot(dir) > 0.9

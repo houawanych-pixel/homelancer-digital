@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.341"
+const VERSION := "v13.342"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -391,6 +391,17 @@ const LANE_MAX_RINGS := 24
 const LANE_MIN_LEN := 1400.0          # shorter runs get no lane
 const LANE_RING_RADIUS := 68.0   # v11.89 (owner): lanes 2x (was 34)
 const LANE_RING_METAL := Color(0.13, 0.14, 0.16)   # v13.305 (owner's ring): dark gunmetal
+# v13.342 (owner: "draw the curvature like a fountain, one better object to connect it, fewer pieces"): the lane ring
+# turned from one profile line: (distance from the lane's axis, along it), unit ring; and the nacelle's own profile
+const LANE_RING_PROFILE := [Vector2(0.86, 0.0), Vector2(0.87, 0.14), Vector2(0.9, 0.24), Vector2(0.97, 0.3), Vector2(1.06, 0.31),
+	Vector2(1.14, 0.26), Vector2(1.18, 0.16), Vector2(1.16, 0.08), Vector2(1.22, 0.03), Vector2(1.3, 0.0), Vector2(1.22, -0.03),
+	Vector2(1.16, -0.08), Vector2(1.18, -0.16), Vector2(1.14, -0.26), Vector2(1.06, -0.31), Vector2(0.97, -0.3), Vector2(0.9, -0.24), Vector2(0.87, -0.14)]
+const LANE_POD_PROFILE := [Vector2(0.0, -0.5), Vector2(0.1, -0.47), Vector2(0.17, -0.38), Vector2(0.21, -0.2), Vector2(0.22, -0.06),
+	Vector2(0.18, 0.0), Vector2(0.22, 0.06), Vector2(0.21, 0.2), Vector2(0.17, 0.38), Vector2(0.1, 0.47), Vector2(0.0, 0.5)]
+const LANE_POD_AT := 1.4        # the nacelle's axis, this far out on the left (on the ring's crest)
+const LANE_RING_SEGS := 36      # pieces round the ring (v13.342: fewer triangles than the old box ring)
+const LANE_POD_SEGS := 12       # round the nacelle
+const LANE_RING_SMOOTH := 1     # points between each pair of the profile's
 const LANE_GO := Color(0.2, 1.0, 0.35)            # its glow on the side you fly in from (your right-hand row)
 const LANE_STOP := Color(1.0, 0.18, 0.12)         # and on the far side (the oncoming row)
 const LANE_RING_LIGHTS := false                  # (the old green / yellow / red lamps beside each ring)

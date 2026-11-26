@@ -10221,12 +10221,13 @@ void fragment() {
 """
 
 ## One ring: four metal brackets round a circle with a light strip on each (unit radius; scaled per ring).
-## v13.305 (owner's reference: a dark, chunky mechanical ring with a glowing inner rim and a big boxy section on one
-## side; "green to go, red to stop: on one side it lights up green, on the other red; green always on your right"):
-## a unit ring across local Z (the lane runs along -Z): a dark gunmetal ring of chunky segments, inner plates with gaps,
-## clutter on the rim, a big block of machinery on the left (-X), a mount on top and cables hanging below. Its glow:
-## the inner rim's half on the +Z side and a lit edge round the +Z face are GREEN, the -Z half and face RED. Each row's
-## rings face the way it runs, so flying either way you see green on the row to your right, red on the left (oncoming).
+## v13.305 (owner's reference): a dark mechanical ring, green to go on the +Z side, red on the -Z side, a block on the left.
+## v13.342 (owner: "the rings have a lot of different objects and don't look great: make it like a tool that makes a
+## cylinder, and by drawing in the curvature you make it like a fountain, just the way you shape the line; then one
+## better object to connect to it; fewer pieces, still nice"): the ring is now ONE turned shape: a profile line
+## (lips, a waist, a groove and a crest) spun round the lane's axis, smooth all the way round. The block on the left is
+## one turned pod (a nacelle) sitting on the crest. The glow is turned too: the inner waist half green (+Z), half red
+## (-Z), and a lit ring on each face. Unit radius across local Z (the lane runs along -Z); the same 3 surfaces.
 func _lane_ring_mesh() -> ArrayMesh:
 	var metal := SurfaceTool.new()
 	metal.begin(Mesh.PRIMITIVE_TRIANGLES)
@@ -10234,57 +10235,86 @@ func _lane_ring_mesh() -> ArrayMesh:
 	green.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var red := SurfaceTool.new()
 	red.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var box := BoxMesh.new()
-	var rot := func(a: float, r: float, z: float) -> Transform3D: return Transform3D(Basis(Vector3.BACK, a), Vector3(cos(a) * r, sin(a) * r, z))
-	var n := 36
-	for i in n:   # the main ring: chunky segments, every third a little thicker
-		var a := TAU * (i + 0.5) / n
-		var thick := 0.24 if i % 3 != 0 else 0.3
-		box.size = Vector3(thick, TAU / n * 1.04, 0.34 if i % 3 != 0 else 0.42)
-		metal.append_from(box, 0, rot.call(a, 1.0 + thick * 0.5 - 0.12, 0.0))
-	for i in 12:   # inner plates, with gaps between
-		var a := TAU * (i + 0.5) / 12.0
-		box.size = Vector3(0.06, TAU / 12.0 * 0.78, 0.22)
-		metal.append_from(box, 0, rot.call(a, 0.88, 0.0))
-	var clutter := [[0.35, 0.12, 0.16, 0.2], [0.9, 0.1, 0.22, 0.14], [1.45, 0.16, 0.12, 0.26], [2.2, 0.09, 0.2, 0.18], [4.1, 0.14, 0.16, 0.22], [4.7, 0.11, 0.26, 0.16], [5.4, 0.15, 0.14, 0.3], [5.9, 0.1, 0.18, 0.2]]
-	for c in clutter:   # machinery on the rim
-		box.size = Vector3(float(c[1]), float(c[2]), float(c[3]))
-		metal.append_from(box, 0, rot.call(float(c[0]), 1.22 + float(c[1]) * 0.5, 0.0))
-	for blk in [[0.0, 0.42, 0.62, 0.5, 1.38], [0.32, 0.3, 0.36, 0.44, 1.3], [-0.3, 0.28, 0.4, 0.4, 1.32], [0.08, 0.2, 0.3, 0.6, 1.62]]:   # the big block on the left (-X)
-		box.size = Vector3(float(blk[1]), float(blk[2]), float(blk[3]))
-		metal.append_from(box, 0, rot.call(PI + float(blk[0]), float(blk[4]), 0.0))
-	box.size = Vector3(0.3, 0.22, 0.36)   # the mount on top
-	metal.append_from(box, 0, rot.call(PI * 0.5, 1.32, 0.0))
-	for k in 5:   # cables hanging under it
-		box.size = Vector3(0.025, 0.28 + 0.05 * k, 0.025)
-		metal.append_from(box, 0, Transform3D(Basis.IDENTITY, Vector3(-0.08 + k * 0.04, -1.36 - (0.14 + 0.025 * k), 0.06 * (k % 2))))
-	box.size = Vector3(0.22, 0.12, 0.18)
-	metal.append_from(box, 0, rot.call(-PI * 0.5, 1.3, 0.0))
-	for i in 48:   # the glow: the inner rim in two halves, and a lit edge round each face
-		var a := TAU * (i + 0.5) / 48.0
-		box.size = Vector3(0.03, TAU / 48.0 * 1.02, 0.16)
-		green.append_from(box, 0, rot.call(a, 0.84, 0.08))
-		red.append_from(box, 0, rot.call(a, 0.84, -0.08))
-		box.size = Vector3(0.05, TAU / 48.0 * 1.02, 0.02)
-		green.append_from(box, 0, rot.call(a, 0.93, 0.18))
-		red.append_from(box, 0, rot.call(a, 0.93, -0.18))
-	metal.generate_normals()
-	green.generate_normals()
-	red.generate_normals()
+	var ring := _smooth_profile(Data.LANE_RING_PROFILE, Data.LANE_RING_SMOOTH, true)
+	_lathe(metal, ring, Vector2.ZERO, Data.LANE_RING_SEGS, true, Vector2(1.07, 0.0))
+	_lathe(green, PackedVector2Array([Vector2(0.848, 0.0), Vector2(0.856, 0.13)]), Vector2.ZERO, Data.LANE_RING_SEGS, false, Vector2(1.2, 0.06))
+	_lathe(red, PackedVector2Array([Vector2(0.856, -0.13), Vector2(0.848, 0.0)]), Vector2.ZERO, Data.LANE_RING_SEGS, false, Vector2(1.2, -0.06))
+	_lathe(green, PackedVector2Array([Vector2(1.08, 0.318), Vector2(0.99, 0.312)]), Vector2.ZERO, Data.LANE_RING_SEGS, false, Vector2(1.03, 0.0))
+	_lathe(red, PackedVector2Array([Vector2(0.99, -0.312), Vector2(1.08, -0.318)]), Vector2.ZERO, Data.LANE_RING_SEGS, false, Vector2(1.03, 0.0))
+	var pod := _smooth_profile(Data.LANE_POD_PROFILE, Data.LANE_RING_SMOOTH, false)   # the nacelle on the left (-X)
+	_lathe(metal, pod, Vector2(-Data.LANE_POD_AT, 0.0), Data.LANE_POD_SEGS, false, Vector2(-1.0, 0.0))
 	var mesh: ArrayMesh = metal.commit()
 	green.commit(mesh)
 	red.commit(mesh)
 	var mm := StandardMaterial3D.new()
 	mm.albedo_color = Data.LANE_RING_METAL
 	mm.metallic = 0.75
-	mm.roughness = 0.4
+	mm.roughness = 0.35
 	mesh.surface_set_material(0, mm)
 	for si in [1, 2]:
 		var lm := StandardMaterial3D.new()
 		lm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		lm.cull_mode = BaseMaterial3D.CULL_DISABLED
 		lm.albedo_color = Data.LANE_GO if si == 1 else Data.LANE_STOP
 		mesh.surface_set_material(si, lm)
 	return mesh
+
+## A profile line made smooth (Catmull-Rom, sub points between each pair); closed: it wraps round.
+static func _smooth_profile(pts: Array, sub: int, closed: bool) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	var n := pts.size()
+	var last := n if closed else n - 1
+	for i in last:
+		var p0: Vector2 = pts[(i - 1 + n) % n] if closed or i > 0 else pts[0]
+		var p1: Vector2 = pts[i]
+		var p2: Vector2 = pts[(i + 1) % n]
+		var p3: Vector2 = pts[(i + 2) % n] if closed or i + 2 < n else pts[n - 1]
+		for k in sub:
+			var t := float(k) / sub
+			var t2 := t * t
+			var t3 := t2 * t
+			out.append(0.5 * ((2.0 * p1) + (-p0 + p2) * t + (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * t2 + (-p0 + 3.0 * p1 - 3.0 * p2 + p3) * t3))
+	if not closed: out.append(pts[n - 1])
+	return out
+
+## Spin a profile (x = distance from the axis, y = along Z) round an axis parallel to Z through c (in X, Y), segs
+## pieces round. Smooth normals from the line, turned to face away from "inside" (a point of the profile's plane:
+## the middle of a closed profile, or for an open one any point on its inner side).
+static func _lathe(st: SurfaceTool, prof: PackedVector2Array, c: Vector2, segs: int, closed: bool, inside: Vector2) -> void:
+	var n := prof.size()
+	var nrm := PackedVector2Array()
+	for i in n:
+		var a := prof[(i - 1 + n) % n] if closed or i > 0 else prof[i]
+		var b := prof[(i + 1) % n] if closed or i < n - 1 else prof[i]
+		var t := (b - a).normalized()
+		var nn := Vector2(t.y, -t.x)
+		if nn.dot(prof[i] - inside) < 0.0: nn = -nn
+		nrm.append(nn)
+	var rows := n if closed else n - 1
+	for j in segs:
+		var a0 := TAU * j / segs
+		var a1 := TAU * (j + 1) / segs
+		for i in rows:
+			var i2 := (i + 1) % n
+			var v := [[prof[i], nrm[i], a0], [prof[i2], nrm[i2], a0], [prof[i2], nrm[i2], a1], [prof[i], nrm[i], a1]]
+			var P := []
+			var N := []
+			for q in v:
+				var pr: Vector2 = q[0]
+				var nr: Vector2 = q[1]
+				var ang: float = q[2]
+				P.append(Vector3(c.x + cos(ang) * pr.x, c.y + sin(ang) * pr.x, pr.y))
+				N.append(Vector3(cos(ang) * nr.x, sin(ang) * nr.x, nr.y).normalized())
+			for tri in [[0, 1, 2], [0, 2, 3]]:
+				var A: Vector3 = P[tri[0]]
+				var Bv: Vector3 = P[tri[1]]
+				var C: Vector3 = P[tri[2]]
+				var face := (Bv - A).cross(C - A)
+				var avg: Vector3 = N[tri[0]] + N[tri[1]] + N[tri[2]]
+				var order: Array = tri if face.dot(avg) < 0.0 else [tri[0], tri[2], tri[1]]   # (front faces wind clockwise)
+				for k in order:
+					st.set_normal(N[k])
+					st.add_vertex(P[k])
 
 ## Is the straight run a -> b clear of the sun, the planet and the station (other than its own two ends)?
 func _lane_clear(a: Vector3, b: Vector3, skip: Array) -> bool:
