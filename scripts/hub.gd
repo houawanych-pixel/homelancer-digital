@@ -315,6 +315,7 @@ func _ready() -> void:
 		row.add_child(bb)
 		return bb
 	mk.call("ContactsButton", "CONTACTS", row1, func(): open_comms("" if comms_view == "contacts" else "contacts"))
+	(mk.call("ComeButton", "COME HERE", row1, func(): asst_ask("Come here, please.")) as Button).visible = false   # v13.340
 	mk.call("LogButton", "LOG", row2, func(): set_log_open(not asst_log_open))
 	mk.call("MicButton", "MIC", row2, func(): asst_listen())
 	mk.call("TypeButton", "TYPE", row2, func(): set_typing(not typing))
@@ -634,6 +635,8 @@ func _make_theme() -> Theme:
 
 func open(station_or_planet: Dictionary) -> void:
 	base = station_or_planet
+	evee_here = not Data.EVEE_COMES   # v13.340: she is on your phone until you ask her to come
+	evee_walk = -1.0
 	kind = base.get("kind", "station")
 	visible = true
 	_load_background()
@@ -968,6 +971,7 @@ void fragment() {
 ## v4.6 (owner): she stands on every station page (not in the hangar bay, where the shop is), at the right edge.
 func _asst_on(s: String) -> bool:
 	if lockdown: return false   # v9.2 (owner): Evee is not with you in a lockdown
+	if not evee_here: return false   # v13.340: she comes when you call her
 	return (not full_page(s) or panels_hidden) and Packs.is_ready("assistant") and ResourceLoader.exists("res://assets/assistant/idle_a.ogv")
 
 func _asst_w() -> float:   # the room the page leaves for her at the right (her body, not the whole clip)
@@ -1236,6 +1240,8 @@ func _place_calls() -> void:
 	var ts := talk_side if _call_open(talk_side) else ("r" if _call_open("r") else ("l" if _call_open("l") else ""))
 	talk_side = ts if ts != "" else talk_side
 	asst_chat.visible = ts != ""
+	var cmb: Button = asst_chat.find_child("ComeButton", true, false)
+	if cmb != null: cmb.visible = Data.EVEE_COMES and not evee_here and str(calls[ts].get("id", "") if ts != "" else "") == "assistant"
 	if ts != "":
 		var cr := call_rect(ts)
 		asst_chat.set_anchors_preset(Control.PRESET_TOP_LEFT)
@@ -1535,6 +1541,62 @@ func _asst_voice() -> void:
 
 ## Say something to whoever you are talking to (Evee, or the person on the call): the brain answers (the rule engine
 ## for now; Echo Vision's brain plugs in through Brain.responder).
+## v13.340 (owner: "on my phone I tap Evee and call her; I ask her to come, she says 'All right, I'll be there right
+## away', hangs up, and walks over"). She is on your phone when you dock; asking her to come brings her into the room.
+var evee_here := true
+var evee_walk := -1.0   # seconds into her walk over (-1: not walking)
+var _come_re: RegEx = null
+func wants_come(t: String) -> bool:
+	if _come_re == null:
+		_come_re = RegEx.new()
+		_come_re.compile("(?i)\\b(come (here|over|to me|see me|meet me|find me|join me)|get (over )?here|where are you|can you come|need you here|meet me)\\b")
+	return _come_re.search(t) != null
+
+func evee_come() -> void:
+	var line: String = Data.EVEE_COME_LINE if not evee_here else "I'm right here, pilot."
+	(asst_chat.find_child("Said", true, false) as Label).text = line
+	if not calls["r"].is_empty():
+		calls["r"]["line"] = line
+		call_ctl["r"].queue_redraw()
+	_log("EVEE", line)
+	if Sfx.voice_on() or asst_free or _spoke: Sfx.read_aloud(line, "", 1.15, true)
+	_spoke = false
+	if evee_here: return
+	get_tree().create_timer(Data.EVEE_HANGUP_S).timeout.connect(func():
+		if str(calls["r"].get("id", "")) == "assistant": close_call("r")
+		evee_arrive())
+
+## She walks into the room: from far off (small, near the floor line of the room) up to where she stands, a step in
+## her stride; the walk clip when there is one (assets/assistant/walk_fwd.ogv), else her idle clip.
+func evee_arrive() -> void:
+	if evee_here: return
+	evee_here = true
+	evee_walk = 0.0
+	asst_yaw = -1.0   # (she comes to the middle of what you are looking at)
+	_asst_show(screen)
+	if asst.visible: _asst_play("walk_fwd" if ResourceLoader.exists("res://assets/assistant/walk_fwd.ogv") else "idle_a")
+
+func _evee_walk_step(dt: float) -> void:
+	if evee_walk < 0.0: return
+	evee_walk += dt
+	if evee_walk >= Data.EVEE_WALK_S:
+		evee_walk = -1.0
+		asst.modulate.a = 1.0
+		if asst.visible and str(asst.get_meta("clip", "")) == "walk_fwd": _asst_play("idle_a")
+		return
+	if not asst.visible: return
+	var k := clampf(evee_walk / Data.EVEE_WALK_S, 0.0, 1.0)
+	var e := 1.0 - pow(1.0 - k, 2.0)   # (quick at first, slowing as she reaches you)
+	var sc := lerpf(Data.EVEE_WALK_FROM, 1.0, e)
+	var S := get_viewport_rect().size
+	var r := Rect2(asst.position, asst.size)
+	var ax := r.position.x + r.size.x * 0.5
+	var ay := minf(r.end.y, S.y) - S.y * Data.EVEE_WALK_RISE * (1.0 - e)   # (far off: her feet higher up the floor)
+	var bob := absf(sin(evee_walk * TAU * Data.EVEE_STEP_HZ * 0.5)) * Data.EVEE_STEP_BOB * sc   # (a step in her stride)
+	asst.size = r.size * sc
+	asst.position = Vector2(ax - asst.size.x * 0.5, ay - (minf(r.end.y, S.y) - r.position.y) * sc - bob)
+	asst.modulate.a = clampf(evee_walk / 0.35, 0.0, 1.0)
+
 func asst_ask(t: String) -> void:
 	if t.strip_edges() == "": return
 	var ed: LineEdit = asst_chat.find_child("AskLine", true, false)
@@ -1548,6 +1610,10 @@ func asst_ask(t: String) -> void:
 	var id := str(d.get("id", "assistant"))
 	if id == "": id = "assistant"
 	_log("YOU", t.strip_edges())
+	if id == "assistant" and wants_come(t):   # v13.340
+		ed.text = ""
+		evee_come()
+		return
 	var ctx := {"system": GS.system_id, "hostiles": 0, "kills": GS.kills, "credits": GS.credits, "station": str(base.get("name", ""))}
 	Brain.ask(id, t, ctx, func(line: String):
 		var clean := line
@@ -7556,6 +7622,7 @@ func _process(dt: float) -> void:
 	_update_room(dt)
 	if screen == "loadout": _gar_tick(dt)   # v12.72: the garage camera
 	_asst_place()
+	_evee_walk_step(dt)
 	crew.tick(dt)
 	crowd.tick(dt)
 	_apply_call_inset()

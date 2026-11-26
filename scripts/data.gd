@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.339"
+const VERSION := "v13.340"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -1674,6 +1674,16 @@ const ROOM_SND_GONE := 0.25    # v13.142 (owner): a room part is silent once it 
 const ROOM_SND_DUCK := 1.0 / 3.0   # v13.142 (owner): while someone speaks the room plays at this share (75% facing it -> 25%); never 100%
 const HUB_MUSIC := 0.1         # v5.9 (owner): the faction's music under the hub, at 10%
 const CALL_VOICE_DB := 0.0     # v5.9 (owner): calls (Evee, the station's people) at 100%
+## v13.340 (owner: "I tap Evee on my phone and call her; I ask her to come, she answers 'All right, I'll be there right
+## away', hangs up, and walks over"). Until then she is only on your phone.
+const EVEE_COMES := true
+const EVEE_COME_LINE := "All right, I'll be there right away."
+const EVEE_HANGUP_S := 2.2      # she hangs up this long after answering
+const EVEE_WALK_S := 3.2        # her walk over
+const EVEE_WALK_FROM := 0.38    # how big she starts, far off
+const EVEE_WALK_RISE := 0.16    # how far up the floor her feet start (share of the screen)
+const EVEE_STEP_HZ := 1.8       # steps a second
+const EVEE_STEP_BOB := 7.0      # px up and down a step
 const ASST_TOP := 70.0         # v5.7 (owner): her head comes up to just under the menu bar
 const ASST_SCREEN_X := 0.42    # where she stands on arrival (v8.5: left of the right-hand panel)
 const ASST_KEY := Color(0.08, 0.75, 0.1)   # the green to remove

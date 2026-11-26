@@ -8118,6 +8118,50 @@ func _run() -> void:
 		for r in results: print("[route] ", r)
 		get_tree().quit()
 		return
+	if _flag("HL_EVEECOME"):   # v13.340 (owner: "I tap Evee and call her; I ask her to come, she answers, hangs up and walks over")
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main.dock(_sp().station)
+		await _until(func(): return main.state == "hub", 8.0)
+		var hb = main.hub
+		Packs.request("assistant")
+		await Packs.wait("assistant", 60.0)
+		hb.show_screen("lounge")
+		await _wait(1.5)
+		hb.close_call("r")
+		await _frames(3)
+		var away: bool = not hb.evee_here and not hb.asst.visible
+		var words: bool = hb.wants_come("Can you come here?") and hb.wants_come("come over to me") and hb.wants_come("where are you") and not hb.wants_come("how are you doing") and not hb.wants_come("what's the income here")
+		hb.open_comms("contacts")
+		await _frames(2)
+		(hb.comms_panel.find_child("Contact_assistant", true, false) as Button).pressed.emit()
+		await _frames(3)
+		var called: bool = str(hb.calls["r"].get("id", "")) == "assistant"
+		var cb: Button = hb.asst_chat.find_child("ComeButton", true, false)
+		var cb_on: bool = cb != null and cb.is_visible_in_tree()
+		await _shot("evee_call", 0.2)
+		cb.pressed.emit()
+		await _frames(2)
+		var answered: bool = str(hb.calls["r"].get("line", "")) == Data.EVEE_COME_LINE and hb.asst_log.back()[1] == Data.EVEE_COME_LINE
+		await _wait(Data.EVEE_HANGUP_S + 0.3)
+		var hung: bool = hb.calls["r"].is_empty() and hb.evee_here and hb.evee_walk >= 0.0 and hb.asst.visible
+		await _wait(Data.EVEE_WALK_S * 0.35)
+		var mid_h: float = hb.asst.size.y
+		await _shot("evee_walking", 0.0)
+		await _wait(Data.EVEE_WALK_S)
+		await _frames(2)
+		var end_h: float = hb.asst.size.y
+		var arrived: bool = hb.evee_walk < 0.0 and hb.asst.visible and is_equal_approx(hb.asst.modulate.a, 1.0) and mid_h < end_h * 0.9
+		await _shot("evee_here", 0.2)
+		hb.show_screen("market")
+		await _frames(3)
+		var stays: bool = hb.asst.visible
+		_check("v13.340: Evee is on your phone when you dock (%s); CONTACTS -> Evee calls her (%s), COME HERE shows (%s); she answers \"%s\" (%s), hangs up and walks over (%s): smaller far off (%d px), full size when she arrives (%d px) (%s); she stays on the next page (%s); \"come here\" words (%s)" % [away, called, cb_on, Data.EVEE_COME_LINE, answered, hung, mid_h, end_h, arrived, stays, words],
+			away and called and cb_on and answered and hung and arrived and stays and words, "")
+		for r in results: print("[route] ", r)
+		get_tree().quit()
+		return
 	if _flag("HL_DEVSHOT"):   # look at every station page
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -13096,6 +13140,7 @@ func _job_v1125() -> void:
 func _job_v114() -> void:
 	var hb = main.hub
 	hb.open(Data.SYSTEMS["veranthos"]["station"])
+	hb.evee_here = true   # (v13.340: she is in the room for these checks)
 	await _frames(3)
 	if hb.panels_hidden: hb.set_panels_hidden(false)
 	var S: Vector2 = hb.get_viewport_rect().size
@@ -21535,6 +21580,7 @@ func _job_v35() -> void:
 	main.dock(s.station)
 	await _until(func(): return main.state == "hub", 8.0)
 	var hb = main.hub
+	hb.evee_here = true   # (v13.340: she is in the room for these checks)
 	hb.room_override = "liberator"
 	hb.show_screen("ships")
 	await Packs.wait("room_liberator_shipyard", 30.0)
