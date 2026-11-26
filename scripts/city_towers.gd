@@ -591,6 +591,11 @@ static func street_loops(pid: String, tile: int) -> Array:
 	if not CityPlan.is_town(pid, tile) and Data.CITY_TOWERS and Data.CITY_RAMPS:
 		for ax in 2:
 			for sl in CityPlan.sky_lines(pid, tile, ax): sky[Vector2i(ax, int(sl[0]))] = true
+	var hw_ends: Array = []   # v13.351: where a highway leaves the city (no loop there: the street runs on to it)
+	for r in Highways.local(pid, tile):
+		var hp: PackedVector3Array = r["pts"]
+		if int(r["a"]) == tile: hw_ends.append(Vector2(hp[0].x, hp[0].z))
+		if int(r["b"]) == tile: hw_ends.append(Vector2(hp[hp.size() - 1].x, hp[hp.size() - 1].z))
 	for ax in 2:   # ax 0: streets along z (their ends on the north and south edges); 1: along x
 		var n_b: int = cr.size.x if ax == 0 else cr.size.y
 		var mids: Array = [[av * 0.5, 1, -1]]
@@ -605,6 +610,7 @@ static func street_loops(pid: String, tile: int) -> Array:
 				var o := Vector2(0.0, sgn) if ax == 0 else Vector2(sgn, 0.0)
 				var w := Vector2(-o.y, o.x)
 				var B := Vector2(line, org.y if sgn < 0.0 else org.y + size.y) if ax == 0 else Vector2(org.x if sgn < 0.0 else org.x + size.x, line)
+				if hw_ends.any(func(q): return (q as Vector2).distance_to(B) < 2.0): continue   # (v13.351: a highway leaves here instead)
 				for k in int(m[1]):
 					var off := lw * (0.5 + k)
 					var rr: float = Data.LOOP_R + k * lw * 1.5

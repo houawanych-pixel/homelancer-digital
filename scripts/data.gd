@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.350"
+const VERSION := "v13.351"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -538,6 +538,24 @@ const CITY_LOOPS := true            # v13.348 (owner: "like a Hot Wheels track, 
 const LOOP_R := 22.0                # m: a street's turning loop (its inner lane)
 const LOOP_OUT := 6.0               # m out past the city's edge before it turns
 const CITY_APRON := 500.0           # v13.348: m round a city the land lies flat at its street level (its loops and interchanges stand on it), then eases back
+## v13.345 (owner: "roads linking all the cities across the terrains"): raised highways between a world's cities
+const HIGHWAYS := true
+const HIGHWAY_W := 28.0             # m: the deck (four lanes and edges)
+const HIGHWAY_CLEAR := 22.0         # m over the land at the least
+const HIGHWAY_SLOPE := 0.07         # the steepest it climbs or falls
+const HIGHWAY_STRAIGHT := 520.0     # m straight out of a city before it turns (past the skyways' interchanges)
+const HIGHWAY_STEP := 45.0          # m between the points of its curve
+const HIGHWAY_PIER_EVERY := 70.0    # m between its piers
+const HIGHWAY_PIER_OFF := 9.0       # m either side of its middle
+const HIGHWAY_PIER_W := 4.0         # m square
+const HIGHWAY_PIER_MIN := 6.0       # no piers where the deck is this close to the ground
+const HIGHWAY_GRID := 100.0         # m: the grid it picks its way over the land on
+const HIGHWAY_ROAM := 1500.0        # m it may stray from the straight line between the cities
+const HIGHWAY_CLIMB_COST := 14.0    # each metre up or down costs this many metres of road
+const HIGHWAY_HIGH_COST := 3.0      # ...and land this high over the cities, per metre, on each step
+const HIGHWAY_TUNNEL_COVER := 6.0   # m of land over the deck before it counts as a tunnel
+const HIGHWAY_PORTAL_H := 12.0      # m: a tunnel portal's height over the deck
+const HIGHWAY_DRAW_GROW := 1500.0   # m: a tile draws the highways that come this near it
 const CITY_WIDEN := {"new_terra": {4: 1}}   # v13.344 (owner: "the capital should be the biggest city"): a ring of outskirt blocks round the capital's core (tile -> blocks out)
 const OUTSKIRT_H := 0.5                     # their towers: half the core's height
 const OUTSKIRT_VARY := Vector2(0.8, 1.25)   # ...give or take

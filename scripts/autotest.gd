@@ -8440,6 +8440,91 @@ func _run() -> void:
 		for r2 in results: print("[route] ", r2)
 		get_tree().quit()
 		return
+	if _flag("HL_HIGHWAY"):   # v13.345 (owner: "roads linking all the cities across the terrains")
+		var pid := "new_terra"
+		var tt := 4
+		var rs: Array = Highways.routes(pid)
+		var info: Array = []
+		var shape_ok := rs.size() >= CityPlan.city_tiles(pid).size() - 1
+		for r in rs:
+			var pts: PackedVector3Array = r["pts"]
+			var steep := 0.0
+			var low := INF
+			for i in range(1, pts.size()):
+				var dd := Vector2(pts[i].x - pts[i - 1].x, pts[i].z - pts[i - 1].z).length()
+				if dd > 0.5: steep = maxf(steep, absf(pts[i].y - pts[i - 1].y) / dd)
+			var in_tun := {}
+			for tn in r.get("tunnels", []):
+				for i in range(int(tn[0]) - 2, int(tn[1]) + 3): in_tun[i] = true
+			for i in range(pts.size() / 5, pts.size() * 4 / 5):   # (the middle: well over the land, but for its tunnels)
+				if in_tun.has(i): continue
+				low = minf(low, pts[i].y - maxf(Surface.sample(pid, pts[i].x, pts[i].z)[0], 0.0))
+			var ga := CityPlan.ground(pid, int(r["a"]))
+			var gb := CityPlan.ground(pid, int(r["b"]))
+			var ends := absf(pts[0].y - ga) < 1.0 and absf(pts[pts.size() - 1].y - gb) < 1.0
+			var prof: Array = []
+			for i in range(0, pts.size(), maxi(1, pts.size() / 16)): prof.append("%.0f/%.0f" % [pts[i].y, Surface.sample(pid, pts[i].x, pts[i].z)[0]])
+			print("[hw] ", int(r["a"]), "-", int(r["b"]), " deck/land ", " ".join(prof))
+			info.append("%d tunnels" % (r.get("tunnels", []) as Array).size())
+			info.append("%d-%d %.1f km, steepest %.0f%%, lowest %.0f m over the land, ends on the streets %s" % [int(r["a"]), int(r["b"]), float(r["len"]) / 1000.0, steep * 100.0, low, ends])
+			shape_ok = shape_ok and steep <= Data.HIGHWAY_SLOPE + 0.005 and low >= 5.0 and ends   # (over the land everywhere but its tunnels; full clearance away from the cities)
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main._load_surface(pid, tt)
+		await _until(func(): return is_instance_valid(main.space) and main.space.surface_mode and main.space.tile == tt, 40.0)
+		await _wait(3.0)
+		var s := _sp()
+		var meshes: Array = s.find_children("Highways", "MeshInstance3D", true, false)
+		var loc: Array = Highways.local(pid, tt)
+		var drawn: bool = not meshes.is_empty() and loc.size() >= 2
+		# from the air: a highway leaving the capital
+		var hp: PackedVector3Array = loc[0]["pts"]
+		var i2 := -1
+		for rr2 in loc:   # (a point on this tile, out of the city: crossing the tile's edge would take you to the next tile)
+			var hq: PackedVector3Array = rr2["pts"]
+			for i in hq.size():
+				if absf(hq[i].x) < Surface.EDGE - 250.0 and absf(hq[i].z) < Surface.EDGE - 250.0 and not CityPlan.in_city(pid, tt, Vector2(hq[i].x, hq[i].z), 250.0) and hq[i].y > CityPlan.ground(pid, tt) + 10.0:
+					i2 = i
+					hp = hq
+					break
+			if i2 >= 0: break
+		if i2 < 0: i2 = hp.size() / 3
+		var at: Vector3 = hp[i2]
+		_tp(at + Vector3(-at.x, 0, -at.z).normalized() * 500.0 + Vector3(0, 380, 0), at)   # (from the tile's middle side: never over its edge)
+		await _wait(3.0)
+		await _capture("highway_air")
+		# along the deck, low
+		var at2: Vector3 = hp[i2]
+		var nx: Vector3 = hp[mini(i2 + 2, hp.size() - 1)]
+		var dv: Vector3 = (nx - at2).normalized()
+		_tp(at2 - dv * 60.0 + Vector3(0, 14, 0), at2 + dv * 200.0)
+		await _wait(2.5)
+		await _capture("highway_deck")
+		# on foot on the deck: it holds you
+		s.on_foot = true
+		GS.form = "mech"
+		s.set_player_model()
+		s.ground_mode = true
+		s.player.global_position = at2 + Vector3(0, 6.0, 0)
+		s.vel = Vector3.ZERO
+		s._ramp_key = ""
+		s._ramp_last = Vector3.INF
+		await _wait(1.5)
+		var stood: float = s.player.global_position.y - Data.PILOT_FEET_BELOW - at2.y
+		print("[hw] stand ", at2, " now ", s.player.global_position, " segs ", s._ramp_segs.size(), " hits ", s.ramp_hits, " key ", s._ramp_key, " ground ", s.ground_mode, " foot ", s.on_foot)
+		var cr2: Rect2i = CityPlan.rect(pid, tt)
+		var c2: Vector2 = BlockField.region_centre(cr2.position + Vector2i(1, 1)) - Vector2(Data.BLOCK_REGION, Data.BLOCK_REGION) * 0.5
+		var spot2 := Vector3(c2.x + 20.0, CityPlan.ground(pid, tt) + 25.0, c2.y + 60.0)
+		s.on_foot = false
+		await _until(func(): s.player.global_position = spot2; s.vel = Vector3.ZERO; return s.city_traffic != null and is_instance_valid(s.city_traffic), 60.0)
+		var ct: Node = s.city_traffic
+		var lanes_ok: bool = ct != null and int(ct.highway_lanes) >= 4 and int(ct.highway_links) >= 2
+		_check("v13.345: raised highways link the cities (%d: %s); the capital's tile draws %d of them; you can stand on the deck (%.1f m); traffic: %d highway lanes, %d joins to the city's streets" % [rs.size(), "; ".join(info), loc.size(), stood, int(ct.highway_lanes) if ct != null else -1, int(ct.highway_links) if ct != null else -1],
+			shape_ok and drawn and absf(stood) < 1.5 and lanes_ok, "")
+		for r2 in results: print("[route] ", r2)
+		get_tree().quit()
+		return
 	if _flag("HL_DEVSHOT"):   # look at every station page
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)

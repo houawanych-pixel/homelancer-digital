@@ -90,6 +90,7 @@ func _build_lanes() -> void:
 	sky_lanes = _lanes.filter(func(l): return l.size() == 3).size()
 	_build_interchanges()
 	_build_loops()
+	_build_highways()
 	# v13.324: the avenue lines (where the lights stand): [coordinate, half the road's width] on each axis
 	var lines := func(n_blocks: int, o: float) -> Array:
 		var out: Array = [[o + av * 0.5, av * 0.5]]
@@ -331,6 +332,52 @@ func _build_loops() -> void:
 			if L.size() != 2: continue
 			if near_pt.call(L[1], a): _next[k] = [li]
 			if near_pt.call(L[0], b): _next[li] = [k]
+## v13.345: the highways out of this city: two lanes each way along the deck; the alley lane heading out at the city's
+## edge runs on to the highway's inner lane, the highway's inner lane coming in runs on to the alley.
+var highway_lanes := 0   # (checks)
+var highway_links := 0   # (checks) alley <-> highway joins
+func _build_highways() -> void:
+	var lw: float = Data.TRAFFIC_LANE_W
+	for r in Highways.local(planet_id, tile):
+		if int(r["a"]) != tile and int(r["b"]) != tile: continue
+		var pts: PackedVector3Array = r["pts"]
+		if int(r["b"]) == tile: pts.reverse()   # (from this city out)
+		var back := pts.duplicate()
+		back.reverse()
+		for k in 2:
+			var off := lw * (0.5 + k)
+			var o_pts := _offset_path(pts, off)
+			var i_pts := _offset_path(back, off)
+			var oi := _lanes.size()
+			_lanes.append([Vector2(o_pts[0].x, o_pts[0].z), Vector2(o_pts[-1].x, o_pts[-1].z), 0.0, o_pts])
+			var ii := _lanes.size()
+			_lanes.append([Vector2(i_pts[0].x, i_pts[0].z), Vector2(i_pts[-1].x, i_pts[-1].z), 0.0, i_pts])
+			highway_lanes += 2
+			_next[oi] = [ii]   # (at the far city, out of this tile: round and back this way; no dead ends)
+			var start := Vector2(o_pts[0].x, o_pts[0].z)
+			var fin := Vector2(i_pts[-1].x, i_pts[-1].z)
+			var start0 := Vector2(_offset_path(pts, lw * 0.5)[0].x, _offset_path(pts, lw * 0.5)[0].z)
+			var fin0 := Vector2(_offset_path(back, lw * 0.5)[-1].x, _offset_path(back, lw * 0.5)[-1].z)
+			for li in oi:
+				var L: Array = _lanes[li]
+				if L.size() != 2: continue
+				if k == 0 and (L[1] as Vector2).distance_to(start) < 1.5:
+					_next[li] = [oi]
+					highway_links += 1
+				if (L[0] as Vector2).distance_to(fin0) < 1.5:   # (both lanes coming in merge on to the street's)
+					_next[ii] = [li]
+					highway_links += 1
+
+## A path moved sideways to its right (the way it runs) by off metres, a hover over its deck.
+func _offset_path(pts: PackedVector3Array, off: float) -> PackedVector3Array:
+	var out := PackedVector3Array()
+	for i in pts.size():
+		var a := pts[maxi(0, i - 1)]
+		var b := pts[mini(pts.size() - 1, i + 1)]
+		var d := Vector2(b.x - a.x, b.z - a.z).normalized()
+		var right := Vector2(-d.y, d.x)
+		out.append(Vector3(pts[i].x + right.x * off, pts[i].y + Data.TRAFFIC_HOVER, pts[i].z + right.y * off))
+	return out
 
 ## Run a car on to lane li from its start.
 func _enter_lane(p: Dictionary, li: int, t: float) -> void:

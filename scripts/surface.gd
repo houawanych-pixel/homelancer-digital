@@ -913,6 +913,14 @@ static func build_tile(planet_id: String, tile: int) -> Node3D:
 				di.set_surface_override_material(1, fm)
 				di.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				root.add_child(di)
+	var hw_parts: Array = Highways.parts(planet_id, tile)   # v13.345: the raised highways between the cities
+	if not hw_parts.is_empty():
+		var hmi := MeshInstance3D.new()
+		hmi.name = "Highways"
+		hmi.mesh = CityTowers.build([], hw_parts, false)[0]
+		hmi.material_override = CityTowers.material()
+		hmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		root.add_child(hmi)
 	if BlockField.wanted(planet_id, tile):   # EXPERIMENT: the big-block test patch
 		var bf := BlockField.new()
 		bf.build(planet_id, tile)
