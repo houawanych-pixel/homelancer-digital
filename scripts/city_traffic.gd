@@ -416,63 +416,82 @@ func _build_lights() -> void:
 		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	var frame := _mat("tl_frame", Color(0.1, 0.12, 0.16))
 	var trim := _mat("tl_trim", Data.CITY_TRIM, 1.5)
-	# v13.328 (owner: "New Terra black screen ... WebGL context lost"): the lights were ~23 nodes each (1,500 meshes,
-	# 1 M triangles on a big city) and phones ran out of GPU memory. Now every part goes into one merged mesh per
-	# material (4 meshes for all the lights), with low-segment shapes. Same look; the lamps still change colour.
-	var cyl := func(r_top: float, r_bot: float, h: float, segs: int) -> CylinderMesh:
-		var c := CylinderMesh.new()
-		c.top_radius = r_top
-		c.bottom_radius = r_bot
-		c.height = h
-		c.radial_segments = segs
-		c.rings = 1
-		return c
+	var white := _mat("tl_white", Data.TOWER_WHITE)
+	_glass_x = StandardMaterial3D.new()
+	_glass_z = StandardMaterial3D.new()
+	for m in [_glass_x, _glass_z]:
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	# v13.352 (owner's picture, "Homelancer traffic light"): at the corner before each way into a crossing a tall white
+	# gantry (a post with a lit strip, an arm out over that road's lanes); under the arm hangs a tinted glass panel with
+	# a big round lamp on it and a row of chevrons (GO >>>): green, amber, red for that way's traffic, the glass tinted to
+	# match. High enough for a mech to walk under. Everything merged: six meshes for all the lights of a city.
 	var st := {}
-	for k in ["frame", "trim", "x", "z"]:
+	for k in ["frame", "trim", "white", "x", "z", "gx", "gz"]:
 		var t := SurfaceTool.new()
 		t.begin(Mesh.PRIMITIVE_TRIANGLES)
 		st[k] = t
-	# v13.335 (owner: "I didn't like the little corner stop signs, that seems old: floating signs above"): no posts. Over
-	# the middle of each crossing a light hovers: a slim dark core with a glowing ring under it, and a round head on each
-	# of its four sides facing the traffic coming that way (a ring of lamps and a bar), green / amber / red.
-	# v13.349 (owner: "that little traffic light thing's dumb: a longer panel, a long green panel, and it turns red"):
-	# over each way into a crossing, a long glowing panel right across that road, floating high enough for a mech to walk
-	# under, in a dark frame with a lit rim: green, amber, red for the traffic coming that way.
-	var panel := BoxMesh.new()
-	var back := BoxMesh.new()
-	var rim := BoxMesh.new()
+	var box := BoxMesh.new()
+	var disc := CylinderMesh.new()
+	disc.top_radius = Data.TL_LAMP_R
+	disc.bottom_radius = Data.TL_LAMP_R
+	disc.height = 0.5
+	disc.radial_segments = 16
+	disc.rings = 1
+	var put := func(key: String, size: Vector3, at: Vector3, bas := Basis.IDENTITY) -> void:
+		box.size = size
+		(st[key] as SurfaceTool).append_from(box, 0, Transform3D(bas, at))
+	var H: float = Data.TL_H
 	for ax in _ave_x:
 		for az in _ave_z:
-			var X := float(ax[0])
-			var Z := float(az[0])
-			var hx := float(ax[1])
-			var hz := float(az[1])
+			var C := Vector2(float(ax[0]), float(az[0]))
 			var mark := Node3D.new()
 			mark.name = "TrafficLight"
-			mark.position = Vector3(X, _g + Data.TRAFFIC_LIGHT_FLOAT_H, Z)
+			mark.position = Vector3(C.x, _g + H, C.y)
 			add_child(mark)
 			lights.append(mark)
-			var y := _g + Data.TRAFFIC_LIGHT_FLOAT_H
-			for side in [-1.0, 1.0]:
-				# the traffic along x: a panel across that road (spanning z), just before the crossing on each side
-				var L := hz * 2.0 * Data.TRAFFIC_PANEL_SPAN
-				var at := Vector3(X + side * (hx + Data.TRAFFIC_PANEL_BACK), y, Z)
-				panel.size = Vector3(Data.TRAFFIC_PANEL_T, Data.TRAFFIC_PANEL_H, L)
-				back.size = Vector3(Data.TRAFFIC_PANEL_T * 1.6, Data.TRAFFIC_PANEL_H + 0.8, L + 0.8)
-				rim.size = Vector3(Data.TRAFFIC_PANEL_T * 1.8, 0.25, L + 1.0)
-				(st["x"] as SurfaceTool).append_from(panel, 0, Transform3D(Basis.IDENTITY, at + Vector3(side * 0.3, 0, 0)))
-				(st["frame"] as SurfaceTool).append_from(back, 0, Transform3D(Basis.IDENTITY, at - Vector3(side * 0.2, 0, 0)))
-				(st["trim"] as SurfaceTool).append_from(rim, 0, Transform3D(Basis.IDENTITY, at + Vector3(0, Data.TRAFFIC_PANEL_H * 0.5 + 0.5, 0)))
-				# the traffic along z
-				var L2 := hx * 2.0 * Data.TRAFFIC_PANEL_SPAN
-				var at2 := Vector3(X, y, Z + side * (hz + Data.TRAFFIC_PANEL_BACK))
-				panel.size = Vector3(L2, Data.TRAFFIC_PANEL_H, Data.TRAFFIC_PANEL_T)
-				back.size = Vector3(L2 + 0.8, Data.TRAFFIC_PANEL_H + 0.8, Data.TRAFFIC_PANEL_T * 1.6)
-				rim.size = Vector3(L2 + 1.0, 0.25, Data.TRAFFIC_PANEL_T * 1.8)
-				(st["z"] as SurfaceTool).append_from(panel, 0, Transform3D(Basis.IDENTITY, at2 + Vector3(0, 0, side * 0.3)))
-				(st["frame"] as SurfaceTool).append_from(back, 0, Transform3D(Basis.IDENTITY, at2 - Vector3(0, 0, side * 0.2)))
-				(st["trim"] as SurfaceTool).append_from(rim, 0, Transform3D(Basis.IDENTITY, at2 + Vector3(0, Data.TRAFFIC_PANEL_H * 0.5 + 0.5, 0)))
-	for pr in [["frame", frame], ["trim", trim], ["x", _lamp_x], ["z", _lamp_z]]:
+			for d: Vector2 in [Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]:
+				var along_x := absf(d.x) > 0.5
+				var hT: float = float(ax[1]) if along_x else float(az[1])   # the crossing road it passes over
+				var hS: float = float(az[1]) if along_x else float(ax[1])   # its own road's half width
+				var r := Vector2(-d.y, d.x)   # the right of the traffic coming this way (it keeps right)
+				var base := C - d * (hT + Data.TL_BACK)
+				var post := base + r * (hS + 3.0)
+				var bas := Basis(Vector3.UP, atan2(d.x, d.y))   # local z along d, x along -r
+				var sd := Vector3(r.x, 0, r.y)
+				var fw := Vector3(d.x, 0, d.y)
+				# the post: white, a dark spine and a lit strip facing the road
+				put.call("white", Vector3(1.8, H + 2.0, 1.8), Vector3(post.x, _g + (H + 2.0) * 0.5, post.y), bas)
+				put.call("frame", Vector3(0.9, H + 1.0, 2.0), Vector3(post.x, _g + (H + 1.0) * 0.5, post.y) - sd * 0.55, bas)
+				put.call("trim", Vector3(0.25, H - 2.0, 0.3), Vector3(post.x, _g + H * 0.5, post.y) - sd * 1.0 - fw * 0.9, bas)
+				# the arm out over its lanes, white over dark, a lit line under it
+				var arm_len := hS + 3.0 + 1.0
+				var arm_c := post - r * arm_len * 0.5
+				put.call("white", Vector3(arm_len, 1.2, 1.6), Vector3(arm_c.x, _g + H + 1.0, arm_c.y), _arm_basis(r))
+				put.call("frame", Vector3(arm_len, 0.6, 1.2), Vector3(arm_c.x, _g + H + 0.2, arm_c.y), _arm_basis(r))
+				put.call("trim", Vector3(arm_len, 0.15, 0.3), Vector3(arm_c.x, _g + H - 0.15, arm_c.y) - fw * 0.5, _arm_basis(r))
+				# the glass panel hanging under it, facing the traffic coming (-d)
+				var pw := hS * 0.95
+				var pc := base + r * hS * 0.5
+				var py := _g + H - 0.6 - Data.TL_PANEL_H * 0.5
+				var gk := "gx" if along_x else "gz"
+				var lk := "x" if along_x else "z"
+				put.call(gk, Vector3(pw, Data.TL_PANEL_H, 0.35), Vector3(pc.x, py, pc.y), _arm_basis(r))
+				put.call("frame", Vector3(pw + 0.6, 0.35, 0.6), Vector3(pc.x, py + Data.TL_PANEL_H * 0.5, pc.y), _arm_basis(r))
+				put.call("frame", Vector3(pw + 0.6, 0.35, 0.6), Vector3(pc.x, py - Data.TL_PANEL_H * 0.5 - 0.35, pc.y), _arm_basis(r))
+				# the round lamp in a dark housing (the road's middle side), the chevrons (the kerb side)
+				var lamp_at := pc - r * pw * 0.3
+				var lp := Vector3(lamp_at.x, py, lamp_at.y) - fw * 0.45
+				box.size = Vector3(Data.TL_LAMP_R * 2.6, Data.TL_LAMP_R * 2.6, 0.5)
+				(st["frame"] as SurfaceTool).append_from(box, 0, Transform3D(_arm_basis(r), lp + fw * 0.15))
+				(st[lk] as SurfaceTool).append_from(disc, 0, Transform3D(_arm_basis(r) * Basis(Vector3.RIGHT, PI * 0.5), lp - fw * 0.1))
+				for k in 3:   # GO >>>
+					var cp := pc + r * (pw * 0.05 + k * pw * 0.13)
+					for sg in [-1.0, 1.0]:
+						var seg_b := _arm_basis(r) * Basis(Vector3.FORWARD, sg * 0.75)
+						put.call(lk, Vector3(Data.TL_PANEL_H * 0.42, 0.32, 0.2), Vector3(cp.x, py + sg * Data.TL_PANEL_H * 0.14, cp.y) - fw * 0.3 - sd * 0.0, seg_b)
+	for pr in [["frame", frame], ["trim", trim], ["white", white], ["x", _lamp_x], ["z", _lamp_z], ["gx", _glass_x], ["gz", _glass_z]]:
 		var mi := MeshInstance3D.new()
 		mi.name = "Lights_" + str(pr[0])
 		mi.mesh = (st[pr[0]] as SurfaceTool).commit()
@@ -560,8 +579,19 @@ func _build_markings() -> void:
 	markings.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(markings)
 
+## A basis whose x runs along r (across the road) and z along the traffic: for the arm, the panel and its parts.
+static func _arm_basis(r: Vector2) -> Basis:
+	var xv := Vector3(r.x, 0, r.y).normalized()
+	return Basis(xv, Vector3.UP, xv.cross(Vector3.UP))
+
+var _glass_x: StandardMaterial3D
+var _glass_z: StandardMaterial3D
 func _show_lights() -> void:
 	if _lamp_x == null: return
+	if _glass_x != null:
+		for pg in [[_glass_x, light(true)], [_glass_z, light(false)]]:
+			var c: Color = {"go": Color(0.2, 1.0, 0.45), "amber": Color(1.0, 0.75, 0.2), "stop": Color(1.0, 0.22, 0.2)}[pg[1]]
+			(pg[0] as StandardMaterial3D).albedo_color = Color(c.r * 0.35, c.g * 0.35, c.b * 0.35, 0.55)
 	for pr in [[_lamp_x, light(true)], [_lamp_z, light(false)]]:
 		(pr[0] as StandardMaterial3D).albedo_color = {"go": Color(0.25, 1.0, 0.45), "amber": Color(1.0, 0.75, 0.2), "stop": Color(1.0, 0.2, 0.2)}[pr[1]] * 1.6
 

@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.351"
+const VERSION := "v13.352"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -609,6 +609,10 @@ const TRAFFIC_PANEL_H := 1.6     # v13.349 (owner: "a long green panel that turn
 const TRAFFIC_PANEL_T := 0.6     # m thick
 const TRAFFIC_PANEL_SPAN := 0.92 # of the road's width it spans
 const TRAFFIC_PANEL_BACK := 3.0  # m before the crossing's edge
+const TL_H := 22.0               # v13.352 (owner's picture): m: the gantry's arm over the street (a mech, about 14 m, walks under the panel)
+const TL_BACK := 4.0             # m before the crossing's edge
+const TL_PANEL_H := 4.2          # m: the glass panel's height
+const TL_LAMP_R := 1.3           # m: its round lamp
 const TRAFFIC_LIGHT_FLOAT_H := 16.0  # v13.335 (owner: "floating signs above"): m over the middle of the crossing the light hovers
 const TRAFFIC_STOP_GAP := 4.0        # m: cars wait this far short of the crossing
 const TRAFFIC_LIGHT_SEE := 70.0      # m: how far ahead a car minds a red light or the car in front
