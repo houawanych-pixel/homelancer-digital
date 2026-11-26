@@ -8384,6 +8384,62 @@ func _run() -> void:
 		for r2 in results: print("[route] ", r2)
 		get_tree().quit()
 		return
+	if _flag("HL_BUSRIDE"):   # v13.350 (owner: "I want to ride the bus; it will ride and you can get out")
+		var pid := "new_terra"
+		var tt := 4
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main._load_surface(pid, tt)
+		await _until(func(): return is_instance_valid(main.space) and main.space.surface_mode and main.space.tile == tt, 40.0)
+		await _wait(3.0)
+		var s := _sp()
+		var cr: Rect2i = CityPlan.rect(pid, tt)
+		var g: float = CityPlan.ground(pid, tt)
+		var c0: Vector2 = BlockField.region_centre(cr.position + Vector2i(1, 1)) - Vector2(Data.BLOCK_REGION, Data.BLOCK_REGION) * 0.5
+		var spot := Vector3(c0.x + 20.0, g + 25.0, c0.y + 60.0)
+		await _until(func(): s.player.global_position = spot; s.vel = Vector3.ZERO; return s.city_traffic != null and is_instance_valid(s.city_traffic), 60.0)
+		var ct: CityTraffic = s.city_traffic
+		var bus: Dictionary = {}
+		for k in 40:
+			for q in ct.pool:
+				if str(q["kind"]) == "bus" and q["state"] != "off" and not q.has("path"): bus = q
+			if not bus.is_empty(): break
+			for q in ct.pool:
+				if str(q["kind"]) == "bus" and q["state"] == "off": ct._spawn(q, spot)
+			await _frames(2)
+		var bn: Node3D = bus.get("node") if not bus.is_empty() else null
+		# on foot beside it
+		bus["speed"] = 0.0
+		s.player.global_position = Vector3(spot.x, g + 8.0, spot.z)
+		s.vel = Vector3.ZERO
+		await _frames(2)
+		var ej: String = s.eject()   # (out of the mech: it stays parked)
+		await _wait(0.5)
+		if is_instance_valid(s.parked): s.parked.global_position += Vector3(300, 0, 300)   # (your mech left down the street)
+		var side: Vector3 = bn.global_basis.x.normalized() if bn != null else Vector3.RIGHT
+		s.player.global_position = (bn.global_position if bn != null else spot) + side * 5.5 + Vector3(0, Data.PILOT_FEET_BELOW, 0)
+		s.vel = Vector3.ZERO
+		await _frames(3)
+		var pr0: String = s.prompt()
+		main._on_hud("ride")
+		bus["speed"] = (Data.TRAFFIC_SPEED["bus"] as Vector2).y
+		var p0: Vector3 = s.player.global_position
+		await _wait(4.0)
+		var on_it: bool = s.riding() and bn != null and s.player.global_position.distance_to(bn.global_position + bn.global_basis * Data.BUS_SEAT) < 1.0
+		var went: float = s.player.global_position.distance_to(p0)
+		await _shot("bus_ride", 0.0)
+		var pr1: String = s.prompt()
+		main._on_hud("get_off")
+		await _wait(0.8)
+		var off_ok: bool = not s.riding() and s.ride.is_empty() and s.on_foot and bn != null and Vector2(s.player.global_position.x - bn.global_position.x, s.player.global_position.z - bn.global_position.z).length() > 3.0
+		await _shot("bus_off", 0.3)
+		print("[bus] eject ", ej, " on_foot ", s.on_foot)
+		_check("v13.350: by a bus the prompt is RIDE BUS (%s); you ride it round the city (%.0f m in 4 s, in your seat: %s, prompt %s); GET OFF puts you on the street beside it (%s)" % [pr0, went, on_it, pr1, off_ok],
+			pr0 == "ride" and on_it and went > 20.0 and pr1 == "get_off" and off_ok, "")
+		for r2 in results: print("[route] ", r2)
+		get_tree().quit()
+		return
 	if _flag("HL_DEVSHOT"):   # look at every station page
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -8592,7 +8648,7 @@ func _run() -> void:
 		cam.queue_free()
 		_check("Drawn vehicles (v13.292): all %d vehicles from the owner's sheets are built from their pictures (%d)" % [ids.size(), drawn], ids.size() == 20 and drawn == 20, "")
 		_check("Hover traffic (v13.282): %d vehicles out round you (%s), %d moving, %d hovering low over the street, %d on the roads (not in a building)" % [n_on, str(kinds.keys()), moved, low, on_road],
-			n_on >= 10 and kinds.size() >= 2 and moved >= n_on - 1 and low == n_on and on_road == n_on, "")
+			n_on >= 10 and kinds.size() >= 2 and moved >= int(n_on * 0.6) and low == n_on and on_road == n_on, "")   # (v13.350: some wait at red lights since v13.324)
 		_finish_group()
 		return
 	if _flag("HL_STEAL"):   # v13.283 (owner: "stealing cars")

@@ -942,6 +942,10 @@ func _on_hud(id: String) -> void:
 			space.store_car()
 		"take_car":
 			if space.take_car() == "": hud.flash_message("Nothing in the garage.")
+		"ride":   # v13.350 (owner: "ride the bus")
+			if not space.ride_bus(): hud.flash_message("No bus here.")
+		"get_off":
+			space.get_off_bus()
 		"steal":   # v13.283 (owner: "stealing cars")
 			if not space.steal_car(): hud.flash_message("Nothing to take here.")
 		"form":

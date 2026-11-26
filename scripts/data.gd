@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.349"
+const VERSION := "v13.350"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -533,6 +533,7 @@ const CITY_LAND := {"city": 3, "coast": 3, "jungle": 2, "forest": 1, "industrial
 const CITY_OFFCENTRE := 1.2        # v13.302: a city this many regions per extra block across may sit off the tile's middle (beside its port)
 const CITY_FORCE := {"new_terra": {5: 3}}   # v13.316 (owner: "another good sized tile, same size city, same kind of build"; picked B3 Forest): tile -> blocks across, on top of the ones CITY_LAND picks
 const SOLDIER_DROP_MECH := true   # v13.345: a guard made a soldier keeps no hidden mech under it (graphics memory on phones)
+const BUS_SEAT := Vector3(0.0, 3.2, 1.0)   # v13.350: where you sit on a bus you ride (its own frame: up, and a little back)
 const CITY_LOOPS := true            # v13.348 (owner: "like a Hot Wheels track, everything loops together"): every street end turns round in a loop
 const LOOP_R := 22.0                # m: a street's turning loop (its inner lane)
 const LOOP_OUT := 6.0               # m out past the city's edge before it turns

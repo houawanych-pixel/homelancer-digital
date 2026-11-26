@@ -13287,6 +13287,15 @@ func _update_camera(dt: float, snap: bool) -> void:
 		_set_cam(rel1, ahead, b.y)
 		cam.fov = lerpf(cam.fov, 92.0 if warp_look() else (82.0 if boosting else 76.0), minf(1.0, dt * 2.0))
 		return
+	if not ride.is_empty() and is_instance_valid(player) and is_instance_valid(ride.get("node")):   # v13.350: behind and over the bus you ride
+		var rb := (ride["node"] as Node3D).global_basis.orthonormalized()
+		var bl: float = (Data.TRAFFIC_SIZE["bus"] as Vector3).z
+		var want_r := rb * Vector3(0.0, bl * 0.8 + 6.0, bl * 0.9 + 20.0)
+		var roff: Vector3 = want_r if snap or _cam_off.length() > 140.0 else _cam_off.lerp(want_r, minf(1.0, dt * 5.0))
+		_cam_off = roff
+		_set_cam(_cam_clip(roff), rb * Vector3(0.0, 0.0, -bl - 10.0), Vector3.UP)
+		cam.fov = lerpf(cam.fov, 70.0, minf(1.0, dt * 4.0) if not snap else 1.0)
+		return
 	if driving and is_instance_valid(player) and is_instance_valid(car):   # v13.283: behind and over the car you took
 		var cb := player.global_basis
 		var ln: float = (Data.TRAFFIC_SIZE.get(str(car.get_meta("kind", "car")), Vector3(4, 3, 10)) as Vector3).z
@@ -14465,9 +14474,11 @@ func prompt() -> String:
 		return "dock"
 	if gate_in_range(): return "jump"
 	if driving and at_garage(): return "store_car"   # v13.285
+	if not ride.is_empty(): return "get_off"   # v13.350: on the bus
 	if driving: return "eject"   # v13.283: get out of the car you took
 	if at_safehouse(): return "rest"   # v13.285
 	if on_foot and at_garage() and not GS.garage.is_empty(): return "take_car"
+	if on_foot and not bus_candidate().is_empty() and not near_parked(): return "ride"   # v13.350: a bus: ride it
 	if on_foot and not car_candidate().is_empty() and not near_parked(): return "steal"
 	if on_foot or (fleet_mech() and escape_pilot and is_instance_valid(parked)): return "enter" if near_parked() else ""   # v12.39
 	if not board_candidate().is_empty() or not facility_candidate().is_empty() or not tower_candidate().is_empty(): return "board"   # v11.60 (owner); v11.96: ENTER a facility
@@ -16839,6 +16850,9 @@ var last_crime_at := Vector3.ZERO
 var solid_hits := 0   # (checks)
 func _city_solids() -> void:
 	if not is_instance_valid(player): return
+	if not ride.is_empty():   # v13.350: in your seat on the bus
+		_ride_stick()
+		return
 	var pp := player.global_position
 	var me_r: float = float(Data.CITY_SOLID_PAD["foot" if on_foot and not driving else ("car" if driving else ("mech" if GS.form == "mech" else "ship"))])
 	var feet := pp.y - (Data.PILOT_FEET_BELOW if on_foot else me_r)
@@ -16847,7 +16861,7 @@ func _city_solids() -> void:
 		for q in city_traffic.pool:
 			if q["state"] == "off": continue
 			var nd: Node3D = q["node"]
-			if nd == car or not nd.visible: continue
+			if nd == car or not nd.visible or bool(q.get("ridden", false)): continue
 			var np := nd.global_position
 			if absf(np.x - pp.x) > 40.0 or absf(np.z - pp.z) > 40.0: continue
 			var dims: Vector3 = Data.TRAFFIC_SIZE.get(str(q["kind"]), Vector3(4.6, 3.2, 10.0))
@@ -16947,6 +16961,59 @@ func _ramp_solids() -> void:
 			pp = player.global_position
 			ramp_hits += 1
 	_ramp_last = player.global_position
+
+## v13.350 (owner: "I want to ride the bus: it rides and you can get out; the vehicles go round the whole city"): walk
+## up to a bus and RIDE: you sit in it while it drives its loop round the city (it keeps its own route, stops at the
+## lights), the camera with you; GET OFF puts you on the street beside it. No crime: it's a bus.
+var ride := {}   # the bus you are riding (its traffic entry), {} = none
+var rides := 0   # (checks)
+func bus_candidate() -> Dictionary:
+	var q := car_candidate()
+	return q if not q.is_empty() and str(q.get("kind", "")) == "bus" and not bool(q.get("parked", false)) else {}
+
+func ride_bus() -> bool:
+	var q := bus_candidate()
+	if q.is_empty(): return false
+	ride = q
+	q["ridden"] = true
+	rides += 1
+	if is_instance_valid(model): model.visible = false
+	vel = Vector3.ZERO
+	_ride_stick()
+	_update_camera(1.0, true)
+	Sfx.play("button", -2.0, 0.8)
+	message.emit("You're on the bus. It goes round the whole city. GET OFF wherever you like.")
+	return true
+
+func riding() -> bool:
+	return not ride.is_empty() and str(ride.get("state", "")) != "off" and is_instance_valid(ride.get("node"))
+
+## Keeps you in your seat (each physics step, after everything else moved you).
+func _ride_stick() -> void:
+	if ride.is_empty(): return
+	if not riding():   # the bus went away (out of range): you're on the street
+		get_off_bus()
+		return
+	var nd: Node3D = ride["node"]
+	player.global_position = nd.global_position + nd.global_basis * Data.BUS_SEAT
+	vel = Vector3.ZERO
+
+func get_off_bus() -> String:
+	if ride.is_empty(): return ""
+	var nd = ride.get("node")
+	ride.erase("ridden")
+	ride = {}
+	if is_instance_valid(model): model.visible = true
+	if nd != null and is_instance_valid(nd):
+		var side: Vector3 = (nd as Node3D).global_basis.x.normalized()
+		var dims: Vector3 = Data.TRAFFIC_SIZE["bus"]
+		var g := CityPlan.ground(planet_id, tile) if CityPlan.is_city_tile(planet_id, tile) else (nd as Node3D).global_position.y
+		var at: Vector3 = (nd as Node3D).global_position + side * (dims.x * 0.5 + Data.CITY_SOLID_PAD["foot"] + 1.5)
+		player.global_position = Vector3(at.x, maxf(g, (nd as Node3D).global_position.y - Data.TRAFFIC_HOVER) + Data.PILOT_FEET_BELOW + 0.2, at.z)
+	vel = Vector3.ZERO
+	_update_camera(1.0, true)
+	message.emit("Off the bus.")
+	return "off"
 
 ## The vehicle you could take right now ({} if none).
 func car_candidate() -> Dictionary:

@@ -542,7 +542,7 @@ func tick(dt: float) -> void:
 	for p in pool:
 		if p["state"] == "off": continue
 		var nd: Node3D = p["node"]
-		if not near or Vector2(nd.position.x - pp.x, nd.position.z - pp.z).length() > Data.TRAFFIC_RANGE + 120.0:
+		if not bool(p.get("ridden", false)) and (not near or Vector2(nd.position.x - pp.x, nd.position.z - pp.z).length() > Data.TRAFFIC_RANGE + 120.0):   # (v13.350: never the bus you ride)
 			_off(p)
 			continue
 		if bool(p.get("parked", false)): continue
@@ -558,7 +558,7 @@ func tick(dt: float) -> void:
 			var rel := Vector2(me.x, me.z) - a0
 			var t_me := rel.dot(d0)
 			var side := absf(rel.x * d0.y - rel.y * d0.x)
-			if side < Data.TRAFFIC_LANE_W * 0.5 + 2.0 and t_me > float(p["t"]) and t_me - float(p["t"]) < Data.TRAFFIC_LIGHT_SEE and me.y < _g + 12.0:
+			if not bool(p.get("ridden", false)) and side < Data.TRAFFIC_LANE_W * 0.5 + 2.0 and t_me > float(p["t"]) and t_me - float(p["t"]) < Data.TRAFFIC_LIGHT_SEE and me.y < _g + 12.0:
 				limit = minf(limit, t_me - Data.TRAFFIC_YIELD)
 			for q in pool:   # keep a gap to the car ahead on the same lane
 				if q == p or q["state"] == "off" or q.get("lane", -1) != p.get("lane", -2): continue

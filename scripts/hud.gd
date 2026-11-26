@@ -2430,6 +2430,8 @@ func _draw() -> void:
 	if buttons.has("guard_talk"): _prompt_btn(buttons["guard_talk"], "TALK", GREEN, held.has("guard_talk"))   # v13.144
 	if buttons.has("enter"): _prompt_btn(buttons["enter"], "ENTER", GREEN, held.has("enter"))
 	if buttons.has("steal"): _prompt_btn(buttons["steal"], "STEAL", Color(1.0, 0.35, 0.3), held.has("steal"))   # v13.283
+	if buttons.has("ride"): _prompt_btn(buttons["ride"], "RIDE BUS", GREEN, held.has("ride"))   # v13.350
+	if buttons.has("get_off"): _prompt_btn(buttons["get_off"], "GET OFF", CYAN, held.has("get_off"))
 	if buttons.has("call_ship"): _prompt_btn(buttons["call_ship"], ("%s COMING  %s" % [space.parked_name().to_upper(), _dist(space.parked_distance())]) if space.recall != "" else "CALL %s  %s" % [space.parked_name().to_upper(), _dist(space.parked_distance())], CYAN, held.has("call_ship") or space.recall != "")   # v13.299
 	if space.on_foot and is_instance_valid(space.parked) and is_instance_valid(space.cam) and buttons.has("call_ship"):   # v13.299: a compass arrow: which way your ship is
 		var cb: Rect2 = buttons["call_ship"]
