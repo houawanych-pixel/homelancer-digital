@@ -28,6 +28,11 @@ static var _blocks := {}           # "pid|tile|rx|rz" -> plan
 static func city_tiles(pid: String) -> Dictionary:
 	if _tiles.has(pid): return _tiles[pid]
 	var out := {}
+	var hand: bool = Data.CITY_FORCE.has(pid) or Data.CITY_WIDEN.has(pid) or Data.CITY_TOWNS.has(pid)
+	if Data.CITIES and Data.DEVELOP_WORLDS and not hand and Surface.PLANETS.has(pid) and not Surface.is_sun(pid):
+		out = _develop(pid)
+		_tiles[pid] = out
+		return out
 	if Data.CITIES and Surface.PLANETS.has(pid) and Surface.has_surface(pid) and not Surface.is_sun(pid):
 		var tl: Array = Surface.PLANETS[pid].get("tiles", [])
 		var g := Surface.grid(pid)
@@ -49,6 +54,63 @@ static func city_tiles(pid: String) -> Dictionary:
 					break
 	_tiles[pid] = out
 	return out
+
+## v13.363 (owner: "fix all planets to feel more like Unity: its own cities, its own capital city ... every planet should
+## feel interesting and developed, throughout all star systems"): every world is settled the way New Terra is, on its
+## own land (never ocean or cloud tops; airless worlds under domes):
+## - a CAPITAL on its best tile (green land first, then the tile of its own sky port): a 3 x 3 core with a ring of outskirt
+##   blocks (5 x 5, like Port Meridian); an enemy world's capital has no outskirts; a lifeless world gets a 2 x 2
+##   colony town instead (nobody else lives there);
+## - a second CITY on its next tile (3 x 3 on green land, else a 2 x 2 town), on worlds of 2 x 2 tiles and more;
+## - TOWNS (2 x 2, low) on the next tiles: two more on a 3 x 3 world, one on a 2 x 2.
+## The highways join neighbouring settled tiles as on New Terra. The same for a world every visit (by its tiles).
+static var _widen := {}   # pid -> {tile: outskirt ring}
+static var _towns := {}   # pid -> {tile: true}
+static func _develop(pid: String) -> Dictionary:
+	var out := {}
+	var P: Dictionary = Surface.PLANETS[pid]
+	var tl: Array = P.get("tiles", [])
+	var g := Surface.grid(pid)
+	var n := mini(tl.size(), g * g)
+	var locs: Array = P.get("locations", [])
+	var own_tile := int(locs[0]["tile"]) if not locs.is_empty() else -1
+	var lifeless: bool = bool(P.get("uninhabited", false))
+	var enemy: bool = locs.is_empty() and not lifeless
+	var land: Array = []
+	for t in n:
+		if not (str(tl[t]) in Data.CITY_NO_OUTPOST): land.append(t)
+	if land.is_empty(): return out
+	var score := func(t: int) -> int: return int(Data.CITY_LAND.get(str(tl[t]), 0)) * 10 + (5 if t == own_tile else 0) + (2 if not Surface.locations_in(pid, t).is_empty() else 0)
+	land.sort_custom(func(a, b): return score.call(a) > score.call(b) or (score.call(a) == score.call(b) and a < b))
+	var wd := {}
+	var tw := {}
+	var cap: int = land[0]
+	if lifeless:
+		out[cap] = 2
+		tw[cap] = true
+	else:
+		out[cap] = 3
+		if not enemy: wd[cap] = Data.DEVELOP_CAPITAL_RING
+	var rest: Array = land.slice(1)
+	if g >= 2 and not rest.is_empty() and not lifeless:
+		var t2: int = rest.pop_front()
+		if Data.CITY_LAND.has(str(tl[t2])): out[t2] = 3
+		else:
+			out[t2] = 2
+			tw[t2] = true
+	var n_towns := 0 if lifeless else (2 if g >= 3 else (1 if g == 2 else 0))
+	for t3 in rest.slice(0, n_towns):
+		out[t3] = 2
+		tw[t3] = true
+	_widen[pid] = wd
+	_towns[pid] = tw
+	return out
+
+## The outskirt ring round a tile's city (0: none): the owner's picks (Data.CITY_WIDEN), else a developed capital's.
+static func widen_of(pid: String, tile: int) -> int:
+	if Data.CITY_WIDEN.has(pid): return int((Data.CITY_WIDEN[pid] as Dictionary).get(tile, 0))
+	city_tiles(pid)
+	return int((_widen.get(pid, {}) as Dictionary).get(tile, 0))
 
 ## v13.280 (owner: "domes over the cities on airless worlds, Mars-like"): a world with no green land has no air to
 ## breathe: its city stands under an oxygen dome.
@@ -184,13 +246,15 @@ static func core(pid: String, tile: int) -> Rect2i:
 	return _cores.get("%s|%d" % [pid, tile], r)
 
 static func is_outskirt(pid: String, tile: int, r: Vector2i) -> bool:
-	var wide := int((Data.CITY_WIDEN.get(pid, {}) as Dictionary).get(tile, 0))
+	var wide := widen_of(pid, tile)
 	if wide <= 0: return false
 	var cr := rect(pid, tile)
 	return cr.has_point(r) and not core(pid, tile).has_point(r)
 
 static func is_town(pid: String, tile: int) -> bool:
-	return (Data.CITY_TOWNS.get(pid, {}) as Dictionary).has(tile)
+	if (Data.CITY_TOWNS.get(pid, {}) as Dictionary).has(tile): return true
+	city_tiles(pid)
+	return (_towns.get(pid, {}) as Dictionary).has(tile)
 
 static func is_city_tile(pid: String, tile: int) -> bool:
 	return rect(pid, tile).size.x > 0
@@ -224,7 +288,7 @@ static func rect(pid: String, tile: int) -> Rect2i:
 						out = Rect2i(xx, zz, sz2, sz2)
 			if out.size.x > 0 and bd <= Data.BLOCK_REGION * (1.5 + Data.CITY_OFFCENTRE * (sz2 - 1)): break   # (else a smaller city nearer the middle; v13.302: a big one may sit off to the side of the port)
 		_cores[key] = out
-		var wide := int((Data.CITY_WIDEN.get(pid, {}) as Dictionary).get(tile, 0))
+		var wide := widen_of(pid, tile)
 		if wide > 0 and out.size.x > 0:   # v13.344: the capital's outskirts, a ring of blocks round it (kept off the tile's edge)
 			for side in [SIDE_LEFT, SIDE_RIGHT, SIDE_TOP, SIDE_BOTTOM]:   # (each side only where it keeps clear of the port)
 				var g2 := out.grow_side(side, wide).intersection(Rect2i(1, 1, nr - 2, nr - 2))

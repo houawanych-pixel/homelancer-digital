@@ -8671,6 +8671,66 @@ func _run() -> void:
 		for r2 in results: print("[route] ", r2)
 		get_tree().quit()
 		return
+	if _flag("HL_WORLDS"):   # v13.363 (owner: "every planet should feel developed, like Unity: its own cities, its capital city")
+		var worlds := 0
+		var settled := 0
+		var caps := 0
+		var cities := 0
+		var towns := 0
+		var bare: Array = []
+		var on_city := 0
+		var t0 := Time.get_ticks_msec()
+		for p in Surface.PLANETS:
+			if Surface.is_sun(p): continue
+			var tl: Array = Surface.PLANETS[p]["tiles"]
+			var has_land := false
+			for k in mini(tl.size(), Surface.grid(p) * Surface.grid(p)): if not (str(tl[k]) in Data.CITY_NO_OUTPOST): has_land = true
+			if not has_land: continue
+			worlds += 1
+			var ct: Dictionary = CityPlan.city_tiles(p)
+			if ct.is_empty(): bare.append(p)
+			else: settled += 1
+			for t in ct:
+				if CityPlan.rect(p, t).size.x == 0: continue
+				if CityPlan.widen_of(p, t) > 0: caps += 1
+				elif CityPlan.is_town(p, t): towns += 1
+				else: cities += 1
+			for st in Surface.facility_sites(p):
+				if CityPlan.in_city(p, int(st["tile"]), st["spot"] as Vector2): on_city += 1
+		var ms := Time.get_ticks_msec() - t0
+		var ek: Dictionary = CityPlan.city_tiles("keldrix_planet")
+		_check("v13.363: every world with land is settled (%d of %d; bare %s): %d capitals with outskirts, %d cities, %d towns; no base on a city (%d); planned in %d ms; Keldrix (Unity, 2x2 forest) %s" % [settled, worlds, str(bare.slice(0, 5)), caps, cities, towns, on_city, ms, str(ek)],
+			bare.is_empty() and caps > 50 and towns > 100 and on_city == 0 and ek.size() >= 3, "")
+		# land on a developed world (Keldrix) at its capital and look
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var pid := "keldrix_planet"
+		var cap := -1
+		for t in ek: if CityPlan.widen_of(pid, t) > 0: cap = int(t)
+		var cr := CityPlan.rect(pid, cap)
+		var ctr := Vector2(-Surface.EDGE, -Surface.EDGE) + (Vector2(cr.position) + Vector2(cr.size) * 0.5) * Data.BLOCK_REGION
+		var l0 := Time.get_ticks_msec()
+		main._load_surface(pid, cap)
+		await _until(func(): return is_instance_valid(main.space) and main.space.surface_mode and main.space.tile == cap, 60.0)
+		var load_ms := Time.get_ticks_msec() - l0
+		await _wait(4.0)
+		var s := _sp()
+		s.player.global_position = Vector3(ctr.x, CityPlan.ground(pid, cap) + 400.0, ctr.y + 1800.0)
+		s.player.look_at(Vector3(s.player.global_position.x, CityPlan.ground(pid, cap) + 100.0, s.player.global_position.z - 1800.0), Vector3.UP)
+		await _frames(10)
+		var f0 := Time.get_ticks_msec()
+		await _frames(30)
+		print("[worlds] Keldrix capital %dx%d (core %s), landed in %d ms, 30 frames %d ms" % [cr.size.x, cr.size.y, str(CityPlan.core(pid, cap).size), load_ms, Time.get_ticks_msec() - f0])
+		s.set_process(false)
+		s.cam.global_position = Vector3(ctr.x + 1600.0, CityPlan.ground(pid, cap) + 700.0, ctr.y + 1600.0)
+		s.cam.look_at(Vector3(ctr.x, CityPlan.ground(pid, cap) + 150.0, ctr.y), Vector3.UP)
+		await _capture("keldrix_capital")
+		s.set_process(true)
+		_check("v13.363: Keldrix's capital is built round you (%dx%d blocks)" % [cr.size.x, cr.size.y], cr.size.x >= 4 and s.surface_mode, "")
+		for r2 in results: print("[route] ", r2)
+		get_tree().quit()
+		return
 	if _flag("HL_SHELLS"):   # v13.362 (owner: "all ships' shields should be with the silhouette ... not a sphere around it")
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
@@ -10514,7 +10574,7 @@ func _run() -> void:
 				harsh_pid = p2
 				harsh = CityPlan.city_tiles(p2)
 				break
-		var harsh_ok: bool = harsh_pid == "" or (harsh.size() == 1 and int(harsh.values()[0]) == 1)
+		var harsh_ok: bool = harsh_pid == "" or (harsh.size() >= 1 and CityPlan.domed(harsh_pid))   # v13.363: every world is settled now (an airless one under domes)
 		# bases and mission points never on a city square
 		var on_city := 0
 		for p3 in Surface.PLANETS:
@@ -10546,7 +10606,7 @@ func _run() -> void:
 		Surface._no_city = false
 		_check("v13.275: the land eases into the city: at its edge %.0f m (street %.0f, bare land there %.0f), steepest step every 5 m on the way in %.1f m" % [at_edge, g0, bare, worst],
 			absf(at_edge - (g0 - Data.BLOCK_MARGIN)) < 2.0 and worst < 6.0, "")
-		_check("v13.274: cities only on green land (New Terra: %s on %s), %s gets one block (%s), and no base or mission point lands on a city square (%d did)" % [str(nt), str(nt.keys().map(func(t): return tl[t])), harsh_pid, str(harsh), on_city],
+		_check("v13.274: cities only on green land (New Terra: %s on %s), %s (airless) is settled under domes (%s), and no base or mission point lands on a city square (%d did)" % [str(nt), str(nt.keys().map(func(t): return tl[t])), harsh_pid, str(harsh), on_city],
 			green_only and nt.size() == 2 + (Data.CITY_FORCE.get(pid, {}) as Dictionary).size() + (Data.CITY_TOWNS.get(pid, {}) as Dictionary).size() and nt.has(4) and harsh_ok and on_city == 0, "")
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)
