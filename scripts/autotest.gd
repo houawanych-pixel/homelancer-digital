@@ -8612,6 +8612,65 @@ func _run() -> void:
 		for r2 in results: print("[route] ", r2)
 		get_tree().quit()
 		return
+	if _flag("HL_ELYZAMAP"):   # v13.357 (owner brief "ELYZA FLEET - MAP SPRITES")
+		var names := ["Capital", "Cruiser", "Destroyer", "Resupply", "TroopTransport", "Frigate", "Escort", "Scout", "Bomber"]
+		var files_ok := true
+		var nose_up := true
+		for nm in names:
+			var p0 := "res://assets/fleet_tokens/map/HL_Elyza_%s_top.png" % nm
+			if not ResourceLoader.exists(p0):
+				files_ok = false
+				continue
+			var img: Image = (load(p0) as Texture2D).get_image()
+			if img.is_compressed(): img.decompress()
+			var corner_clear: bool = img.get_pixel(0, 0).a < 0.05 and img.get_pixel(img.get_width() - 1, img.get_height() - 1).a < 0.05
+			var green_left := 0
+			for k in 400:
+				var px := img.get_pixel(randi() % img.get_width(), randi() % img.get_height())
+				if px.a > 0.5 and px.g > 0.6 and px.g > px.r * 1.5 and px.g > px.b * 1.5: green_left += 1
+			files_ok = files_ok and corner_clear and green_left <= 2
+			# nose up: the top fifth is narrower than the widest row (the engines / wings are lower down)
+			var w_top := 0
+			var w_max := 0
+			for y in img.get_height():
+				var c := 0
+				for x in img.get_width(): if img.get_pixel(x, y).a > 0.5: c += 1
+				if y < img.get_height() / 5: w_top = maxi(w_top, c)
+				w_max = maxi(w_max, c)
+			nose_up = nose_up and w_top < w_max * 0.75
+		var data_ok := true
+		for nm in names:
+			var e: Dictionary = FleetCatalog.get_entry(FleetCatalog.id_of("Elyza", nm))
+			data_ok = data_ok and str(e["faction"]) == "Elyza" and bool(e["is_capital"]) == (nm == "Capital") and FleetCatalog.map_sprite(str(e["id"])) != "" and str(e["name"]) != ""
+		var others_none := FleetCatalog.map_sprite("unity_capital") == "" and FleetCatalog.map_sprite("imperium_scout") == ""
+		var sc: Dictionary = FleetCatalog.MAP_SCALE
+		var order_ok: bool = sc["Capital"] > sc["Cruiser"] and sc["Cruiser"] >= sc["TroopTransport"] and sc["TroopTransport"] >= sc["Resupply"] and sc["Resupply"] > sc["Destroyer"] and sc["Destroyer"] >= sc["Frigate"] and sc["Frigate"] >= sc["Escort"] and sc["Escort"] >= sc["Bomber"] and sc["Bomber"] > sc["Scout"]
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var sid: String = FleetCatalog.systems_of("Elyza")[0]
+		main._load_system(sid, "station")
+		await _until(func(): return main.state == "flight" and GS.system_id == sid and not _sp().fleet_visitors.is_empty(), 30.0)
+		await _wait(2.0)
+		var s := _sp()
+		main.navmap.open(s)
+		await _wait(0.6)
+		var fl := 0
+		var caps := 0
+		for k in main.navmap.objs:
+			var o: Dictionary = main.navmap.objs[k]
+			if str(o["type"]) == "fleet":
+				fl += 1
+				if bool(o["capital"]): caps += 1
+		await _shot("elyza_map", 0.3)
+		var ck := ""
+		for k in main.navmap.objs: if str(main.navmap.objs[k]["type"]) == "fleet" and bool(main.navmap.objs[k]["capital"]): ck = k
+		main.navmap.visible = false
+		_check("v13.357: 9 Elyza top-down map sprites, keyed (no green left, clear corners) (%s), nose up (%s); data: faction, name, is_capital only for the capital, sprite path (%s); no other faction has them (%s); map size capital > cruiser/troop/resupply > destroyer/frigate/escort/bomber > scout (%s); on %s's map: %d fleet ships by their sprites, %d flagship" % [files_ok, nose_up, data_ok, others_none, order_ok, sid, fl, caps],
+			files_ok and nose_up and data_ok and others_none and order_ok and fl == 9 and caps == 1, "")
+		for r2 in results: print("[route] ", r2)
+		get_tree().quit()
+		return
 	if _flag("HL_DEVSHOT"):   # look at every station page
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)

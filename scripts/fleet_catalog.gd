@@ -48,6 +48,24 @@ const PLACEHOLDER_STATS := {
 }
 # ============================================================================================================
 
+## v13.357 (owner brief "ELYZA FLEET - MAP SPRITES": HL_Elyza_Fleet_Sheet.png, the top-down ships only, keyed off
+## green, nose up, art untouched): the map sprites of a faction's fleet, drawn on the system map turned to each ship's
+## heading. Only Elyza has them so far; the others keep the map's plain ship marks.
+const MAP_SPRITE_DIR := "res://assets/fleet_tokens/map/"
+const MAP_SPRITE_FACTIONS := ["Elyza"]
+## How big each class is drawn on the map, against the capital (1.0): capital, then cruiser / troop transport /
+## resupply, then destroyer / frigate / escort / bomber, the scout smallest.
+const MAP_SCALE := {"Capital": 1.0, "Cruiser": 0.74, "TroopTransport": 0.7, "Resupply": 0.7, "Destroyer": 0.54, "Frigate": 0.5,
+	"Escort": 0.5, "Bomber": 0.46, "Scout": 0.34}
+## The owner's role line for each class (the Elyza brief), shown on the map's ship card.
+const MAP_ROLE := {"Capital": "Fleet flagship.", "Cruiser": "Heavy line ship.", "Destroyer": "Attack ship.", "Resupply": "Logistics and supply.",
+	"TroopTransport": "Carries troops.", "Frigate": "Mid-size warship.", "Escort": "Fleet escort.", "Scout": "Small, fast recon ship.", "Bomber": "Strike bomber."}
+static func map_sprite(id: String) -> String:
+	var e := get_entry(id)
+	if e.is_empty() or not (str(e["faction"]) in MAP_SPRITE_FACTIONS): return ""
+	var p := MAP_SPRITE_DIR + "HL_%s_%s_top.png" % [str(e["faction"]), str(e["class"])]
+	return p if ResourceLoader.exists(p) else ""
+
 const ART_DATE := "20261109"
 const TOKEN_DIR := "res://assets/fleet_tokens/"
 const HOLODECK_DIR := "res://assets/holodeck/"
@@ -110,6 +128,8 @@ static func all() -> Dictionary:
 				"token": TOKEN_DIR + "%s.png" % id,
 				"stats": PLACEHOLDER_STATS[c], "stats_placeholder": true,
 				"presence": PRESENCE[c],
+				"is_capital": c == "Capital",   # v13.357
+				"map_sprite": (MAP_SPRITE_DIR + "HL_%s_%s_top.png" % [f, c]) if f in MAP_SPRITE_FACTIONS else "",
 			}
 	return _all
 

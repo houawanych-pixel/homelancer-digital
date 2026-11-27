@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.356"
+const VERSION := "v13.357"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -556,6 +556,7 @@ const HIGHWAY_HIGH_COST := 3.0      # ...and land this high over the cities, per
 const HIGHWAY_TUNNEL_COVER := 6.0   # m of land over the deck before it counts as a tunnel
 const HIGHWAY_PORTAL_H := 12.0      # m: a tunnel portal's height over the deck
 const HIGHWAY_DRAW_GROW := 1500.0   # m: a tile draws the highways that come this near it
+const FLEET_MAP_PX := 64.0   # v13.357: the flagship's height on the system map (px); the other classes by FleetCatalog.MAP_SCALE
 const CITY_WIDEN := {"new_terra": {4: 1}}   # v13.344 (owner: "the capital should be the biggest city"): a ring of outskirt blocks round the capital's core (tile -> blocks out)
 const OUTSKIRT_H := 0.5                     # their towers: half the core's height
 const OUTSKIRT_VARY := Vector2(0.8, 1.25)   # ...give or take

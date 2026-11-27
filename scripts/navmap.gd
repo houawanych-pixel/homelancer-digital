@@ -586,6 +586,14 @@ func _collect() -> void:
 			if is_instance_valid(tr["node"]):
 				objs["traffic%d" % i] = {"type": "traffic", "name": str((tr["node"] as Node3D).name), "pos": (tr["node"] as Node3D).global_position, "col": GREEN, "r": 8.0, "data": {}, "node": tr["node"], "ship": true}
 			i += 1
+		i = 0
+		for fv in space.fleet_visitors:   # v13.357 (owner brief "ELYZA FLEET - MAP SPRITES"): a faction's fleet by its own top-down art
+			var sp := FleetCatalog.map_sprite(str(fv["id"]))
+			if sp != "" and is_instance_valid(fv["node"]):
+				var fe: Dictionary = FleetCatalog.get_entry(str(fv["id"]))
+				objs["fleet%d" % i] = {"type": "fleet", "name": str(fe["name"]), "pos": (fv["node"] as Node3D).global_position, "col": GOLD if bool(fe["is_capital"]) else CYAN_FLEET,
+					"r": 10.0, "data": fe, "node": fv["node"], "ship": true, "sprite": sp, "capital": bool(fe["is_capital"]), "cls": str(fe["class"])}
+			i += 1
 
 ## v12.61: a planet's things: its docks and facilities (each side in its own colours), the job's points, the ships.
 func _collect_planet() -> void:
@@ -617,6 +625,34 @@ func _collect_planet() -> void:
 				var big: bool = e["def"].get("capital", false) or e.get("inv_role", "") != ""
 				objs["enemy%d" % i] = {"type": "enemy", "name": str(e["node"].name) if big else e["def"].get("name", "Hostile"), "pos": _np(e["node"]), "col": RED if bool(e.get("aggro", false)) else GOLD, "r": 8.0, "data": e["def"], "node": e["node"], "ship": true, "big": big}
 			i += 1
+
+const CYAN_FLEET := Color(0.55, 0.8, 1.0)
+static var _fleet_tex := {}
+## v13.357: a fleet ship on the map: its top-down sprite (nose up in the art) turned to the way it flies, the capital
+## Data.FLEET_MAP_PX tall and the rest smaller by class; the flagship gets a pulsing gold ring, a crown pip and its name.
+static func draw_fleet_sprite(ci: CanvasItem, c: Vector2, o: Dictionary, rot: float, t: float) -> void:
+	var path := str(o["sprite"])
+	if not _fleet_tex.has(path): _fleet_tex[path] = load(path) if ResourceLoader.exists(path) else null
+	var tex: Texture2D = _fleet_tex[path]
+	var nd: Node3D = o["node"]
+	var f: Vector3 = -nd.global_basis.z
+	var v := Vector2(f.x, f.z).rotated(rot)
+	var ang := (atan2(v.y, v.x) + PI * 0.5) if v.length() > 0.001 else 0.0
+	var h: float = Data.FLEET_MAP_PX * float(FleetCatalog.MAP_SCALE.get(str(o.get("cls", "")), 0.5))
+	if bool(o.get("capital", false)):
+		var pr := h * 0.62 + 3.0 * sin(t * 3.0)
+		ci.draw_arc(c, pr, 0.0, TAU, 40, Color(GOLD, 0.9), 2.5)
+		ci.draw_arc(c, pr + 4.0, 0.0, TAU, 40, Color(GOLD, 0.35), 1.5)
+		var top := c + Vector2(0, -pr - 9.0)   # a crown pip over the ring
+		ci.draw_colored_polygon(PackedVector2Array([top + Vector2(-8, 4), top + Vector2(-8, -3), top + Vector2(-4, 1), top + Vector2(0, -6), top + Vector2(4, 1), top + Vector2(8, -3), top + Vector2(8, 4)]), GOLD)
+	if tex == null:
+		NavGrid.dart(ci, c, 10.0, v, o["col"])
+		return
+	var ts := Vector2(tex.get_size())
+	var w := h * ts.x / maxf(1.0, ts.y)
+	ci.draw_set_transform(c, ang, Vector2.ONE)
+	ci.draw_texture_rect(tex, Rect2(Vector2(-w * 0.5, -h * 0.5), Vector2(w, h)), false)
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 ## v12.61: a side's two colours (main, stroke)
 static func fac_col(fac: String) -> Array:
@@ -661,7 +697,7 @@ func _mark_seen() -> void:
 		return
 	for k in objs:
 		var o: Dictionary = objs[k]
-		var always: bool = o.get("main", false) or o["type"] in ["gate", "star", "enemy", "traffic", "planet", "lane"]
+		var always: bool = o.get("main", false) or o["type"] in ["gate", "star", "enemy", "traffic", "fleet", "planet", "lane"]
 		# v11.94 (owner: "put an alliance station where the lanes pinch"): the system's planets, its friendly stations
 		# and its lane network are charted from the start; the rest (rivals, clouds, rocks) is found by flying out
 		var dd: Dictionary = o.get("data", {})
@@ -733,6 +769,9 @@ func info(key: String) -> Dictionary:
 		"traffic":
 			out["type"] = "Ship  ·  Civilian"
 			out["lines"].append("Local traffic on its route.")
+		"fleet":   # v13.357
+			out["type"] = "%s fleet  ·  %s%s" % [str(d.get("faction", "")), str(FleetCatalog.CLASS_NAME.get(str(d.get("class", "")), "")), "  ·  FLAGSHIP" if bool(d.get("is_capital", false)) else ""]
+			out["lines"].append(str(FleetCatalog.MAP_ROLE.get(str(d.get("class", "")), d.get("role", ""))))
 	var pic := NavGrid.picture(own, pic_type)
 	out["picture"] = pic[0]
 	out["fallback"] = pic[1]
@@ -1105,6 +1144,9 @@ func _draw_rest(ci: CanvasItem, sys: Dictionary, local: Rect2) -> void:
 			"star": NavGrid.star(ci, c, r, o2["col"])
 			"station": NavGrid.station(ci, c, r, o2["col"])
 			"gate": NavGrid.gate(ci, c, r, o2["col"])
+			"fleet":   # v13.357: the ship's own top-down picture, turned to its heading, sized by its class; the flagship marked
+				draw_fleet_sprite(ci, c, o2, view.rot, t)
+				if bool(o2.get("capital", false)): _txt(ci, c + Vector2(Data.FLEET_MAP_PX * 0.7, -8), "FLAGSHIP  ·  %s" % str(o2["name"]), 13, GOLD)
 			"enemy", "traffic":
 				var nd: Node3D = o2["node"]
 				var f: Vector3 = -nd.global_basis.z
