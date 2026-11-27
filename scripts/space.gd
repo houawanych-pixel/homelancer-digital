@@ -5799,7 +5799,11 @@ static func nebulae_of(id: String, s: Dictionary) -> Array:
 	out.append({"name": str(n["name"]), "center": (n["center"] as Vector3) + Vector3(0, lift_rng.randf_range(-1.0, 1.0) * Data.NEBULA_LIFT * mr, 0), "radius": mr, "color": n["color"], "main": true})
 	for lc in s.get("layout_clouds", []):   # v11.65: the layout's own clouds (a rock field, a storm); v13.71: at their own heights
 		var lcd: Dictionary = (lc as Dictionary).duplicate()
-		lcd["center"] = (lcd["center"] as Vector3) + Vector3(0, lift_rng.randf_range(-1.0, 1.0) * Data.NEBULA_LIFT * 0.6 * float(lcd.get("radius", 0.0)), 0)
+		var lk: float = lift_rng.randf_range(-1.0, 1.0) * Data.NEBULA_LIFT * 0.6
+		if str(lcd.get("weather", "")) == "rocks":   # v13.364: a rock field up or down well off the plane
+			var rh := absi(hash(id + str(lcd.get("name", "")) + "|rock_y"))
+			lk = (1.0 if rh % 2 == 0 else -1.0) * lerpf(Data.ROCK_LIFT.x, Data.ROCK_LIFT.y, float(rh % 997) / 997.0)
+		lcd["center"] = (lcd["center"] as Vector3) + Vector3(0, lk * float(lcd.get("radius", 0.0)), 0)
 		out.append(lcd)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(id + "_nebulae")
@@ -10376,6 +10380,93 @@ func _lane_clear(a: Vector3, b: Vector3, skip: Array) -> bool:
 		if _seg_hit(a, b, q[0], q[1]): return false
 	return true
 
+## v13.364 (owner: "the trade lanes should avoid asteroid fields and planets, any kind of collision with the sun or a
+## planet; they can go through nebula clouds; this applies to every allied and rival system"): what a lane must keep out
+## of, as ellipsoids [centre, across, up/down, node or null]: the star, every world and station, the asteroid field and
+## every cloud carrying rocks (its rock clumps reach out to 0.6 of its radius).
+func lane_obstacles() -> Array:
+	var G: float = Data.LANE_DETOUR_GAP
+	var out: Array = []
+	if sun_pos != Vector3.INF: out.append([sun_pos, sun_radius * 1.25 + G, sun_radius * 1.25 + G, null])
+	if is_instance_valid(station): out.append([station.global_position, maxf(120.0, _station_reach()) + Data.LANE_STATION_EXTRA + 400.0, maxf(120.0, _station_reach()) + 400.0, station])
+	if is_instance_valid(planet): out.append([planet.global_position, lane_planet_end(float(planet.get_meta("radius", 0.0))), lane_planet_end(float(planet.get_meta("radius", 0.0))), planet])
+	for d: Dictionary in sys.get("more_planets", []): out.append([d["pos"], lane_planet_end(float(d.get("radius", 300.0))), lane_planet_end(float(d.get("radius", 300.0))), null])
+	for d: Dictionary in sys.get("more_stations", []): out.append([d["pos"], float(d.get("radius", 300.0)) + 600.0, float(d.get("radius", 300.0)) + 600.0, null])
+	var belt: Dictionary = sys.get("asteroids", {})
+	if not belt.is_empty() and float(belt.get("radius", 0.0)) > 1.0:
+		out.append([belt["center"], float(belt["radius"]) + G, float(belt["radius"]) * Data.FIELD_THICK + G, null])
+	for nb in nebulae_of(sys_id, sys):
+		if bool(nb.get("backdrop", false)) or not (str(nb.get("weather", "")) == "rocks" or bool(nb.get("main", false))): continue
+		var r: float = float(nb["radius"])
+		var cr: float = minf(r * 0.12, Data.NEBULA_ROCK_CLUMP_R)
+		out.append([nb["center"], r * 0.6 + cr + G, r * 0.6 * 0.35 + cr + G, null])
+	return out
+
+## Does the segment a-b pass inside ellipsoid o? Returns how far along (0..1) it comes closest, or -1 when clear.
+static func _lane_hits(a: Vector3, b: Vector3, o: Array) -> float:
+	var c: Vector3 = o[0]
+	var k: float = float(o[1]) / maxf(float(o[2]), 1.0)   # squash up/down so the ellipsoid is a ball
+	var a2 := Vector3(a.x - c.x, (a.y - c.y) * k, a.z - c.z)
+	var b2 := Vector3(b.x - c.x, (b.y - c.y) * k, b.z - c.z)
+	var ab := b2 - a2
+	var t := 0.0
+	if ab.length_squared() > 0.0: t = clampf(-a2.dot(ab) / ab.length_squared(), 0.0, 1.0)
+	return t if (a2 + ab * t).length() < float(o[1]) else -1.0
+
+## The way from a to b round every obstacle in the way (bends out to the side of each, level), as points a .. b.
+static func lane_route(obs: Array, a: Vector3, b: Vector3, depth := 0) -> Array:
+	var best := -1
+	var bt := 2.0
+	for i in obs.size():
+		var o: Array = obs[i]
+		var c: Vector3 = o[0]
+		if c.distance_to(a) < float(o[1]) or c.distance_to(b) < float(o[1]): continue   # (the lane's own end: it starts out of it)
+		var t := _lane_hits(a, b, o)
+		if t >= 0.0 and t < bt:
+			bt = t
+			best = i
+	if best < 0 or depth >= 4: return [a, b]
+	var ob: Array = obs[best]
+	var c2: Vector3 = ob[0]
+	var q := a.lerp(b, bt)
+	var side := Vector3(q.x - c2.x, 0.0, q.z - c2.z)
+	if side.length() < 1.0: side = Vector3(-(b - a).z, 0.0, (b - a).x)
+	var w := Vector3(c2.x, q.y, c2.z) + side.normalized() * float(ob[1]) * 1.12
+	var left := lane_route(obs, a, w, depth + 1)
+	var right := lane_route(obs, w, b, depth + 1)
+	return left + right.slice(1)
+
+## The lane pairs with a bend (a plain turning point, no lights) wherever a straight lane would hit something.
+var _bends: Array = []
+func _detour_pairs(pairs: Array) -> Array:
+	for bn in _bends:
+		if is_instance_valid(bn): bn.queue_free()
+	_bends.clear()
+	var obs := lane_obstacles()
+	var out: Array = []
+	for pr in pairs:
+		var a: Node3D = pr[0]
+		var b: Node3D = pr[1]
+		var pts := lane_route(obs, a.global_position, b.global_position)
+		if pts.size() <= 2:
+			out.append(pr)
+			continue
+		var prev: Node3D = a
+		for i in range(1, pts.size() - 1):
+			var bn := Node3D.new()
+			bn.name = "Bypass %d" % (_bends.size() + 1)
+			bn.position = pts[i]
+			bn.set_meta("kind", "junction")
+			bn.set_meta("radius", 0.0)
+			bn.set_meta("label", "Bypass %d" % (_bends.size() + 1))
+			bn.set_meta("info", {"name": bn.name, "kind": "junction", "desc": "A bend in the trade lane, round an asteroid field, a world or the star."})
+			add_child(bn)
+			_bends.append(bn)
+			out.append([prev, bn])
+			prev = bn
+		out.append([prev, b])
+	return out
+
 ## v11.65 (owner: "trade lanes with choke points, A to B, then C from B like a T"): the system's lane plan as node pairs.
 ## Choke points are made here: an empty marker with a ring of lights, where one lane ends and two others start.
 var junctions: Array = []
@@ -10431,10 +10522,25 @@ func _layout_pairs() -> Array:
 			return an
 		return null
 	var out: Array = []
+	var orphans := {}   # v13.364: a place the plan names that isn't in the system any more -> the places its lanes led to
 	for e in sys["lane_plan"]:
 		var a: Node3D = find.call(str(e[0]))
 		var b: Node3D = find.call(str(e[1]))
 		if a != null and b != null: out.append([a, b])
+		elif a != null or b != null:
+			var gone := str(e[1]) if a != null else str(e[0])
+			if not orphans.has(gone): orphans[gone] = []
+			orphans[gone].append(a if a != null else b)
+	# (its neighbours are joined to each other instead, nearest first, so no place is cut off the network)
+	for gone in orphans:
+		var nb: Array = orphans[gone]
+		var left: Array = nb.slice(1)
+		var cur: Node3D = nb[0]
+		while not left.is_empty():
+			left.sort_custom(func(x, y): return (x as Node3D).global_position.distance_to(cur.global_position) < (y as Node3D).global_position.distance_to(cur.global_position))
+			var nx: Node3D = left.pop_front()
+			if nx != cur and not out.any(func(pr): return (pr[0] == cur and pr[1] == nx) or (pr[0] == nx and pr[1] == cur)): out.append([cur, nx])
+			cur = nx
 	return out
 
 ## v11.99: the level sideways direction of a lane (to the right as you face along dir).
@@ -10509,6 +10615,7 @@ func _build_lanes() -> void:
 	if sys.has("lane_plan"): pairs = _layout_pairs()   # v11.65 (owner): the hand-made network with its choke points
 	else:
 		for e in SystemBuilder.lane_tree(nodes.map(func(n): return (n as Node3D).global_position)): pairs.append([nodes[e[0]], nodes[e[1]]])
+	if Data.LANE_DETOURS: pairs = _detour_pairs(pairs)   # v13.364: round the fields, worlds and the star
 	var xfs: Array = []
 	_ring_pts = []
 	var lights_g: Array = []

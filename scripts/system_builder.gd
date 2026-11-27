@@ -1365,12 +1365,26 @@ static func _space_orbits(sy: Dictionary, start: float) -> void:
 		last = body["orbit"]
 
 ## Where the sun sits: in the middle of an unknown area, else far out along its light (space.gd uses the same rule).
+## v13.364 (owner: "offset the nebula clouds, the sun and the asteroid fields, so nothing sits evenly on the horizon
+## plane; they should look more natural, offset up or down"): each system's asteroid field sits up or down off the plane
+## the lanes and places are on, by Data.FIELD_OFF_PLANE of its radius (its own way, the same every visit).
+static func off_plane(systems: Dictionary) -> void:
+	for sid in systems:
+		var b: Dictionary = systems[sid].get("asteroids", {})
+		if b.is_empty() or b.has("off_plane"): continue
+		var h := absi(hash(str(sid) + "|belt_y"))
+		var k: float = lerpf(Data.FIELD_OFF_PLANE.x, Data.FIELD_OFF_PLANE.y, float(h % 1000) / 1000.0)
+		var c: Vector3 = b["center"]
+		b["center"] = Vector3(c.x, (1.0 if (h / 1000) % 2 == 0 else -1.0) * k * float(b.get("radius", 0.0)), c.z)
+		b["off_plane"] = true
+
 static func sun_pos_of(sy: Dictionary) -> Vector3:
 	var p: Vector3 = Vector3.ZERO if sy.get("sun_center", false) else -(sy.get("sun_dir", Vector3(0, -0.3, 1)) as Vector3).normalized() * float(sy.get("sun_dist", Data.SUN_DIST))
 	# v13.71 (owner: "move the Sun up, so when you're flying at warp speed it'll never hit the Sun"): the star sits up out
 	# of the plane everything travels on: its lowest point is SUN_LIFT - 1 radii above the lanes and waypoints
 	var lift: float = Data.SUN_RADIUS * (0.35 if sy.get("small_sun", false) else 1.0) * Data.SUN_LIFT
 	if p.y < lift: p.y = lift
+	if Data.SUN_BELOW_SOME and absi(hash(str(sy.get("name", "")) + "|sun_y")) % 2 == 1: p.y = -p.y   # v13.364: some stars sit below the plane instead (as far below)
 	return p
 
 ## v10.6 (owner: "that sun is so close to the trade lanes ... things should be fanned out"): the sun keeps its size but

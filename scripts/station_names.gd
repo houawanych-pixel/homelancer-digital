@@ -292,6 +292,7 @@ static func apply(systems: Dictionary) -> Dictionary:
 		pl["palette"] = str(Data.PLANET_BIOMES[sid])
 		pl["biome"] = str(Data.PLANET_BIOMES[sid])
 		if Data.PLANET_CARDS.has(sid): pl["card"] = str(Data.PLANET_CARDS[sid])
+	SystemBuilder.off_plane(systems)   # v13.364: the asteroid fields up or down off the travel plane
 	return systems
 
 ## v11.54 (owner): the system roles (Data.SYSTEM_ROLES): the hub keeps its name, the catalog placeholders go, and the ally

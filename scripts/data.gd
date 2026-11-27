@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.363"
+const VERSION := "v13.364"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -1400,6 +1400,11 @@ const ASTEROIDS_BLOCK := true
 const FIELD_ROCKS := 900               # v10.4: more for the bigger fields. v9.0: scenery rocks drawn through a whole field (3 batches; fixed, however big the field)
 const FIELD_ROCK_SIZE := [14.0, 260.0]   # their size range (m), most small
 const FIELD_THICK := 0.12               # how thick the field is (share of its radius, up and down)
+const FIELD_OFF_PLANE := Vector2(0.35, 0.6)   # v13.364 (owner: "offset ... so nothing sits evenly on the horizon"): an asteroid field's middle sits this share of its radius up or down
+const SUN_BELOW_SOME := true           # v13.364: half the stars sit below the travel plane instead of above (as far, so warp still never hits one)
+const ROCK_LIFT := Vector2(0.35, 0.6)  # v13.364: a rock-field cloud's middle this share of its radius up or down (storms: NEBULA_LIFT)
+const LANE_DETOURS := true             # v13.364 (owner: lanes avoid asteroid fields, planets and the sun; may cross clouds): a lane that would hit one bends round it
+const LANE_DETOUR_GAP := 2500.0        # m: how far past an obstacle's edge a bend keeps
 const ASTEROID_BUBBLE := 2500.0         # v9.0: the mineable block asteroids stay within this of you inside the field
 const ASTEROID_COUNT := 18                # block asteroids per field (they replace the old round rocks)
 const ASTEROID_SIZE := [4, 8]             # blocks across (most are small: the size leans to the low end)
@@ -1671,7 +1676,7 @@ const FIELD_GROW := 95.0             # v10.4 (owner): ~2.1x (fields ~36 km out f
 const PLANET_GROW := 8.0             # v10.6 (owner): twice the size again (was 4.0). v9.0: planets grow this much (so they read across a 400 km system)
 const SUN_LANE_CLEAR := 3.2         # v10.6 (owner: "the sun is so close to the trade lanes"): the sun keeps this many of its radii from every lane line and place
 const SUN_LIFT := 1.6                 # v13.71 (owner): the sun's middle is at least this many of its radii above the travel plane
-const NEBULA_LIFT := 0.3              # v13.71 (owner: "offset the nebula clouds ... not all on the same horizon line, but you still hit it"): a cloud's middle up or down by up to this share of its radius
+const NEBULA_LIFT := 0.45              # v13.71 (owner: "offset the nebula clouds ... not all on the same horizon line, but you still hit it"): a cloud's middle up or down by up to this share of its radius
 const FLEET_LIFT := [250.0, 900.0]    # v13.71 (owner: "same with ships, push them off a little"): a fleet ship's patrol height, up or down (m)
 const SUN_KEEP_OUT := 2.2            # v9.0: nothing is placed within this many sun radii of the sun
 const UNKNOWN_STORMS := 6                        # v12.6 (owner): the uncharted areas: big storm clouds ...

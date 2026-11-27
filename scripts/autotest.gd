@@ -7019,8 +7019,8 @@ func _run() -> void:
 			var sy: Dictionary = Data.SYSTEMS[sid]
 			var sp: Vector3 = SystemBuilder.sun_pos_of(sy)
 			var sr: float = Data.SUN_RADIUS * (0.35 if sy.get("small_sun", false) else 1.0)
-			if sp.y - sr < sr * (Data.SUN_LIFT - 1.0) - 1.0: low.append(sid)
-		_check("v13.71 (owner: 'move the Sun up so at warp you never hit it'): every system's star sits above the travel plane (bottom %.0f+ km up)" % (Data.SUN_RADIUS * (Data.SUN_LIFT - 1.0) * 0.35 / 1000.0), low.is_empty(), str(low))
+			if absf(sp.y) - sr < sr * (Data.SUN_LIFT - 1.0) - 1.0: low.append(sid)   # v13.364 (owner: "up or down"): above or below, never on the plane
+		_check("v13.71 / v13.364 (owner: 'at warp you never hit the Sun'; 'up or down off the plane'): every system's star sits clear of the travel plane, above or below (edge %.0f+ km off it)" % (Data.SUN_RADIUS * (Data.SUN_LIFT - 1.0) * 0.35 / 1000.0), low.is_empty(), str(low))
 		var ys: Array = s.nebulae.filter(func(nd): return not nd.has("gate") and not nd.get("belt", false)).map(func(nd): return snappedf((nd["center"] as Vector3).y, 100.0))
 		var through: bool = s.nebulae.all(func(nd): return absf((nd["center"] as Vector3).y) <= float(nd["radius"]) * 0.95 or float(nd["radius"]) > 200000.0 or absf((nd["center"] as Vector3).y) > 50000.0)
 		var hy: Array = s.fleet_patrols.map(func(e): return snappedf((e["home"] as Vector3).y, 10.0))
@@ -8668,6 +8668,77 @@ func _run() -> void:
 		main.navmap.visible = false
 		_check("v13.357: 9 Elyza top-down map sprites, keyed (no green left, clear corners) (%s), nose up (%s); data: faction, name, is_capital only for the capital, sprite path (%s); no other faction has them (%s); map size capital > cruiser/troop/resupply > destroyer/frigate/escort/bomber > scout (%s); on %s's map: %d fleet ships by their sprites, %d flagship" % [files_ok, nose_up, data_ok, others_none, order_ok, sid, fl, caps],
 			files_ok and nose_up and data_ok and others_none and order_ok and fl == 9 and caps == 1, "")
+		for r2 in results: print("[route] ", r2)
+		get_tree().quit()
+		return
+	if _flag("HL_LANES2"):   # v13.364 (owner: lanes round asteroid fields, worlds and the star in every allied / rival system; clouds, the star and fields off the plane)
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		var sids: Array = Data.SYSTEMS.keys().filter(func(k): return str(Data.SYSTEMS[k].get("faction", "")) in SystemBuilder.MAJORS and not SystemBuilder.is_enemy_space(Data.SYSTEMS[k]) and not bool(Data.SYSTEMS[k].get("open", false)))
+		sids.sort()
+		var pick: Array = []
+		for i in sids.size(): if i % maxi(1, sids.size() / 10) == 0: pick.append(sids[i])
+		if not ("solara" in pick): pick.push_front("solara")
+		var bad: Array = []
+		var tot_lanes := 0
+		var tot_bends := 0
+		var dropped := 0
+		for sid in pick:
+			main._load_system(str(sid), "station")
+			await _until(func(): return main.state == "flight" and GS.system_id == str(sid) and is_instance_valid(main.space), 30.0)
+			await _wait(1.0)
+			var s := _sp()
+			var obs: Array = s.lane_obstacles()
+			var hits := 0
+			for ln in s.lanes:
+				for row in ["up", "down"]:
+					var pts: Array = ln[row]
+					for k in pts.size() - 1:
+						for o in obs:
+							if (o[0] as Vector3).distance_to(pts[0]) < float(o[1]) * 0.98 or (o[0] as Vector3).distance_to(pts[pts.size() - 1]) < float(o[1]) * 0.98: continue
+							var shrunk: Array = [o[0], float(o[1]) - Data.LANE_DETOUR_GAP * 0.5, float(o[2]) - Data.LANE_DETOUR_GAP * 0.5, null]   # (the gap is extra room; the obstacle itself must not be touched)
+							if SpaceSystem._lane_hits(pts[k], pts[k + 1], shrunk) >= 0.0: hits += 1
+			# every place on the network is reached by a lane (none cut off)
+			var ends := {}
+			for ln in s.lanes:
+				ends[str(ln["a"])] = true
+				ends[str(ln["b"])] = true
+			var want: Array = [s.station, s.planet] + s.gates.filter(func(gn): var to := str((gn as Node3D).get_meta("info", {}).get("to", "")); return not (Data.SYSTEMS.has(to) and (SystemBuilder.is_enemy_space(Data.SYSTEMS[to]) or SystemBuilder.is_void(to, Data.SYSTEMS[to]))))   # (a gate out into hostile space has no lane to it)
+			for wn in want:
+				if is_instance_valid(wn) and not ends.has(str((wn as Node3D).get_meta("label", (wn as Node3D).name))):
+					dropped += 1
+					print("[lanes] no lane: ", sid, " ", (wn as Node3D).name, " ", (wn as Node3D).get_meta("label", ""), " ends ", ends.keys())
+			tot_lanes += s.lanes.size()
+			tot_bends += s._bends.size()
+			if hits > 0: bad.append("%s %d" % [sid, hits])
+			if sid == "solara":
+				main.navmap.open(s)
+				await _wait(0.8)
+				await _shot("lanes_solara_map", 0.3)
+				main.navmap.visible = false
+		var tobs: Array = [[Vector3.ZERO, 1000.0, 300.0, null], [Vector3(2600, 0, 900), 800.0, 800.0, null]]   # a field across the way, a world past it
+		var rt: Array = SpaceSystem.lane_route(tobs, Vector3(-6000, 0, 0), Vector3(6000, 0, 0))
+		var rt_ok: bool = rt.size() >= 3
+		for k in rt.size() - 1:
+			for o in tobs: if SpaceSystem._lane_hits(rt[k], rt[k + 1], o) >= 0.0: rt_ok = false
+		var over: Array = SpaceSystem.lane_route(tobs, Vector3(-6000, 1500, 0), Vector3(6000, 1500, 0))   # (a field well below the lane: no bend)
+		rt_ok = rt_ok and over.size() == 2
+		_check("v13.364: a lane that would cross a field bends round it (%d points, clear %s); one that passes over it doesn't bend" % [rt.size(), rt_ok], rt_ok, str(rt))
+		var ups := 0
+		var downs := 0
+		var belts_off := 0
+		var belts := 0
+		for k in Data.SYSTEMS:
+			var sp: Vector3 = SystemBuilder.sun_pos_of(Data.SYSTEMS[k])
+			if sp.y > 0.0: ups += 1
+			elif sp.y < 0.0: downs += 1
+			var b: Dictionary = Data.SYSTEMS[k].get("asteroids", {})
+			if not b.is_empty():
+				belts += 1
+				if absf(float((b["center"] as Vector3).y)) >= float(b["radius"]) * Data.FIELD_OFF_PLANE.x * 0.99: belts_off += 1
+		_check("v13.364: %d systems checked: %d lanes (%d bends round obstacles), none through a field, world or the star (%s), %d main places with no lane; stars %d up / %d down; %d of %d asteroid fields off the plane" % [pick.size(), tot_lanes, tot_bends, str(bad), dropped, ups, downs, belts_off, belts],
+			bad.is_empty() and dropped == 0 and ups > 10 and downs > 10 and belts_off == belts, "")
 		for r2 in results: print("[route] ", r2)
 		get_tree().quit()
 		return
