@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.361"
+const VERSION := "v13.362"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -2807,6 +2807,7 @@ const ENEMY_BASE_SHIELDS := true   # v13.257 (owner): every hostile base on a wo
 const SHIELD_SHELLS := true        # v13.256 (owner): shielded bases and boardable ships wear a blue shell the shape of the model
 const SHELL_GROW_BASE := 5.0       # m: how far the shell stands off a base's walls
 const SHELL_GROW_SHIP := 7.0       # m: off a battleship's hull
+const SHELL_GROW_PLAYER := 0.7     # v13.362: off your own ship or mech (its shield skin, lit when hit)
 const BOUNTY_ON_PLANET := true    # v13.261 (owner): some bounty targets have gone to ground on the system's world
 const BOUNTY_PLANET_SHARE := 0.5   # the share of bounties that are down on the planet
 const BOUNTY_PLANET_MECHS := [2, 3]

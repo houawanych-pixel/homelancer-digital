@@ -8671,6 +8671,36 @@ func _run() -> void:
 		for r2 in results: print("[route] ", r2)
 		get_tree().quit()
 		return
+	if _flag("HL_SHELLS"):   # v13.362 (owner: "all ships' shields should be with the silhouette ... not a sphere around it")
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(2.0)
+		var s := _sp()
+		var shells := 0
+		var spheres := 0
+		var bs: Dictionary = {}
+		for e in s.enemies:
+			if not is_instance_valid(e.get("shell", null)): continue
+			shells += 1
+			bs = e
+			for mi in (e["shell"] as Node3D).find_children("*", "MeshInstance3D", true, false):
+				if (mi as MeshInstance3D).mesh is SphereMesh: spheres += 1
+		s.shield_hit(s.player.global_position + s.player.global_basis.x * 5.0)
+		await _frames(2)
+		var ps: bool = is_instance_valid(s._pshell) and s._pshell.visible and s._pshell.get_child_count() > 0
+		var p_sph := 0
+		for mi in s._pshell.find_children("*", "MeshInstance3D", true, false): if (mi as MeshInstance3D).mesh is SphereMesh: p_sph += 1
+		if not bs.is_empty():
+			var bn: Node3D = bs["node"]
+			_tp(bn.global_position + bn.global_basis.z * 900.0 + Vector3(0, 250, 0), bn.global_position)
+			await _shot("shell_battleship", 0.4)
+		_tp(s.player.global_position, s.player.global_position - s.player.global_basis.z * 100.0)
+		s.shield_hit(s.player.global_position + s.player.global_basis.x * 5.0)
+		await _shot("shell_player", 0.05)
+		_check("v13.362: battleship shields are skins of the hull (%d shells, %d sphere pieces in them); your shield hit lights a skin of your ship (%s, %d spheres), no ball" % [shells, spheres, ps, p_sph], shells > 0 and spheres == 0 and ps and p_sph == 0, "")
+		for r2 in results: print("[route] ", r2)
+		get_tree().quit()
+		return
 	if _flag("HL_VOIDCLOUDS"):   # v13.361 (owner: the void systems need a lot more asteroid fields and clouds, three times bigger)
 		var ids: Array = Data.SYSTEMS.keys().filter(func(k): return SystemBuilder.is_void(str(k), Data.SYSTEMS[k]))
 		var report: Array = []
@@ -22125,11 +22155,11 @@ func _job_fl() -> void:
 	for b in fired: spread = maxf(spread, (b["node"] as Node3D).global_position.distance_to((fired[0]["node"] as Node3D).global_position))
 	var guns_ok: bool = fired.size() == gun_n and (gun_n < 2 or spread > 1.0)
 	s.shield_hit(s.player.global_position + s.player.global_basis.x * 5.0)
-	var bubble_ok: bool = s.shield_flash == 1.0 and s._bubble != null and is_instance_valid(s._bubble)
+	var bubble_ok: bool = s.shield_flash == 1.0 and is_instance_valid(s._pshell) and s._pshell.get_parent() == s.model   # v13.362: a skin the shape of the ship
 	await get_tree().process_frame
-	bubble_ok = bubble_ok and s._bubble.visible and s.shield_flash > 0.0
-	await _wait(0.8)
-	var bubble_gone: bool = not s._bubble.visible
+	bubble_ok = bubble_ok and s._pshell.visible and s.shield_flash > 0.0 and s.player.find_children("*", "MeshInstance3D", true, false).all(func(m): return not ((m as MeshInstance3D).mesh is SphereMesh and (m as MeshInstance3D).is_visible_in_tree() and (m as MeshInstance3D).get_aabb().size.x * (m as MeshInstance3D).global_basis.get_scale().x > 8.0))
+	await _until(func(): return not s._pshell.visible, 3.0)   # (game time: on a slow frame rate the fade takes longer than 0.8 s of real time)
+	var bubble_gone: bool = not s._pshell.visible
 	_check("v8.6 (owner): every gun fires its own bolt (%d guns, %d bolts, %.1f m apart); a shield hit flashes the force field and it fades" % [gun_n, fired.size(), spread],
 		guns_ok and bubble_ok and bubble_gone, "guns %s bubble %s gone %s" % [guns_ok, bubble_ok, bubble_gone])
 	_check("v8.3 (owner): TARGET takes the hostile in front of you; CLOAK: hostiles lose you, no guns, no warp, power drains; a barrel roll deflects fire",

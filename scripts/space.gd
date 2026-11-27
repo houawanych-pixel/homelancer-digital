@@ -1119,9 +1119,13 @@ func _shield_shell(src: Node3D, grow_m: float) -> Node3D:
 		if _HULL_SKIP.any(func(w): return nm.contains(w)): continue
 		var xf := Transform3D.IDENTITY   # (its place in src, without needing the tree)
 		var n: Node = m0
-		while n != null and n != src:
-			if n is Node3D: xf = (n as Node3D).transform * xf
+		var hidden := false   # v13.362 (owner: "shields with the silhouette ... not a sphere around it"): a hidden mark
+		while n != null and n != src:   # (the boarding bay's sphere, lit only when the shield is down) is not hull
+			if n is Node3D:
+				xf = (n as Node3D).transform * xf
+				if not (n as Node3D).visible or str(n.name).to_lower().contains("mark"): hidden = true
 			n = n.get_parent()
+		if hidden: continue
 		var sc := xf.basis.get_scale() * src.scale
 		var c := MeshInstance3D.new()
 		c.mesh = m0.mesh
@@ -1940,6 +1944,7 @@ func _boardable(e: Dictionary) -> void:
 	e["bay_local"] = bb.get_center() + bb.size * 0.5 * Data.BOARD_BAY_AT
 	e["bay_holder"] = hd
 	var bay := _part_mark("bay", 46.0)
+	bay.name = "BayMark"
 	bay.material_override = ShipFactory.mat(Color(0.3, 1.0, 0.45), true)
 	hd.add_child(bay)
 	bay.position = e["bay_local"]
@@ -8940,7 +8945,7 @@ func _sun_heat(dt: float) -> void:
 ## v8.6 (owner): a hit on your shield shows the force field: a see-through bubble round the ship that flashes, brightest
 ## where the shot landed, then fades back to nothing.
 var shield_flash := 0.0
-var _bubble: MeshInstance3D
+var _pshell: Node3D   # v13.362: the player's shield skin (shape of the ship), lit by hits
 const BUBBLE_SHADER := """
 shader_type spatial;
 render_mode unshaded, blend_add, cull_disabled, depth_draw_never;
@@ -8958,33 +8963,20 @@ void fragment() {
 }
 """
 func shield_hit(at: Vector3) -> void:
-	if not is_instance_valid(player): return
-	if _bubble == null or not is_instance_valid(_bubble):
-		_bubble = MeshInstance3D.new()
-		_bubble.name = "ShieldBubble"
-		var sm := SphereMesh.new()
-		sm.radial_segments = 32
-		sm.rings = 16
-		_bubble.mesh = sm
-		var mt := ShaderMaterial.new()
-		var sh := Shader.new()
-		sh.code = BUBBLE_SHADER
-		mt.shader = sh
-		_bubble.material_override = mt
-		_bubble.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		player.add_child(_bubble)
-	var r := maxf(_ship_length(), _ship_half_width() * 2.0) * 0.62
-	(_bubble.mesh as SphereMesh).radius = r
-	(_bubble.mesh as SphereMesh).height = r * 2.0
-	var d := (at - player.global_position) if at != Vector3.INF else -player.global_basis.z
-	(_bubble.material_override as ShaderMaterial).set_shader_parameter("hit_dir", player.global_basis.inverse() * d.normalized())
+	if not is_instance_valid(player) or not is_instance_valid(model): return
+	# v13.362 (owner: "all ships' shields should be with the silhouette, a little bit bigger ... not a sphere around it"):
+	# a hit lights your shield as a skin the shape of your own ship (or mech), not a ball
+	if not is_instance_valid(_pshell) or _pshell.get_parent() != model:
+		if is_instance_valid(_pshell): _pshell.queue_free()
+		_pshell = _shield_shell(model, Data.SHELL_GROW_PLAYER)
+		_pshell.name = "PlayerShieldShell"
 	shield_flash = 1.0
 
 func _update_player(dt: float) -> void:
-	if shield_flash > 0.0 and _bubble != null and is_instance_valid(_bubble):
+	if shield_flash > 0.0 and is_instance_valid(_pshell):
 		shield_flash = maxf(0.0, shield_flash - dt * 2.2)
-		_bubble.visible = shield_flash > 0.0
-		(_bubble.material_override as ShaderMaterial).set_shader_parameter("k", shield_flash)
+		_pshell.visible = shield_flash > 0.0
+		_shell_k(_pshell, shield_flash)
 	var s: Dictionary = GS.ship()
 	var base_speed: float = s["speed"]
 	var turn: float = float(s["turn"]) * (1.0 + GS.mod("turn"))   # (v1.9w: + Control Unit)
