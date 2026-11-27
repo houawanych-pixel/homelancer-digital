@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.360"
+const VERSION := "v13.361"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -1596,6 +1596,15 @@ const NEBULA_GATE_RADIUS := [18000.0, 30000.0]   # v10.4: 2x. the cloud a gate h
 const NEBULA_EXTRA_DIST := [90000.0, 350000.0]   # how far from the main station the extra clouds sit (v9.0: was 2.6-5.8 km)
 const NEBULA_AVOID_K := 8.0          # v9.0: the clouds keep this many times their old gaps from stations, planets and the field
 const NEBULA_BACKDROPS := 3          # v12.2: huge clouds out past the system edge (backdrop only)
+## v13.361 (owner: "the void systems need a lot more asteroid fields and nebula clouds, and scale them up three times"):
+## in the void systems (SystemBuilder.is_void) every cloud and rock field is this many times bigger, and these many more
+## storms and rock fields are added. A rock field never reaches a station, world or gate (it shrinks to fit instead).
+const VOID_CLOUD_SCALE := 3.0
+const VOID_MORE_STORMS := 8
+const VOID_MORE_ROCKS := 6
+const VOID_STORM_R := [90000.0, 150000.0]   # (the auto layout's inside storms, 30-50 km, x3)
+const VOID_ROCK_R := [48000.0, 78000.0]     # (its rock fields, 16-26 km, x3)
+const VOID_PUFF_K := 0.4   # their clouds use this share of the puffs (each puff is 3x bigger): keeps the overdraw near the old clouds' on phones
 const NEBULA_BACKDROP_R := [160000.0, 260000.0]
 const NEBULA_PUFFS := 240             # smoke puffs in a full-size cloud (smaller clouds get fewer)
 const NEBULA_PUFF_ALPHA := 0.55

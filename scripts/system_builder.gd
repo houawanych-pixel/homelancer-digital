@@ -61,6 +61,9 @@ static func open_rows() -> Array:
 
 static func is_enemy_space(sy: Dictionary) -> bool: return str(sy.get("faction", "")) == "Enemy"
 static func is_unknown(sy: Dictionary) -> bool: return str(sy.get("role", "")) == "unknown"
+## v13.361 (owner: "the void systems need a lot more asteroid fields and nebula clouds, scaled up three times"): the Void System
+## (Solrath home) and the six Void squares.
+static func is_void(id: String, sy: Dictionary) -> bool: return id == "void_system" or str(sy.get("faction", "")) == "Void" or str(sy.get("role", "")) == "void"
 
 ## v12.68 (owner's spec: chart the uncharted squares): which zone an unknown square is (Data.ZONE_TYPES); "" if charted.
 static func zone_of(sy: Dictionary) -> String:

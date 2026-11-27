@@ -5864,11 +5864,64 @@ static func nebulae_of(id: String, s: Dictionary) -> Array:
 			var bcol: Color = (n["color"] as Color).lerp(Color(0.62, 0.55, 0.48), 0.45)   # dusty, rock-coloured
 			out.append({"name": "", "center": bc, "radius": bcr, "color": bcol, "main": false, "belt": true})
 			break
+	if SystemBuilder.is_void(id, s): _void_clouds(id, s, out, avoid)
 	for i in out.size():   # v1.9z: each cloud's own weather (the same every visit)
 		if out[i].has("weather"): continue   # (v11.65: a layout cloud keeps its own)
 		var wl: Array = Data.NEBULA_WEATHERS if not s.has("lane_plan") else Data.NEBULA_WEATHERS.filter(func(w): return w != "rocks")   # v11.69: in a hand-laid system only the planned rock field has rocks off the main cloud (the lanes keep clear of asteroids)
 		out[i]["weather"] = wl[absi(hash(id + "_wx%d" % i)) % wl.size()]
 	return out
+
+## v13.361 (owner: the void systems need a lot more asteroid fields and nebula clouds, three times bigger): every cloud x3
+## (the backdrops already huge), then Data.VOID_MORE_STORMS storms and VOID_MORE_ROCKS rock fields in the open. Rocks sit
+## in clumps out to 0.6 of a cloud's radius, so a rock-carrying cloud is kept short of every station, world and gate.
+static func _void_clouds(id: String, s: Dictionary, out: Array, avoid: Array) -> void:
+	var places: Array = []   # [pos, keep-out] of what the rocks must never reach
+	var home: Vector3 = s["station"]["pos"]
+	for av in avoid:
+		if (av[0] as Vector3).distance_to(SystemBuilder.sun_pos_of(s)) > 1.0: places.append(av)
+	var rock_fit := func(c: Vector3, r: float) -> float:   # the biggest radius whose rocks (0.6 r) stay off every place
+		var fit := r
+		for av in places: fit = minf(fit, ((c.distance_to(av[0]) - float(av[1])) / 0.7))
+		return fit
+	for nd in out:
+		if bool(nd.get("backdrop", false)): continue
+		var r2: float = float(nd["radius"]) * Data.VOID_CLOUD_SCALE
+		if str(nd.get("weather", "")) == "rocks" or bool(nd.get("main", false)): r2 = maxf(float(nd["radius"]), minf(r2, rock_fit.call(nd["center"], r2)))
+		var st_d: float = Vector3(nd["center"].x, 0, nd["center"].z).distance_to(Vector3(home.x, 0, home.z)) - Data.NEBULA_STATION_GAP
+		r2 = maxf(float(nd["radius"]), minf(r2, st_d))   # (the home station stays in the clear: you dock and leave in open space)
+		nd["radius"] = r2
+		nd["puff_k"] = Data.VOID_PUFF_K
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(id + "_void_more")
+	var sun: Vector3 = SystemBuilder.sun_pos_of(s)
+	var nm := str(s.get("name", id))
+	var want := {"storm": Data.VOID_MORE_STORMS, "rocks": Data.VOID_MORE_ROCKS}
+	for kind in ["rocks", "storm"]:
+		var made := 0
+		for t in 900:
+			if made >= int(want[kind]): break
+			var rr: Array = Data.VOID_ROCK_R if kind == "rocks" else Data.VOID_STORM_R
+			var r := rng.randf_range(float(rr[0]), float(rr[1]))
+			var lim := Data.SPACE_EDGE * 0.8
+			var c := Vector3(rng.randf_range(-lim, lim), 0.0, rng.randf_range(-lim, lim))
+			if c.distance_to(sun) < Data.SUN_RADIUS * Data.SUN_KEEP_OUT + r: continue
+			if c.distance_to(Vector3(home.x, 0, home.z)) < r + Data.NEBULA_STATION_GAP: continue
+			if kind == "rocks":
+				if rock_fit.call(c, r) < r: continue
+			else:
+				var clear := true
+				for av in places: if c.distance_to(av[0]) < float(av[1]) + r * 0.35: clear = false   # (a storm may wrap round a place, not sit on it)
+				if not clear: continue
+			var apart := true
+			for nd in out:
+				if not bool(nd.get("backdrop", false)) and c.distance_to(nd["center"]) < (r + float(nd["radius"])) * 0.45: apart = false
+			if not apart: continue
+			c.y = rng.randf_range(-1.0, 1.0) * Data.NEBULA_LIFT * 0.6 * r
+			var col: Color = SystemBuilder.CLOUD_COLS[rng.randi() % SystemBuilder.CLOUD_COLS.size()]
+			if kind == "rocks": col = col.lerp(Color(0.62, 0.55, 0.48), 0.5)
+			var label: String = "%s %s" % [nm, (SystemBuilder.ROCK_NAMES if kind == "rocks" else SystemBuilder.CLOUD_NAMES)[rng.randi() % 6]]
+			out.append({"name": label, "center": c, "radius": r, "color": col, "main": false, "weather": kind, "void_more": true, "puff_k": Data.VOID_PUFF_K})
+			made += 1
 
 var nebulae: Array = []          # v1.9s: the clouds in this system (see nebulae_of), each with its puff batch and lightning
 var nebula_now := -1             # the cloud you're deepest in (-1: none)
@@ -6022,7 +6075,7 @@ func _build_nebula(d: Dictionary) -> void:
 	rng.seed = hash(sys_id) + 7
 	for nd: Dictionary in list:
 		var r := float(nd["radius"])
-		var count := int(Data.NEBULA_PUFFS * clampf(r / 1500.0, 0.45, 1.0))
+		var count := int(Data.NEBULA_PUFFS * clampf(r / 1500.0, 0.45, 1.0) * float(nd.get("puff_k", 1.0)))   # v13.361: the void's 3x clouds use fewer, bigger puffs (same look, less overdraw on phones)
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
 		mm.use_colors = true

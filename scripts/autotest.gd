@@ -8671,6 +8671,64 @@ func _run() -> void:
 		for r2 in results: print("[route] ", r2)
 		get_tree().quit()
 		return
+	if _flag("HL_VOIDCLOUDS"):   # v13.361 (owner: the void systems need a lot more asteroid fields and clouds, three times bigger)
+		var ids: Array = Data.SYSTEMS.keys().filter(func(k): return SystemBuilder.is_void(str(k), Data.SYSTEMS[k]))
+		var report: Array = []
+		var all_ok := ids.size() == 7
+		for sid in ids:
+			var sy: Dictionary = Data.SYSTEMS[sid]
+			var cl: Array = SpaceSystem.nebulae_of(str(sid), sy)
+			var more_s := cl.filter(func(c): return bool(c.get("void_more", false)) and str(c["weather"]) == "storm").size()
+			var more_r := cl.filter(func(c): return bool(c.get("void_more", false)) and str(c["weather"]) == "rocks").size()
+			var x3 := true   # every layout storm is three times its layout size
+			var lcs: Array = sy.get("layout_clouds", [])
+			for li in lcs.size():   # (nebulae_of lists the layout clouds right after the main one, in order)
+				var lc: Dictionary = lcs[li]
+				if str(lc.get("weather", "")) != "storm": continue
+				var m: Array = [cl[1 + li]]
+				var capped: bool = not m.is_empty() and float(m[0]["radius"]) < float(lc["radius"]) * 3.0 and Vector3(m[0]["center"].x, 0, m[0]["center"].z).distance_to(Vector3(sy["station"]["pos"].x, 0, sy["station"]["pos"].z)) - float(m[0]["radius"]) < Data.NEBULA_STATION_GAP + 1.0
+				if m.is_empty() or (absf(float(m[0]["radius"]) - float(lc["radius"]) * 3.0) > 1.0 and not capped):
+					x3 = false
+					print("[void] x3 miss ", sid, " ", lc["name"], " ", lc["radius"], " -> ", m[0]["radius"] if not m.is_empty() else "none")
+			var places: Array = [sy["station"]["pos"], sy["planet"]["pos"]]
+			for x in sy.get("more_planets", []): places.append(x["pos"])
+			for x in sy.get("more_stations", []): places.append(x["pos"])
+			for g in sy.get("gates", []): places.append(g["pos"])
+			var rocks_clear := true   # no rock clump area (0.6 r) reaches a station, world or gate
+			for c in cl:
+				if not (str(c.get("weather", "")) == "rocks" or bool(c.get("main", false))): continue
+				for p in places:
+					if Vector3(c["center"].x, 0, c["center"].z).distance_to(Vector3(p.x, 0, p.z)) < float(c["radius"]) * 0.6: rocks_clear = false
+			var n_rocks := cl.filter(func(c): return str(c.get("weather", "")) == "rocks").size()
+			var n_storm := cl.filter(func(c): return str(c.get("weather", "")) != "rocks" and not bool(c.get("backdrop", false))).size()
+			report.append("%s: %d clouds, %d rock fields (+%d), %d storms (+%d), x3 %s, rocks clear %s" % [sid, cl.size(), n_rocks, more_r, n_storm, more_s, x3, rocks_clear])
+			all_ok = all_ok and more_s == Data.VOID_MORE_STORMS and more_r == Data.VOID_MORE_ROCKS and x3 and rocks_clear
+		for r in report: print("[void] ", r)
+		var other := true
+		for k in Data.SYSTEMS:
+			if SystemBuilder.is_void(str(k), Data.SYSTEMS[k]) or not Data.SYSTEMS[k].has("nebula"): continue
+			if SpaceSystem.nebulae_of(str(k), Data.SYSTEMS[k]).any(func(c): return bool(c.get("void_more", false))): other = false
+			break
+		_check("v13.361: the 7 void systems each get %d more storms and %d more rock fields, every cloud 3x, no rocks on a station/world/gate; other systems unchanged" % [Data.VOID_MORE_STORMS, Data.VOID_MORE_ROCKS], all_ok and other, str(report))
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		main._load_system("void_system", "station")
+		await _until(func(): return main.state == "flight" and GS.system_id == "void_system", 30.0)
+		await _wait(3.0)
+		var s := _sp()
+		_check("v13.361: in the Void System the clouds are built (%d); at the station you're in clear space (cloud %d)" % [s.nebulae.size(), s.nebula_now], s.nebulae.size() >= 20 and s.nebula_now < 0, "")
+		var t0 := Time.get_ticks_msec()
+		await _frames(60)
+		print("[void] 60 frames in %d ms" % (Time.get_ticks_msec() - t0))
+		await _shot("void_flight", 0.3)
+		main.navmap.open(s)
+		await _wait(0.8)
+		await _shot("void_map", 0.3)
+		main.navmap.visible = false
+		for r2 in results: print("[route] ", r2)
+		get_tree().quit()
+		return
 	if _flag("HL_ALLFLEETMAP"):   # v13.358 (owner brief "ALL FACTION FLEETS - MAP SPRITES")
 		var names := ["Capital", "Cruiser", "Destroyer", "Resupply", "TroopTransport", "Frigate", "Escort", "Scout", "Bomber"]
 		var facs := ["Savagers", "Solarion", "Orion", "Liberator", "Covenant"]
