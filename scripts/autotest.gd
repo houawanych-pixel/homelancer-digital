@@ -5092,7 +5092,7 @@ func _run() -> void:
 					await _wait(1.5)
 					var sv: StationViewer = main.hub.get_node_or_null("StationViewer")
 					_check("v13.140: the Station Viewer shows the Unity capital model", sv != null and sv.shown_key == "fleet:unity_capital" and sv.pivot.get_child_count() > 0, sv.shown_key if sv else "none")
-					_check("v13.140: the Station Viewer lists all 18 fleet models", sv != null and sv.keys.filter(func(k): return str(k).begins_with("fleet:")).size() == 18)
+					_check("v13.140: the Station Viewer lists all 45 fleet models (v13.359: + Covenant, Savagers, Solarion)", sv != null and sv.keys.filter(func(k): return str(k).begins_with("fleet:")).size() == 45)
 					if sv:
 						sv.snap("TOP")
 						await _shot("viewer_unity_capital", 0.3)
@@ -8712,12 +8712,21 @@ func _run() -> void:
 			# step 4: every stand-in flies its real top-down ship; no grey prism, no old token; id, tag and hull box kept
 			var swapped := 0
 			var prisms := 0
+			var model_bad: Array = []
 			for v in s.fleet_visitors:
 				var n: Node3D = v["node"]
 				var e: Dictionary = FleetCatalog.get_entry(str(v["id"]))
 				var fs := n.get_node_or_null("FleetSprite") as Sprite3D
 				if n.get_node_or_null("PlaceholderPrism") or n.get_node_or_null("Token"): prisms += 1
-				if fs and fs.texture and fs.texture.resource_path == str(e["map_sprite"]) and str(n.get_meta("fleet_id")) == str(v["id"]) and n.get_node_or_null("Tag") and n.has_meta("hit_half"): swapped += 1
+				var kept: bool = str(n.get_meta("fleet_id")) == str(v["id"]) and n.get_node_or_null("Tag") != null and n.has_meta("hit_half")
+				if fac in ["Covenant", "Savagers", "Solarion"]:   # v13.359: these fly their 3D models (the sprite stays on the map)
+					var fm := n.get_node_or_null("FleetModel") as Node3D
+					var bx := ShipFactory._aabb(fm, Transform3D.IDENTITY) if fm else AABB()
+					var want := float(Data.SHIP_CLASS_LEN[str(e["class"])])
+					var mk := FleetCatalog.model_key(str(v["id"]))
+					if fm and kept and not bool(n.get_meta("placeholder", true)) and absf(maxf(bx.size.x, bx.size.z) - want) < want * 0.05 + 1.0 and bx.size.z >= bx.size.x * 0.75 and ShipFactory.has_real_model(mk) and float(ShipFactory.entry(mk)[2]) == 0.0: swapped += 1
+					else: model_bad.append("%s %s" % [str(v["id"]), str(bx.size)])
+				elif fs and fs.texture and fs.texture.resource_path == str(e["map_sprite"]) and kept: swapped += 1
 			main.navmap.open(s)
 			await _wait(0.6)
 			var fl := 0
@@ -8729,12 +8738,12 @@ func _run() -> void:
 					if bool(o["capital"]): caps += 1
 			await _shot("fleetmap_" + fac.to_lower(), 0.3)
 			main.navmap.visible = false
-			if fac == "Orion":
+			if fac in ["Orion", "Covenant", "Savagers", "Solarion"]:
 				var cap: Node3D = s.fleet_visitors[0]["node"]
 				_tp(cap.global_position + Vector3(0, 1800, 1400), cap.global_position)
-				await _shot("fleetsprite_space_orion", 0.4)
-			_check("v13.358: %s: 9 top-down sprites keyed (%s), nose up (%s); data id/name/role/faction/is_capital/sprite (%s); in space %d/9 stand-ins swapped to their sprite, %d prisms left; on %s's map %d fleet ships, %d flagship" % [fac, files_ok, nose_up, data_ok, swapped, prisms, sid, fl, caps],
-				files_ok and nose_up and data_ok and swapped == 9 and prisms == 0 and fl == 9 and caps == 1, "")
+				await _shot("fleet_space_" + fac.to_lower(), 0.4)
+			_check("v13.358/359: %s: 9 top-down sprites keyed (%s), nose up (%s); data id/name/role/faction/is_capital/sprite (%s); in space %d/9 stand-ins swapped (sprite, or 3D model fitted to its class length, yaw 0), %d prisms left; on %s's map %d fleet ships, %d flagship" % [fac, files_ok, nose_up, data_ok, swapped, prisms, sid, fl, caps],
+				files_ok and nose_up and data_ok and swapped == 9 and prisms == 0 and fl == 9 and caps == 1, str(model_bad))
 		var un := FleetCatalog.map_sprite("unity_capital") == "" and FleetCatalog.map_sprite("imperium_capital") == ""
 		_check("v13.358: Unity and Imperium (no sheet) are left alone", un, "")
 		for r2 in results: print("[route] ", r2)
