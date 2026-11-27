@@ -8671,6 +8671,75 @@ func _run() -> void:
 		for r2 in results: print("[route] ", r2)
 		get_tree().quit()
 		return
+	if _flag("HL_ALLFLEETMAP"):   # v13.358 (owner brief "ALL FACTION FLEETS - MAP SPRITES")
+		var names := ["Capital", "Cruiser", "Destroyer", "Resupply", "TroopTransport", "Frigate", "Escort", "Scout", "Bomber"]
+		var facs := ["Savagers", "Solarion", "Orion", "Liberator", "Covenant"]
+		main.start_game()
+		await _until(func(): return main.state == "flight", 10.0)
+		await _wait(1.0)
+		for fac in facs:
+			var files_ok := true
+			var nose_up := true
+			var data_ok := true
+			for nm in names:
+				var p0 := "res://assets/fleet_tokens/map/HL_%s_%s_top.png" % [fac, nm]
+				var e: Dictionary = FleetCatalog.get_entry(FleetCatalog.id_of(fac, nm))
+				data_ok = data_ok and str(e["faction"]) == fac and str(e["class"]) == nm and bool(e["is_capital"]) == (nm == "Capital") and str(e["map_sprite"]) == p0 and FleetCatalog.map_sprite(str(e["id"])) == p0 and str(e["name"]) != ""
+				if not ResourceLoader.exists(p0):
+					files_ok = false
+					continue
+				var img: Image = (load(p0) as Texture2D).get_image()
+				if img.is_compressed(): img.decompress()
+				var corner_clear: bool = img.get_pixel(0, 0).a < 0.05 and img.get_pixel(img.get_width() - 1, img.get_height() - 1).a < 0.05
+				var screen_left := 0   # opaque pixels still the screen colour (#00FF00); green hull paint is further from it
+				for k in 600:
+					var px := img.get_pixel(randi() % img.get_width(), randi() % img.get_height())
+					if px.a > 0.5 and Vector3(px.r, px.g - 0.98, px.b).length() < 0.24: screen_left += 1
+				files_ok = files_ok and corner_clear and screen_left <= 2
+				var w_top := 0
+				var w_max := 0
+				for y in img.get_height():
+					var c := 0
+					for x in img.get_width(): if img.get_pixel(x, y).a > 0.5: c += 1
+					if y < img.get_height() / 5: w_top = maxi(w_top, c)
+					w_max = maxi(w_max, c)
+				nose_up = nose_up and w_top < w_max * 0.75
+			var sid: String = FleetCatalog.systems_of(fac)[0]
+			main._load_system(sid, "station")
+			await _until(func(): return main.state == "flight" and GS.system_id == sid and not _sp().fleet_visitors.is_empty(), 30.0)
+			await _wait(2.0)
+			var s := _sp()
+			# step 4: every stand-in flies its real top-down ship; no grey prism, no old token; id, tag and hull box kept
+			var swapped := 0
+			var prisms := 0
+			for v in s.fleet_visitors:
+				var n: Node3D = v["node"]
+				var e: Dictionary = FleetCatalog.get_entry(str(v["id"]))
+				var fs := n.get_node_or_null("FleetSprite") as Sprite3D
+				if n.get_node_or_null("PlaceholderPrism") or n.get_node_or_null("Token"): prisms += 1
+				if fs and fs.texture and fs.texture.resource_path == str(e["map_sprite"]) and str(n.get_meta("fleet_id")) == str(v["id"]) and n.get_node_or_null("Tag") and n.has_meta("hit_half"): swapped += 1
+			main.navmap.open(s)
+			await _wait(0.6)
+			var fl := 0
+			var caps := 0
+			for k in main.navmap.objs:
+				var o: Dictionary = main.navmap.objs[k]
+				if str(o["type"]) == "fleet":
+					fl += 1
+					if bool(o["capital"]): caps += 1
+			await _shot("fleetmap_" + fac.to_lower(), 0.3)
+			main.navmap.visible = false
+			if fac == "Orion":
+				var cap: Node3D = s.fleet_visitors[0]["node"]
+				_tp(cap.global_position + Vector3(0, 1800, 1400), cap.global_position)
+				await _shot("fleetsprite_space_orion", 0.4)
+			_check("v13.358: %s: 9 top-down sprites keyed (%s), nose up (%s); data id/name/role/faction/is_capital/sprite (%s); in space %d/9 stand-ins swapped to their sprite, %d prisms left; on %s's map %d fleet ships, %d flagship" % [fac, files_ok, nose_up, data_ok, swapped, prisms, sid, fl, caps],
+				files_ok and nose_up and data_ok and swapped == 9 and prisms == 0 and fl == 9 and caps == 1, "")
+		var un := FleetCatalog.map_sprite("unity_capital") == "" and FleetCatalog.map_sprite("imperium_capital") == ""
+		_check("v13.358: Unity and Imperium (no sheet) are left alone", un, "")
+		for r2 in results: print("[route] ", r2)
+		get_tree().quit()
+		return
 	if _flag("HL_DEVSHOT"):   # look at every station page
 		main.start_game()
 		await _until(func(): return main.state == "flight", 10.0)

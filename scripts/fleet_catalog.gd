@@ -50,9 +50,13 @@ const PLACEHOLDER_STATS := {
 
 ## v13.357 (owner brief "ELYZA FLEET - MAP SPRITES": HL_Elyza_Fleet_Sheet.png, the top-down ships only, keyed off
 ## green, nose up, art untouched): the map sprites of a faction's fleet, drawn on the system map turned to each ship's
-## heading. Only Elyza has them so far; the others keep the map's plain ship marks.
+## heading.
+## v13.358 (owner brief "ALL FACTION FLEETS - MAP SPRITES"): the five more sheets on Drive (HL_<Faction>_Fleet_Sheet.png,
+## cut by tools/fleet/cut_map_sprites.py) add Savagers, Solarion, Orion, Liberator and Covenant. Every faction here
+## also flies these sprites in space instead of the grey placeholder prism (SpaceSystem._fleet_standin). Unity and
+## Imperium have no sheet (they fly their Tripo models).
 const MAP_SPRITE_DIR := "res://assets/fleet_tokens/map/"
-const MAP_SPRITE_FACTIONS := ["Elyza"]
+const MAP_SPRITE_FACTIONS := ["Elyza", "Savagers", "Solarion", "Orion", "Liberator", "Covenant"]
 ## How big each class is drawn on the map, against the capital (1.0): capital, then cruiser / troop transport /
 ## resupply, then destroyer / frigate / escort / bomber, the scout smallest.
 const MAP_SCALE := {"Capital": 1.0, "Cruiser": 0.74, "TroopTransport": 0.7, "Resupply": 0.7, "Destroyer": 0.54, "Frigate": 0.5,

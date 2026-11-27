@@ -18062,6 +18062,20 @@ static func _fleet_standin(e: Dictionary) -> Node3D:
 		n.add_child(tg)
 		return n
 	n.set_meta("placeholder", true)
+	var real := FleetCatalog.map_sprite(str(e["id"]))
+	if real != "":   # v13.358 (owner brief "ALL FACTION FLEETS - MAP SPRITES", step 4): the faction's real top-down ship
+		# from its fleet sheet replaces the grey prism and old token; id, place, flight, hull box and tag stay as they were
+		var rt: Texture2D = load(real)
+		var rs := Sprite3D.new()
+		rs.name = "FleetSprite"
+		rs.texture = rt
+		rs.axis = Vector3.AXIS_Y   # lying flat, the picture's top (the nose) is the bow, -Z
+		rs.pixel_size = ln / float(rt.get_height())
+		rs.double_sided = true
+		rs.shaded = false
+		rs.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
+		n.add_child(rs)
+		n.set_meta("sprite", real)
 	var hull := MeshInstance3D.new()
 	hull.name = "PlaceholderPrism"
 	var pm := PrismMesh.new()
@@ -18072,8 +18086,9 @@ static func _fleet_standin(e: Dictionary) -> Node3D:
 	mat.albedo_color = Color(0.32, 0.36, 0.44)
 	mat.roughness = 0.7
 	hull.material_override = mat
-	n.add_child(hull)
-	if tex:
+	if real == "": n.add_child(hull)
+	else: hull.free()
+	if tex and real == "":
 		var sp := Sprite3D.new()
 		sp.name = "Token"
 		sp.texture = tex
