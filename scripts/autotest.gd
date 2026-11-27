@@ -8722,9 +8722,10 @@ func _run() -> void:
 				if fac in ["Covenant", "Savagers", "Solarion"]:   # v13.359: these fly their 3D models (the sprite stays on the map)
 					var fm := n.get_node_or_null("FleetModel") as Node3D
 					var bx := ShipFactory._aabb(fm, Transform3D.IDENTITY) if fm else AABB()
-					var want := float(Data.SHIP_CLASS_LEN[str(e["class"])])
+					var want := float(Data.FLEET9_OWNER_LEN[str(e["class"])])   # v13.360: the owner's lengths, nose to tail
 					var mk := FleetCatalog.model_key(str(v["id"]))
-					if fm and kept and not bool(n.get_meta("placeholder", true)) and absf(maxf(bx.size.x, bx.size.z) - want) < want * 0.05 + 1.0 and bx.size.z >= bx.size.x * 0.75 and ShipFactory.has_real_model(mk) and float(ShipFactory.entry(mk)[2]) == 0.0: swapped += 1
+					print("[len] %s %.1f m nose-to-tail (span %.1f)" % [str(v["id"]), bx.size.z, bx.size.x])
+					if fm and kept and not bool(n.get_meta("placeholder", true)) and absf(bx.size.z - want) < want * 0.01 + 0.5 and ShipFactory.has_real_model(mk) and float(ShipFactory.entry(mk)[2]) == 0.0: swapped += 1
 					else: model_bad.append("%s %s" % [str(v["id"]), str(bx.size)])
 				elif fs and fs.texture and fs.texture.resource_path == str(e["map_sprite"]) and kept: swapped += 1
 			main.navmap.open(s)
@@ -8742,7 +8743,7 @@ func _run() -> void:
 				var cap: Node3D = s.fleet_visitors[0]["node"]
 				_tp(cap.global_position + Vector3(0, 1800, 1400), cap.global_position)
 				await _shot("fleet_space_" + fac.to_lower(), 0.4)
-			_check("v13.358/359: %s: 9 top-down sprites keyed (%s), nose up (%s); data id/name/role/faction/is_capital/sprite (%s); in space %d/9 stand-ins swapped (sprite, or 3D model fitted to its class length, yaw 0), %d prisms left; on %s's map %d fleet ships, %d flagship" % [fac, files_ok, nose_up, data_ok, swapped, prisms, sid, fl, caps],
+			_check("v13.358/359: %s: 9 top-down sprites keyed (%s), nose up (%s); data id/name/role/faction/is_capital/sprite (%s); in space %d/9 stand-ins swapped (sprite, or 3D model at the owner length nose to tail, yaw 0), %d prisms left; on %s's map %d fleet ships, %d flagship" % [fac, files_ok, nose_up, data_ok, swapped, prisms, sid, fl, caps],
 				files_ok and nose_up and data_ok and swapped == 9 and prisms == 0 and fl == 9 and caps == 1, str(model_bad))
 		var un := FleetCatalog.map_sprite("unity_capital") == "" and FleetCatalog.map_sprite("imperium_capital") == ""
 		_check("v13.358: Unity and Imperium (no sheet) are left alone", un, "")

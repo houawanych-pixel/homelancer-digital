@@ -18032,6 +18032,8 @@ static func _fleet_standin(e: Dictionary) -> Node3D:
 	n.set_meta("kind", "fleet_visitor")
 	n.set_meta("fleet_id", e["id"])
 	var ln := float(Data.SHIP_CLASS_LEN.get(str(e["class"]), float(e["stats"]["len"])))   # v13.169: the universal class length (every faction the same)
+	var owner_len: bool = str(e["faction"]) in Data.FLEET9_OWNER_FACTIONS and FleetCatalog.model_ready(str(e["id"]))
+	if owner_len: ln = float(Data.FLEET9_OWNER_LEN[str(e["class"])])   # v13.360: the owner's nose-to-tail length
 	n.set_meta("radius", ln * 0.4)
 	var tex: Texture2D = load(str(e["token"])) if ResourceLoader.exists(str(e["token"])) else null
 	var aspect := 0.6
@@ -18045,6 +18047,9 @@ static func _fleet_standin(e: Dictionary) -> Node3D:
 		m.name = "FleetModel"
 		m.scale = Vector3.ONE * (ln / Data.FLEET9_FIT_LEN)
 		n.add_child(m)
+		if owner_len:   # v13.360: measured nose to tail (Z), not by the wingspan, for the wide ones too
+			var zb := ShipFactory._aabb(m, Transform3D.IDENTITY)
+			if zb.size.z > 0.0: m.scale *= ln / zb.size.z
 		var mb := ShipFactory._aabb(m, Transform3D.IDENTITY)   # v13.143 (owner: "I could go through it"): the hull box is the model's own
 		if mb.size != Vector3.ZERO: n.set_meta("hit_half", mb.size * 0.5)
 		n.set_meta("placeholder", false)

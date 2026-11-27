@@ -28,7 +28,7 @@ const CONGRATS := [
 # hits it twice on the way; it waits for you when you are not with it. GO TO / the waypoint follow it (no warp down there).
 const LAND_ESCORT_WAIT := 1300.0    # m: farther than this from you, the freighter waits
 const LAND_ESCORT_ALT := 150.0      # m over the ground it flies
-const VERSION := "v13.359"
+const VERSION := "v13.360"
 # v13.219 (owner, Nov 18: "the ships are the fundamentals ... a station is the ship structure, the ship gameplay, with a
 # different silhouette"): stations whose deck is built with the fleet ship tools (tools/trace/station_fleet.py ...)
 const STATION_STREAM_R := 450.0   # v13.233: a station draws the rooms joined to yours out to this far (m); the rest is hidden
@@ -2435,6 +2435,12 @@ const FLEET_BOARDABLE := ["Capital", "Cruiser", "Destroyer", "Resupply", "TroopT
 const FLEET9_FIT_LEN := 100.0   # v13.140: the 9-class fleet models fit to this, then the stand-in scales them to the class length
 const FLEET9_LEN_K := {}   # v13.169: the class lengths are SHIP_CLASS_LEN now (was Capital 0.45, Cruiser 0.8 of the catalogue length)   # v13.141 (owner: "that capital ship is way too big"): the models are bulkier than the old prism, so the big classes fly shorter
 const FLEET9_YAW := 0.0        # v13.140: the light copies already face -Z (topview checked)
+## v13.360 (owner: "use the owner's lengths in the game for the nine new fleet ships ... nose-to-tail length, not wingspan"):
+## the Covenant, Savagers and Solarion fleet models fly at these lengths (metres, nose to tail); Unity / Imperium and every
+## other ship keep SHIP_CLASS_LEN. Places and routes are unchanged.
+const FLEET9_OWNER_FACTIONS := ["Covenant", "Savagers", "Solarion"]
+const FLEET9_OWNER_LEN := {"Capital": 1360.0, "Cruiser": 360.0, "Destroyer": 260.0, "Resupply": 220.0, "TroopTransport": 180.0,
+	"Frigate": 150.0, "Escort": 110.0, "Scout": 45.0, "Bomber": 30.0}
 const FLEET_LAUNCH_MIX := {"battleship": [0.4, 0.35, 0.25], "cruiser": [0.6, 0.4, 0.0], "frigate": [1.0, 0.0, 0.0]}   # v11.68: share of starfighter / Level 2 / Level 3 a carrier launches
 const HOME_BATTLESHIPS := 3   # v11.87 (owner): battleships patrolling a faction's home system (every other system: 1)
 const FACTION_FLEET := {
